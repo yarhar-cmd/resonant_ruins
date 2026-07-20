@@ -17,7 +17,7 @@ Any living state may become `corpse`. A lethal sword hit clears the pending targ
 | Rule                                 |                 Initial v0.2 value |
 | ------------------------------------ | ---------------------------------: |
 | Rat movement interval                |                             333 ms |
-| Attack telegraph                     |                             425 ms |
+| Attack telegraph                     |                             600 ms |
 | Visual lunge                         |                             100 ms |
 | Standard recovery                    |                             300 ms |
 | Perfect-block recovery               |                       500 ms total |
@@ -39,7 +39,7 @@ The same rules apply to authored and generated Rats. Automated reachability cove
 
 ## Attack, dodge, and recovery
 
-An adjacent chasing Rat faces the player, locks the player's current tile, and telegraphs for 425 ms without moving or retargeting. At the stored logical impact deadline, the reducer resolves exactly one outcome and enters `lunging`. The 100 ms lunge is visual only: the Rat remains on its logical tile and cannot deal a second collision or damage event.
+An adjacent chasing Rat faces the player, locks the player's current tile, and telegraphs for 600 ms without moving or retargeting. At the stored logical impact deadline, the reducer resolves exactly one outcome and enters `lunging`. The 100 ms lunge is visual only: the Rat remains on its logical tile and cannot deal a second collision or damage event.
 
 Leaving the locked tile causes a miss. Remaining there causes a hit unless the current held shield faces the Rat. Hit, miss, and regular block all lead to 300 ms recovery after the visual lunge. Perfect block leads to 500 ms recovery and stronger recoil. Multiple Rats may telegraph and resolve on the same tick; stable Rat-ID order plus the existing universal invulnerability window makes health loss deterministic.
 

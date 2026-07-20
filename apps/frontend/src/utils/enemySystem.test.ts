@@ -58,7 +58,7 @@ describe('Resonant Ruins Rat framework', () => {
       RAT_CORPSE_ABSORPTION_MS,
     }).toEqual({
       RAT_MOVEMENT_INTERVAL_MS: 333,
-      RAT_ATTACK_TELEGRAPH_MS: 425,
+      RAT_ATTACK_TELEGRAPH_MS: 600,
       RAT_ATTACK_COOLDOWN_MS: 300,
       RAT_ATTACK_LUNGE_MS: 100,
       RAT_ATTACK_RECOVERY_MS: 300,

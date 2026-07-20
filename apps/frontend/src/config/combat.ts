@@ -1,6 +1,6 @@
 export const RAT_COMBAT_CONFIG = {
   movementIntervalMs: 333,
-  telegraphMs: 425,
+  telegraphMs: 600,
   lungeMs: 100,
   recoveryMs: 300,
   perfectBlockRecoveryMs: 500,

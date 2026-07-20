@@ -14,6 +14,7 @@ import {
 } from './activeRunStorage';
 import { gameplayReducer, getTimeSurvived, restoreGameplayState } from '../utils/gameplayState';
 import { createCombatMetrics, type StoredRatEnemy } from '../types/enemies';
+import { RAT_COMBAT_CONFIG } from '../config/combat';
 
 function record(overrides: Partial<ActiveRunRecord> = {}): ActiveRunRecord {
   return {
@@ -105,7 +106,7 @@ function storedRat(overrides: Partial<StoredRatEnemy> = {}): StoredRatEnemy {
     state: 'telegraphing',
     lockedTarget: { x: 5, y: 5 },
     movementRemainingMs: 0,
-    telegraphRemainingMs: 200,
+    telegraphRemainingMs: RAT_COMBAT_CONFIG.telegraphMs - 100,
     lungeRemainingMs: 0,
     recoveryRemainingMs: 0,
     recoveryKind: null,
@@ -207,7 +208,7 @@ describe('Resonant Ruins active-run storage v6', () => {
           id: 'evaluation-room-02-rat-1',
           health: 1,
           state: 'telegraphing',
-          telegraphEndsAt: 100_200,
+          telegraphEndsAt: 100_500,
           hitFlashUntil: 100_040,
         },
       ],

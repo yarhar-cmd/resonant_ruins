@@ -5,7 +5,7 @@ describe('Resonant Ruins Rat combat configuration', () => {
   it('centralizes the approved v0.2 timing and awareness values', () => {
     expect(RAT_COMBAT_CONFIG).toMatchObject({
       movementIntervalMs: 333,
-      telegraphMs: 425,
+      telegraphMs: 600,
       lungeMs: 100,
       recoveryMs: 300,
       perfectBlockRecoveryMs: 500,

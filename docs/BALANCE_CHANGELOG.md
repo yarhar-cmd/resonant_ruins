@@ -23,3 +23,15 @@ Initial values are centralized in `apps/frontend/src/config/combat.ts`.
 - How frequently does body-lock prevention activate in real three- and four-Rat play?
 
 Use development-only Combat Debug counters and manual browser sessions for tuning. Do not treat these counters as research telemetry.
+
+## Preview playtest adjustment: attack readability
+
+**Observed problem:** Rat attacks resolve too quickly for players to reliably read facing, recognize the wind-up, and choose a deliberate dodge or directional block.
+
+**Old value:** 425 ms attack telegraph.
+
+**New value:** 600 ms attack telegraph.
+
+**Expected effect:** Provide enough time for one intentional reaction while preserving the timing difficulty of the final-125 ms perfect block. The perfect-block window remains exactly 125 ms relative to logical impact; no other combat timing or rule changed.
+
+**Result:** Requires additional playtesting.
