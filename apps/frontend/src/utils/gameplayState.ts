@@ -785,11 +785,17 @@ function processEnemyTick(
             facing: directionBetween(rat.position, step) ?? rat.facing,
             nextPathStep: step,
             pathBlocked: false,
+            bodyLockPreventionApplied: shouldPreventLock,
           };
           occupied.add(coordinateKey(step));
         } else {
           occupied.add(coordinateKey(rat.position));
-          rat = { ...rat, nextPathStep: preferred, pathBlocked: true };
+          rat = {
+            ...rat,
+            nextPathStep: preferred,
+            pathBlocked: true,
+            bodyLockPreventionApplied: shouldPreventLock,
+          };
         }
         if (shouldPreventLock) {
           nextState = {
@@ -949,7 +955,7 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
       tile,
       order: state.enemies.rats.length + 1,
       source: 'generated' as const,
-      reason: 'Development Debug Tools spawn',
+      reason: 'Development-only Rat spawn',
     };
     return {
       ...state,
@@ -988,7 +994,9 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
           ratsDefeated: state.adaptation.signals.ratsDefeated + defeated,
         },
       },
-      announcement: defeated ? 'All Rats defeated through Debug Tools.' : 'No living Rats remain.',
+      announcement: defeated
+        ? 'All Rats defeated through development controls.'
+        : 'No living Rats remain.',
     };
   }
   if (action.type === 'pause-run') {
@@ -1327,6 +1335,7 @@ export function restoreGameplayState(
       nextPathStep: rat.nextPathStep,
       pathDistanceToPlayer: rat.pathDistanceToPlayer,
       pathBlocked: rat.pathBlocked,
+      bodyLockPreventionApplied: rat.bodyLockPreventionApplied,
     })),
   };
   return {

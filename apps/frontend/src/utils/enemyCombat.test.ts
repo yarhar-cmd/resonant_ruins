@@ -279,6 +279,7 @@ describe('Resonant Ruins Rat combat and kiting v0.2', () => {
     };
     state = tick(state, AWARE_AT);
     expect(state.enemies.rats[3]?.position).not.toEqual({ x: 4, y: 3 });
+    expect(state.enemies.rats[3]?.bodyLockPreventionApplied).toBe(true);
     expect(state.enemies.combatMetrics.bodyLockPreventionActivations).toBe(1);
   });
 
@@ -306,6 +307,7 @@ describe('Resonant Ruins Rat combat and kiting v0.2', () => {
     };
     state = tick(state, AWARE_AT, fixture);
     expect(state.enemies.rats[0]?.position).toEqual({ x: 4, y: 3 });
+    expect(state.enemies.rats[0]?.bodyLockPreventionApplied).toBe(false);
     expect(state.enemies.combatMetrics.bodyLockPreventionActivations).toBe(0);
   });
 

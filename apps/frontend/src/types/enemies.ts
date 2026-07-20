@@ -77,6 +77,7 @@ export interface RatEnemy {
   nextPathStep: TileCoordinate | null;
   pathDistanceToPlayer: number | null;
   pathBlocked: boolean;
+  bodyLockPreventionApplied: boolean;
 }
 
 export interface EnemyRoomState {

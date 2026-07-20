@@ -364,6 +364,7 @@ export function DebugTools({
                     distance {rat.pathDistanceToPlayer ?? 'unreachable'} · next{' '}
                     {rat.nextPathStep ? `${rat.nextPathStep.x},${rat.nextPathStep.y}` : 'none'} ·{' '}
                     blocked {String(rat.pathBlocked)}
+                    {' · '}body-lock adjusted {String(rat.bodyLockPreventionApplied)}
                   </span>
                   <span>
                     move {remaining(rat.nextMovementAt)} ms · telegraph{' '}

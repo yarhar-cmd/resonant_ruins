@@ -205,6 +205,23 @@ A real adventure model should be called from a backend service, never directly f
 
 Environment variables belong in app-specific `.env` files and are documented in each `.env.example`. Variables beginning with `VITE_` are visible to browser code and must never contain secrets.
 
+## Vercel preview diagnostics
+
+Normal production builds exclude both the full local Debug Tools and the read-only Playtest
+Diagnostics. To enable the safe diagnostics panel for pull-request previews, open the Vercel
+dashboard and use this exact path:
+
+1. Open **Project Settings**.
+2. Open **Environment Variables**.
+3. Add `VITE_ENABLE_PLAYTEST_DIAGNOSTICS=true`.
+4. Select **Preview** only; do not select **Production**.
+5. Redeploy the pull-request preview.
+
+The Vite build includes the panel only when Vercel also supplies `VERCEL_ENV=preview` and the public
+feature flag is exactly `true`. Hostnames, query strings, local development, malformed values, and
+production builds cannot enable it. This variable is public build configuration and must not contain
+secrets.
+
 ## Quality commands
 
 ```powershell
@@ -216,6 +233,9 @@ npm run build
 npm run verify:production-safety
 npm run format
 ```
+
+To verify the separately built preview artifact, run
+`node scripts/verify-production-bundle.mjs --mode=preview --dir=apps/frontend/dist-preview`.
 
 The end-to-end suite uses the installed Chrome channel as its Chromium runtime. To use Playwright's
 bundled Chromium instead, remove `channel: 'chrome'` from `playwright.config.ts` and install it with

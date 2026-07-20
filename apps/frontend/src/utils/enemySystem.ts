@@ -232,6 +232,7 @@ export function createRatFromSpawn(
     nextPathStep: null,
     pathDistanceToPlayer: null,
     pathBlocked: false,
+    bodyLockPreventionApplied: false,
   };
 }
 

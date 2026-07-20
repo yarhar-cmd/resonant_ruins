@@ -600,6 +600,7 @@ function parseStoredRat(
       attackOutcome: null,
       pathDistanceToPlayer: null,
       pathBlocked: false,
+      bodyLockPreventionApplied: false,
     };
   }
   if (
@@ -614,7 +615,9 @@ function parseStoredRat(
       value.attackOutcome !== 'block' &&
       value.attackOutcome !== 'perfect-block') ||
     (value.pathDistanceToPlayer !== null && !isCount(value.pathDistanceToPlayer)) ||
-    typeof value.pathBlocked !== 'boolean'
+    typeof value.pathBlocked !== 'boolean' ||
+    (value.bodyLockPreventionApplied !== undefined &&
+      typeof value.bodyLockPreventionApplied !== 'boolean')
   )
     return null;
   const recoveryKind = value.recoveryKind as StoredRatEnemy['recoveryKind'];
@@ -631,7 +634,11 @@ function parseStoredRat(
     (state !== 'recovering' && value.recoveryRemainingMs !== 0)
   )
     return null;
-  return { ...(value as unknown as StoredRatEnemy), state };
+  return {
+    ...(value as unknown as StoredRatEnemy),
+    state,
+    bodyLockPreventionApplied: value.bodyLockPreventionApplied === true,
+  };
 }
 
 function parseStoredEnemies(
@@ -949,6 +956,7 @@ export function createActiveRunRecord(
         nextPathStep: rat.nextPathStep,
         pathDistanceToPlayer: rat.pathDistanceToPlayer,
         pathBlocked: rat.pathBlocked,
+        bodyLockPreventionApplied: rat.bodyLockPreventionApplied,
       })),
     },
   };

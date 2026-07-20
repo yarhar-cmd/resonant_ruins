@@ -120,6 +120,7 @@ function storedRat(overrides: Partial<StoredRatEnemy> = {}): StoredRatEnemy {
     nextPathStep: null,
     pathDistanceToPlayer: 1,
     pathBlocked: false,
+    bodyLockPreventionApplied: false,
     ...overrides,
   };
 }

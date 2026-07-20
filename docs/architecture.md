@@ -395,7 +395,17 @@ is the typed source of truth for game, generator, adaptation-rules, and future t
 versions; persisted storage-envelope versions remain owned by their storage modules because they
 govern migrations.
 `import.meta.env.DEV` removes the Debug boundary from production, and the post-build
-production-safety scanner verifies emitted JavaScript.
+production-safety scanner verifies emitted JavaScript and CSS.
+
+Preview diagnostics are deliberately separate from `DebugTools`. `config/buildEnvironment.ts`
+requires both Vercel's exact `VERCEL_ENV=preview` marker and the exact public flag
+`VITE_ENABLE_PLAYTEST_DIAGNOSTICS=true`; `vite.config.ts` converts that decision into the only flag
+read by application code. `DungeonRunPage` then lazy-loads the read-only
+`PlaytestDiagnostics.tsx` drawer. Its pure selector reads reducer-owned room, player, Rat, timer,
+and combat-counter state without running pathfinding or creating a second gameplay state. The
+normal production bundle eliminates the diagnostic import and identifying UI assets, while a
+preview safety scan requires the panel and still forbids full Debug Tools, editor features, and
+mutation controls.
 
 The active record, settings, profile, and completed archive are parsed and recovered independently.
 A malformed area resets only that area. A valid preset may be salvaged from a malformed profile,

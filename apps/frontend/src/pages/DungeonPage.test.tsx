@@ -249,6 +249,8 @@ describe('Resonant Ruins dungeon routing, run layout, and pause flow', () => {
   it('opens the development Debug drawer closed-by-default and overlays without narrative', () => {
     persistRun();
     renderApp('/dungeon/run');
+    expect(screen.getByRole('button', { name: 'Debug' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'PLAYTEST DIAGNOSTICS' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Debug Tools' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Debug' }));
     expect(screen.getByRole('dialog', { name: 'Debug Tools' })).toHaveClass('debug-drawer');

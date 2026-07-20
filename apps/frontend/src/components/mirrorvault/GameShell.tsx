@@ -8,6 +8,7 @@ export function GameShell({
   debugOpen,
   debugButtonRef,
   onDebug,
+  utilityAction,
   pauseDisabled,
   pauseButtonRef,
   onPause,
@@ -17,6 +18,7 @@ export function GameShell({
   debugOpen: boolean;
   debugButtonRef: RefObject<HTMLButtonElement | null>;
   onDebug: () => void;
+  utilityAction?: ReactNode;
   pauseDisabled: boolean;
   pauseButtonRef: RefObject<HTMLButtonElement | null>;
   onPause: () => void;
@@ -47,6 +49,7 @@ export function GameShell({
               Debug
             </button>
           )}
+          {utilityAction}
           <button
             ref={pauseButtonRef}
             type="button"

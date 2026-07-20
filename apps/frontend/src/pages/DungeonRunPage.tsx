@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { DebugDrawer } from '../components/mirrorvault/DebugDrawer';
 import { DungeonGrid } from '../components/mirrorvault/DungeonGrid';
@@ -12,6 +12,14 @@ import { StorageWarning } from '../components/mirrorvault/StorageWarning';
 import { useRunController } from '../hooks/useRunController';
 import { loadActiveRun, type ActiveRunRecord } from '../services/activeRunStorage';
 import { roomBounds } from '../utils/roomGeometry';
+import { PLAYTEST_DIAGNOSTICS_ENABLED } from '../config/environment';
+
+const PreviewPlaytestDiagnostics = PLAYTEST_DIAGNOSTICS_ENABLED
+  ? lazy(async () => {
+      const module = await import('../components/mirrorvault/PlaytestDiagnostics');
+      return { default: module.PlaytestDiagnostics };
+    })
+  : null;
 
 export function DungeonRunPage() {
   const [initialRun] = useState(loadActiveRun);
@@ -61,6 +69,17 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
       debugOpen={debugOpen}
       debugButtonRef={debugButtonRef}
       onDebug={() => setDebugOpen((current) => !current)}
+      utilityAction={
+        PreviewPlaytestDiagnostics ? (
+          <Suspense fallback={null}>
+            <PreviewPlaytestDiagnostics
+              gameplay={run.gameplay}
+              room={run.currentRoom}
+              isInvulnerable={isInvulnerable}
+            />
+          </Suspense>
+        ) : null
+      }
       pauseDisabled={run.defeated || paused || run.roomTransition.isTransitioning}
       pauseButtonRef={pauseButtonRef}
       onPause={run.pauseRun}

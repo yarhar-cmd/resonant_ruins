@@ -1,0 +1,2 @@
+export const PLAYTEST_DIAGNOSTICS_ENABLED =
+  import.meta.env.VITE_PLAYTEST_DIAGNOSTICS_INCLUDED === 'true';
