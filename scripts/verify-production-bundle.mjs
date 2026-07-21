@@ -27,10 +27,11 @@ const forbiddenDevelopmentText = [
   'Body-lock prevention activations',
 ];
 const diagnosticText = ['Playtest Diagnostics', 'PLAYTEST DIAGNOSTICS', 'Copy Diagnostic Summary'];
+const topologyLabText = ['Topology Lab', 'SANDBOX · persistence guards active'];
 const forbiddenText =
   scanMode === 'preview'
     ? forbiddenDevelopmentText
-    : [...forbiddenDevelopmentText, ...diagnosticText];
+    : [...forbiddenDevelopmentText, ...diagnosticText, ...topologyLabText];
 
 const files = (await readdir(assetsDirectory)).filter(
   (file) => file.endsWith('.js') || file.endsWith('.css'),

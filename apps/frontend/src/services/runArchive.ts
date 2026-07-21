@@ -45,6 +45,11 @@ export interface ArchiveCompletedRunResult {
   duplicate: boolean;
   issue: RunArchiveIssue | null;
 }
+export interface ClearRunHistoryResult {
+  data: RunArchiveData;
+  cleared: boolean;
+  issue: RunArchiveIssue | null;
+}
 
 export const RUN_ARCHIVE_CHARACTER_IDS: CharacterId[] = ['warden', 'seeker', 'ember'];
 export const RUN_ARCHIVE_PRESET_IDS: StoredExperiencePreset[] = [
@@ -349,6 +354,21 @@ export function archiveCompletedRun(
     return { data, saved: true, duplicate: false, issue: loaded.issue };
   } catch {
     return { data, saved: false, duplicate: false, issue: 'write-failed' };
+  }
+}
+
+export function clearRecentRunHistory(storage?: Storage): ClearRunHistoryResult {
+  const loaded = loadRunArchive(storage);
+  if (loaded.issue) return { data: loaded.data, cleared: false, issue: loaded.issue };
+  const data: RunArchiveData = {
+    ...loaded.data,
+    histories: { warden: [], seeker: [], ember: [] },
+  };
+  try {
+    resolveStorage(storage).setItem(RUN_ARCHIVE_KEY, JSON.stringify(data));
+    return { data, cleared: true, issue: null };
+  } catch {
+    return { data: loaded.data, cleared: false, issue: 'write-failed' };
   }
 }
 

@@ -143,4 +143,32 @@ describe('Resonant Ruins Runs page', () => {
     expect(screen.getByRole('heading', { name: 'Warden' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Seeker' })).not.toBeInTheDocument();
   });
+
+  it('confirms destructive History clearing while preserving bests and unrelated local data', () => {
+    archive({
+      id: 'clear-me',
+      characterId: 'warden',
+      endedAt: '2026-06-01T00:00:00.000Z',
+      time: 60_000,
+      rooms: 6,
+      enemies: 3,
+    });
+    localStorage.setItem('mirrorvault:active-run:v1', 'active-preserved');
+    localStorage.setItem('mirrorvault:player-profile:v1', 'profile-preserved');
+    localStorage.setItem('mirrorvault:settings', 'settings-preserved');
+    render(<HistoryPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Run History' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Clear Run History?' });
+    expect(dialog).toHaveTextContent('Best records');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.getByRole('heading', { name: 'Warden' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Run History' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear recent runs' }));
+    expect(screen.getByText(/Recent Run History cleared/)).toBeVisible();
+    expect(screen.getByText(/No completed runs yet/)).toBeVisible();
+    expect(screen.getByText('01:00')).toBeVisible();
+    expect(localStorage.getItem('mirrorvault:active-run:v1')).toBe('active-preserved');
+    expect(localStorage.getItem('mirrorvault:player-profile:v1')).toBe('profile-preserved');
+    expect(localStorage.getItem('mirrorvault:settings')).toBe('settings-preserved');
+  });
 });

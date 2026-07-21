@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PageContainer } from '../components/layout/PageContainer';
+import { ConfirmationDialog } from '../components/mirrorvault/ConfirmationDialog';
 import { EmptyState } from '../components/common/States';
 import { SecondaryButton } from '../components/common/Buttons';
 import {
@@ -8,6 +9,7 @@ import {
 } from '../components/mirrorvault/StorageWarning';
 import {
   getFilteredRunArchiveView,
+  clearRecentRunHistory,
   loadRunArchive,
   type CharacterId,
   type RunArchiveFilters,
@@ -32,11 +34,21 @@ const clearFilters: RunArchiveFilters = {
   gameVersion: 'all',
   generatorVersion: 'all',
 };
+function gameVersionLabel(version: string): string {
+  return !version || version === 'unknown' ? 'Unknown version' : version;
+}
+function generatorVersionLabel(versions: readonly string[], mixed: boolean): string {
+  if (!versions.length) return 'Legacy generator';
+  const label = versions.join(' + ');
+  return mixed ? `${label} · mixed provenance` : label;
+}
 
 export function HistoryPage() {
-  const [loaded] = useState(loadRunArchive);
+  const [loaded, setLoaded] = useState(loadRunArchive);
   const [filters, setFilters] = useState<RunArchiveFilters>(clearFilters);
   const [showWarning, setShowWarning] = useState(Boolean(loaded.issue));
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearMessage, setClearMessage] = useState('');
   const view = useMemo(
     () => getFilteredRunArchiveView(loaded.data, filters),
     [filters, loaded.data],
@@ -55,6 +67,19 @@ export function HistoryPage() {
     ['Best Enemies', view.best.bestEnemiesRunId],
   ] as const) {
     if (runId) bestBadges.set(runId, [...(bestBadges.get(runId) ?? []), label]);
+  }
+
+  function confirmClearHistory() {
+    const result = clearRecentRunHistory();
+    if (!result.cleared) {
+      setShowWarning(true);
+      setClearMessage('Run History could not be cleared. No data was changed.');
+      return;
+    }
+    setLoaded({ data: result.data, issue: null });
+    setFilters(clearFilters);
+    setClearOpen(false);
+    setClearMessage('Recent Run History cleared. Best records were preserved.');
   }
 
   return (
@@ -122,7 +147,7 @@ export function HistoryPage() {
             <option value="all">All</option>
             {gameVersions.map((version) => (
               <option key={version} value={version}>
-                {version}
+                {gameVersionLabel(version)}
               </option>
             ))}
           </select>
@@ -166,7 +191,18 @@ export function HistoryPage() {
       </section>
 
       <section className="recent-runs" aria-labelledby="recent-runs-title">
-        <h2 id="recent-runs-title">Recent Runs</h2>
+        <div className="recent-runs__heading">
+          <h2 id="recent-runs-title">Recent Runs</h2>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={allRuns.length === 0}
+            onClick={() => setClearOpen(true)}
+          >
+            Clear Run History
+          </button>
+        </div>
+        {clearMessage && <p role="status">{clearMessage}</p>}
         {view.recentRuns.length === 0 ? (
           <EmptyState>
             {allRuns.length === 0 ? (
@@ -197,11 +233,8 @@ export function HistoryPage() {
                   <h3>{characterLabels[run.characterId]}</h3>
                   <p>{experienceLabels[run.experiencePreset]}</p>
                   <p>
-                    {run.gameVersion} ·{' '}
-                    {run.generatorVersions.length
-                      ? run.generatorVersions.join(' + ')
-                      : 'unknown generator'}
-                    {run.mixedGeneratorProvenance ? ' · mixed provenance' : ''}
+                    {gameVersionLabel(run.gameVersion)} ·{' '}
+                    {generatorVersionLabel(run.generatorVersions, run.mixedGeneratorProvenance)}
                   </p>
                 </header>
                 <dl>
@@ -230,6 +263,19 @@ export function HistoryPage() {
           </div>
         )}
       </section>
+      <ConfirmationDialog
+        open={clearOpen}
+        title="Clear Run History?"
+        confirmLabel="Clear recent runs"
+        destructive
+        onConfirm={confirmClearHistory}
+        onCancel={() => setClearOpen(false)}
+      >
+        <p>
+          This removes recent completed-run cards only. Best records, the active run, adaptive
+          profile, experience preset, settings, and character selection will remain.
+        </p>
+      </ConfirmationDialog>
     </PageContainer>
   );
 }

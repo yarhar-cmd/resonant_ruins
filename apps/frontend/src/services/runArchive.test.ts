@@ -3,6 +3,7 @@ import {
   archiveCompletedRun,
   createCompletedRunRecord,
   createEmptyRunArchive,
+  clearRecentRunHistory,
   loadRunArchive,
   parseRunArchive,
   RUN_ARCHIVE_KEY,
@@ -137,5 +138,30 @@ describe('Resonant Ruins completed-run archive v2', () => {
         enemiesDefeated: Number.NaN,
       }),
     ).toMatchObject({ timeSurvivedMs: 0, dungeonRoomsCleared: 2, enemiesDefeated: 0 });
+  });
+
+  it('clears recent histories while preserving every best record', () => {
+    archiveCompletedRun(record('4', 'warden', 'seasoned-adventurer', 4));
+    archiveCompletedRun(record('3', 'seeker', 'new-delver', 3));
+    const before = loadRunArchive().data.bestStats;
+    const result = clearRecentRunHistory();
+    expect(result).toMatchObject({ cleared: true, issue: null });
+    expect(Object.values(result.data.histories).every((history) => history.length === 0)).toBe(
+      true,
+    );
+    expect(result.data.bestStats).toEqual(before);
+  });
+
+  it('reports a storage failure without claiming histories were cleared', () => {
+    const storage = {
+      getItem: () => JSON.stringify(createEmptyRunArchive()),
+      setItem: () => {
+        throw new Error('blocked');
+      },
+    } as unknown as Storage;
+    expect(clearRecentRunHistory(storage)).toMatchObject({
+      cleared: false,
+      issue: 'write-failed',
+    });
   });
 });
