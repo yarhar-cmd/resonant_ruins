@@ -97,6 +97,7 @@ export function DungeonRunSession({
               isInvulnerable={isInvulnerable}
               effectsSetting={run.visualEffects}
               reducedMotion={run.reducedMotion}
+              research={run.researchDiagnostics}
             />
           </Suspense>
         ) : null

@@ -9,12 +9,14 @@ import {
 import {
   finalizeRoomResearchRecord,
   loadResearchStorage,
+  researchStorageSize,
   updateResearchSessionProfile,
 } from '../services/researchStorage';
 
 export function ResearchRunPage() {
   const [initial] = useState(loadResearchActiveRun);
-  const research = useMemo(() => loadResearchStorage().data, []);
+  const researchStorage = useMemo(loadResearchStorage, []);
+  const research = researchStorage.data;
   const active = initial.record;
   const session = active
     ? research.sessions.find((candidate) => candidate.id === active.researchSessionId)
@@ -39,6 +41,19 @@ export function ResearchRunPage() {
         researchRun: run,
         pendingResearchFeedback: active.pendingFeedback,
         researchRoomStart: active.roomStart,
+        researchStorageDiagnostics: {
+          recordCount: research.sessions.reduce(
+            (sessionTotal, storedSession) =>
+              sessionTotal +
+              storedSession.runs.reduce(
+                (runTotal, storedRun) => runTotal + storedRun.rooms.length,
+                0,
+              ),
+            0,
+          ),
+          invalidRecordCount: researchStorage.issue === 'invalid' ? 1 : 0,
+          storageSizeBytes: researchStorageSize(research),
+        },
         onResearchSessionProfileChange: (profile) =>
           updateResearchSessionProfile(session.id, profile),
         onResearchRoomStart: (roomStart) => {

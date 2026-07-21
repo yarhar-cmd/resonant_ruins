@@ -28,9 +28,11 @@ function percent(value: number | null): string {
 export function ResearchDataPanel({
   data,
   onChanged,
+  validationStatus = 'valid',
 }: {
   data: ResearchStorageEnvelope;
   onChanged: () => void;
+  validationStatus?: 'valid' | 'invalid' | 'unavailable';
 }) {
   const [includePilot, setIncludePilot] = useState(false);
   const [destructiveAction, setDestructiveAction] = useState<DestructiveAction>(null);
@@ -96,7 +98,7 @@ export function ResearchDataPanel({
           <p>
             {data.sessions.length} stored session{data.sessions.length === 1 ? '' : 's'} ·
             approximately {Math.ceil(researchStorageSize(data) / 1024)} KB · validation status:
-            valid
+            {validationStatus}
           </p>
         </div>
         <label className="research-pilot-toggle">

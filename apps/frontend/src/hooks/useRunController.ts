@@ -72,6 +72,12 @@ import {
   createResearchRoomStart,
 } from '../research/roomRecord';
 import { shouldRequestResearchFeedback } from '../research/roomCompletion';
+import {
+  RESEARCH_ACTIVE_RUN_KEY,
+  RESEARCH_SCHEMA_VERSION,
+  FEEDBACK_SCHEMA_VERSION,
+} from '../config/research';
+import { PLAYTEST_DIAGNOSTICS_ENABLED } from '../config/environment';
 
 function rememberRoom(cache: Map<string, RoomDefinition>, room: RoomDefinition) {
   cache.delete(room.id);
@@ -105,6 +111,11 @@ export interface RunControllerOptions {
   saveActiveRecord?: (record: ActiveRunRecord) => ActiveRunStorageIssue | null;
   clearActiveRecord?: () => void;
   returnPath?: string;
+  researchStorageDiagnostics?: {
+    recordCount: number;
+    invalidRecordCount: number;
+    storageSizeBytes: number;
+  };
 }
 
 export function useRunController(
@@ -137,13 +148,16 @@ export function useRunController(
     options.pendingResearchFeedback ?? null,
   );
   const [researchRoomStart, setResearchRoomStart] = useState(options.researchRoomStart ?? null);
+  const [finalizedResearchRecordCount, setFinalizedResearchRecordCount] = useState(0);
+  const [lastFinalizedResearchRecordId, setLastFinalizedResearchRecordId] = useState<string | null>(
+    null,
+  );
   const debugOpenedAtRef = useRef<number | null>(null);
   const actionSequence = useRef(0);
   const gameRegionRef = useRef<HTMLDivElement>(null);
   const archivedRunIdsRef = useRef(new Set<string>());
   const defeatedResearchRoomIdsRef = useRef(new Set<string>());
   const researchProfileRef = useRef(options.researchSessionProfile);
-  researchProfileRef.current = options.researchSessionProfile ?? researchProfileRef.current;
   const roomSnapshotsRef = useRef(new Map<string, RoomDefinition>());
   const setDebugInterfaceOpen = useCallback(
     (open: boolean) => {
@@ -246,6 +260,8 @@ export function useRunController(
     });
     if (options.onFinalizeResearchRecord?.(record)) {
       defeatedResearchRoomIdsRef.current.add(researchRoomStart.roomDecisionId);
+      setFinalizedResearchRecordCount((count) => count + 1);
+      setLastFinalizedResearchRecordId(record.roomDecisionId);
       options.onResearchPendingChange?.(null);
     }
   }, [gameplay, generatedSave, options, researchRoomStart, runMode]);
@@ -868,6 +884,8 @@ export function useRunController(
     );
     if (!exit) return false;
     researchProfileRef.current = record.profileAfter;
+    setFinalizedResearchRecordCount((count) => count + 1);
+    setLastFinalizedResearchRecordId(record.roomDecisionId);
     setPendingResearchFeedback(null);
     setResearchRoomStart(null);
     commitExitTransition(exit, true);
@@ -889,6 +907,43 @@ export function useRunController(
     gameplay,
     runMode,
     runPolicy: policy,
+    researchDiagnostics:
+      PLAYTEST_DIAGNOSTICS_ENABLED &&
+      runMode === 'research' &&
+      options.researchSession &&
+      options.researchRun
+        ? {
+            runMode,
+            pilot: options.researchSession.pilot,
+            sessionId: options.researchSession.id,
+            participantCodePresent: Boolean(options.researchSession.participantCode),
+            condition: options.researchRun.condition,
+            assignmentMethod: options.researchRun.assignment.methodId,
+            selectorId: generatedSave?.details.selectorId ?? 'not-generated',
+            selectorVersion: generatedSave?.details.selectorVersion ?? 'not-generated',
+            profileConsumed: generatedSave?.details.selectorProfileConsumed ?? false,
+            sharedPoolId: generatedSave?.details.sharedPoolId ?? 'not-generated',
+            requestedCandidateCount: generatedSave?.details.requestedCandidateCount ?? 0,
+            validCandidateCount: generatedSave?.details.validCandidateCount ?? 0,
+            rejectedCandidateCount: generatedSave?.details.rejectedCandidateCount ?? 0,
+            pendingFeedbackRoom: pendingResearchFeedback?.record.roomId ?? null,
+            pendingOutcomeStatus: pendingResearchFeedback?.record.outcome.status ?? null,
+            finalizedRecordStatus:
+              pendingResearchFeedback !== null
+                ? ('pending' as const)
+                : lastFinalizedResearchRecordId
+                  ? ('finalized' as const)
+                  : ('none' as const),
+            recordCount:
+              (options.researchStorageDiagnostics?.recordCount ?? 0) + finalizedResearchRecordCount,
+            invalidRecordCount: options.researchStorageDiagnostics?.invalidRecordCount ?? 0,
+            researchSchema: RESEARCH_SCHEMA_VERSION,
+            feedbackSchema: FEEDBACK_SCHEMA_VERSION,
+            storageSizeBytes: options.researchStorageDiagnostics?.storageSizeBytes ?? 0,
+            activePersistenceKey: RESEARCH_ACTIVE_RUN_KEY,
+            writePolicy: policy,
+          }
+        : null,
     pendingResearchFeedback,
     updateResearchFeedback,
     finalizeResearchFeedback,

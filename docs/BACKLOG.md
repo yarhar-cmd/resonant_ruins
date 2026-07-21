@@ -1,5 +1,24 @@
 # Resonant Ruins backlog
 
+## mvp-0.4: Research Mode & Data Foundation
+
+- [x] **Critical — Generator-4 shared pool** · Keep behavior traits out of construction and give
+      both experimental selectors identical validated candidates.
+- [x] **Critical — Isolated Research Mode** · Add centralized run policies, separate persistence,
+      session-local profiles, and balanced condition assignment.
+- [x] **High — Pilot and feedback workflow** · Require opt-in, persist outcomes before feedback,
+      restore pending answers, finalize exactly once, and preserve defeat records.
+- [x] **High — Research data controls** · Validate schemas, summarize locally, export JSON/CSV, and
+      confirm Pilot/session/all deletion without touching normal data.
+- [x] **High — Analysis and diagnostics** · Add descriptive offline analysis, Preview provenance,
+      production safety, and an explicit no-model state.
+- [ ] **High — Pilot protocol review** · Run Pilot sessions and review wording, timing, missingness,
+      storage/export workflow, and condition balance before Official collection.
+- [ ] **Medium — Prospective Official collection plan** · Predefine inclusion rules, sample targets,
+      participant/session grouping, and carryover analysis before interpreting outcomes.
+- [ ] **Deferred — LearnedRoomSelector** · No training or deployment until privacy, data volume,
+      grouped evaluation, and shadow-mode gates are approved.
+
 ## Checkpoint 3: Dungeon Topology & Run Pacing
 
 - [x] **Critical — Reusable interactions, Fountain channel, collision, validation, and persistence**

@@ -13,6 +13,10 @@ This repository is intentionally a functional prototype. Story scenes and adapta
 - [Prioritized checkbox backlog](docs/BACKLOG.md)
 - [Enemy Framework v0.2](docs/ENEMY_FRAMEWORK.md)
 - [Balance changelog](docs/BALANCE_CHANGELOG.md)
+- [Research Mode](docs/RESEARCH_MODE.md)
+- [Research schema](docs/RESEARCH_DATA_SCHEMA.md) and [CSV dictionary](docs/RESEARCH_DATA_DICTIONARY.md)
+- [Neutral control](docs/NEUTRAL_CONTROL.md), [offline analysis](docs/RESEARCH_ANALYSIS.md), and [privacy](docs/RESEARCH_PRIVACY.md)
+- [Future learned-selector plan](docs/FUTURE_MODEL_PLAN.md)
 - [Earlier future-backend notes](docs/future-backend-plan.md)
 
 ## Technology
@@ -108,6 +112,8 @@ npm run dev:backend
 - `/history` — completed browser-local runs
 - `/about` — adaptation explanation and prototype boundaries
 - `/settings` — local accessibility and presentation preferences
+- `/research` — opt-in Pilot/Official browser-local research sessions, summaries, and exports
+- `/research/run` — isolated research gameplay and generated-room feedback
 - `/contact` — locally validated test form
 - every unmatched URL — custom 404 chamber
 
@@ -139,11 +145,13 @@ raising it or turning it correctly during the final 125 ms before impact produce
 and longer Rat recovery. See [Enemy Framework v0.2](docs/ENEMY_FRAMEWORK.md) for constants and rules.
 
 Generated rooms are derived from a run seed, room number, chosen exit, incoming entrance direction,
-profile, preset, archetype, and generator version. New runs use `generator-3`/`rules-2`, which
-generates ten topology candidates from six archetypes, validates up to twenty attempts, scores the
-valid candidates, and deterministically selects among the top three. Actual floor masks, internal
-walls, cardinal boundary exits, safe paths, red-rune hazards, and Rat spawns are validated as one
-layered room model. Depth unlocks archetype vocabulary but does not directly raise difficulty.
+preset, shared recovery context, archetype, and generator version. New runs use
+`generator-4`/`rules-2`, which builds one profile-independent validated candidate pool before a
+selector ranks it. Normal play and the adaptive research condition use the deterministic
+rules-based selector; the neutral research condition uses the same pool without behavioral traits.
+Actual floor masks, internal walls, cardinal boundary exits, safe paths, red-rune hazards, Rat
+spawns, and Fountain opportunities are validated as one layered room model. Frozen generator-2 and
+generator-3 runs retain their existing implementations and provenance.
 
 Generator-3 may also place one optional solid Restoration Fountain. A bounded, seeded recovery
 calculation combines current health deficit, recent generated-room damage, damage streak, recovery
@@ -169,7 +177,10 @@ VITE_API_BASE_URL=http://localhost:3001
 
 Copy `apps/frontend/.env.example` to `.env` only if you need to change the value. Do not commit `.env` files.
 
-The unobtrusive lower-corner status indicator calls `GET /api/health`. If the backend is unavailable, the dungeon still works in explicitly labeled demo-only mode because its mock generator is local.
+The frontend makes no request when `VITE_API_BASE_URL` is absent or blank and labels the experience
+local-only/API-not-configured. When the variable is explicitly configured, the unobtrusive status
+indicator calls only `GET /api/health`. Gameplay and research recording remain
+frontend-authoritative, and research records are never included in that health request.
 
 ## Mock generation and localStorage
 
@@ -182,6 +193,8 @@ The browser stores only prototype data under these keys:
 - `mirrorvault:player-profile:v1`
 - `mirrorvault:run-archive:v1` (version 3 envelope)
 - `mirrorvault:active-run:v1`
+- `resonant-ruins:research:v1` (opt-in research sessions and generated-room records)
+- `resonant-ruins:research-active-run:v1` (resumable research run and pending feedback)
 
 Development builds may also use `mirrorvault:awakening-editor-drafts:v1`. It is isolated from normal
 gameplay storage and absent from production output.
@@ -189,7 +202,7 @@ gameplay storage and absent from production output.
 Local development exposes an in-memory Topology Lab at `/topology-lab`. A Vercel Preview includes it
 only when `VERCEL_ENV=preview` and `VITE_ENABLE_TOPOLOGY_LAB=true`; normal production builds exclude
 the route, navigation, and mutation controls. The Lab does not call normal active-run, profile,
-History, best-record, or recovery persistence.
+History, best-record, recovery, or research persistence. No research records are written.
 
 The active-run record contains the run ID, character, health, elapsed active time, room order,
 current room and tile, facing, stable statistics, Awakening analytics, authoritative pause state,
@@ -253,6 +266,7 @@ npm run lint
 npm run typecheck
 npm run build
 npm run verify:production-safety
+npm run analyze:research -- path\to\export.json
 npm run format
 ```
 

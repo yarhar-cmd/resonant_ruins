@@ -1,5 +1,16 @@
 # Resonant Ruins balance changelog
 
+## mvp-0.4 — Shared-pool selection
+
+- New runs move from generator-3 to generator-4 because behavior traits no longer participate in
+  candidate construction. This changes seeded generated-room sequences and is therefore recorded as
+  new generator provenance.
+- Candidate target/attempt limits, topology safety, combat, Rune, Fountain, and depth-unlock values
+  are unchanged. Frozen generator-2 and generator-3 runs are unchanged.
+- Rules-2 behavioral influence and reinforce/poke now operate only during adaptive ranking. The
+  neutral condition selects from the identical pool using non-profile quality and variety rules.
+- No combat, health, shield, hazard, or recovery tuning value changed in this milestone.
+
 ## mvp-0.3 — Restoration and run pacing
 
 Recovery values are centralized in `apps/frontend/src/config/recovery.ts`.

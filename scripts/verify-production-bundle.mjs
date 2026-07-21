@@ -26,8 +26,19 @@ const forbiddenDevelopmentText = [
   'Reset Combat Debug counters',
   'Body-lock prevention activations',
 ];
-const diagnosticText = ['Playtest Diagnostics', 'PLAYTEST DIAGNOSTICS', 'Copy Diagnostic Summary'];
-const topologyLabText = ['Topology Lab', 'SANDBOX · persistence guards active'];
+const diagnosticText = [
+  'Playtest Diagnostics',
+  'PLAYTEST DIAGNOSTICS',
+  'Copy Diagnostic Summary',
+  'Shared pool',
+  'No model installed',
+  'Write policy',
+];
+const topologyLabText = [
+  'Topology Lab',
+  'SANDBOX · persistence guards active',
+  'No research records are written',
+];
 const forbiddenText =
   scanMode === 'preview'
     ? forbiddenDevelopmentText
@@ -49,7 +60,7 @@ if (exposed.length > 0) {
   throw new Error(`Unsafe UI leaked into the ${scanMode} bundle: ${exposed.join(', ')}`);
 }
 if (scanMode === 'preview') {
-  const missing = diagnosticText.filter(
+  const missing = [...diagnosticText, ...topologyLabText].filter(
     (text) => !bundles.some(({ source }) => source.includes(text)),
   );
   if (missing.length > 0) {

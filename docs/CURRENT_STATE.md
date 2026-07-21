@@ -1,5 +1,21 @@
 # Resonant Ruins current state
 
+## mvp-0.4 research foundation
+
+New runs use deterministic `generator-4`. It constructs one profile-independent validated room
+pool and then delegates selection to either the rules-based adaptive selector or a neutral
+procedural selector. The two selectors share pool identity, feature vectors, Fountain opportunity,
+and all safety validation; only the adaptive selector consumes the five behavior traits.
+
+The `/research` flow is opt-in and browser-local. It supports Pilot and Official sessions,
+deterministic balanced two-run condition assignment, an isolated session profile and active run,
+generated-room-only feedback, exactly-once room records, descriptive summaries, confirmed deletion,
+and validated JSON/CSV export. Pilot records are excluded by default. No data is uploaded and no
+learned model is installed. See [Research Mode](RESEARCH_MODE.md).
+
+Frontend API health now remains `not-configured` without an explicit `VITE_API_BASE_URL`; it does
+not silently request localhost. Frozen generator-2 and generator-3 continuations remain supported.
+
 Updated: 2026-07-21
 
 ## Current implementation update: Dungeon Topology & Healing foundation v0.3

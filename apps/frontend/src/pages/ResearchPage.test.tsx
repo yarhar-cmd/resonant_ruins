@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AdventureProvider } from '../context/AdventureProvider';
 import { RESEARCH_ACTIVE_RUN_KEY, RESEARCH_STORAGE_KEY } from '../config/research';
-import { loadResearchStorage } from '../services/researchStorage';
+import { loadResearchStorage, startResearchSession } from '../services/researchStorage';
 import { ResearchPage } from './ResearchPage';
 
 function renderPage() {
@@ -61,5 +61,21 @@ describe('Research Mode opt-in page', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Invalid participant code.'),
     );
     expect(localStorage.getItem(RESEARCH_STORAGE_KEY)).toBeNull();
+  });
+
+  it('starts another balanced run inside an existing session when no run is active', async () => {
+    const started = startResearchSession({
+      pilot: false,
+      id: 'multi-run-session',
+      sessionSeed: 'balanced-session',
+      now: 1_000,
+    });
+    expect(started.issue).toBeNull();
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start next research run' }));
+    await screen.findByText('Research run route');
+    expect(loadResearchStorage().data.sessions[0]?.runs).toHaveLength(1);
+    expect(localStorage.getItem(RESEARCH_ACTIVE_RUN_KEY)).not.toBeNull();
   });
 });

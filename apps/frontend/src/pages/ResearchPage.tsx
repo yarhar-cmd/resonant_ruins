@@ -22,6 +22,7 @@ import {
   startResearchSession,
 } from '../services/researchStorage';
 import { EXPERIENCE_PRESETS, type ExperiencePreset } from '../types/adaptation';
+import type { ResearchSession } from '../types/research';
 import { createFreshRun } from '../utils/runLifecycle';
 
 export function ResearchPage() {
@@ -45,7 +46,42 @@ export function ResearchPage() {
     setActiveRun(loadResearchActiveRun());
   }
 
-  function start(pilot: boolean) {
+  function startRun(session: ResearchSession) {
+    const playableCharacterId = getPlayableCharacterId(characterId);
+    const character = characters.find((item) => item.id === playableCharacterId) ?? characters[0]!;
+    const nextPreset = session.runs.at(-1)?.experiencePreset ?? experiencePreset;
+    const run = createResearchRun({
+      session,
+      characterId: playableCharacterId,
+      experiencePreset: nextPreset,
+    });
+    const gameplay = createFreshRun({
+      maximumHealth: character.health,
+      experiencePreset: nextPreset,
+      longTermProfile: session.sessionProfile,
+    });
+    const record = createActiveRunRecord(gameplay, playableCharacterId, Date.now());
+    const appendIssue = record ? appendResearchRun(session.id, run) : 'invalid';
+    if (!record || (appendIssue && appendIssue !== 'storage-pressure')) {
+      setMessage('The research run could not be initialized.');
+      return;
+    }
+    const activeIssue = saveResearchActiveRun({
+      researchSchemaVersion: 'research-1',
+      researchSessionId: session.id,
+      researchRunId: run.id,
+      gameplay: record,
+      pendingFeedback: null,
+      roomStart: null,
+    });
+    if (activeIssue) {
+      setMessage('The research run could not be stored in this browser.');
+      return;
+    }
+    navigate('/research/run');
+  }
+
+  function startSession(pilot: boolean) {
     if (!noticeAccepted) {
       setMessage('Confirm that you have read the participation and local-data notice.');
       return;
@@ -60,37 +96,7 @@ export function ResearchPage() {
         setMessage('The research session could not be stored in this browser.');
         return;
       }
-      const playableCharacterId = getPlayableCharacterId(characterId);
-      const character =
-        characters.find((item) => item.id === playableCharacterId) ?? characters[0]!;
-      const run = createResearchRun({
-        session: started.session,
-        characterId: playableCharacterId,
-        experiencePreset,
-      });
-      const gameplay = createFreshRun({
-        maximumHealth: character.health,
-        experiencePreset,
-        longTermProfile: NEUTRAL_ADAPTIVE_PROFILE,
-      });
-      const record = createActiveRunRecord(gameplay, playableCharacterId, Date.now());
-      if (!record || appendResearchRun(started.session.id, run)) {
-        setMessage('The research run could not be initialized.');
-        return;
-      }
-      const activeIssue = saveResearchActiveRun({
-        researchSchemaVersion: 'research-1',
-        researchSessionId: started.session.id,
-        researchRunId: run.id,
-        gameplay: record,
-        pendingFeedback: null,
-        roomStart: null,
-      });
-      if (activeIssue) {
-        setMessage('The research run could not be stored in this browser.');
-        return;
-      }
-      navigate('/research/run');
+      startRun({ ...started.session, sessionProfile: { ...NEUTRAL_ADAPTIVE_PROFILE } });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'The research session could not start.');
     }
@@ -157,6 +163,11 @@ export function ResearchPage() {
                 Resume research run
               </PrimaryButton>
             )}
+            {!activeRun.record && (
+              <PrimaryButton onClick={() => startRun(activeSession)}>
+                Start next research run
+              </PrimaryButton>
+            )}
             <SecondaryButton onClick={() => setEndConfirmation(true)}>End session</SecondaryButton>
           </div>
         </Panel>
@@ -198,7 +209,7 @@ export function ResearchPage() {
                 Test question wording, timing, export flow, and researcher workflow. Pilot data is
                 excluded from official summaries by default.
               </p>
-              <SecondaryButton disabled={!noticeAccepted} onClick={() => start(true)}>
+              <SecondaryButton disabled={!noticeAccepted} onClick={() => startSession(true)}>
                 Start Pilot Session
               </SecondaryButton>
             </article>
@@ -208,7 +219,7 @@ export function ResearchPage() {
                 Collect an official local session using balanced adaptive and neutral run
                 assignment.
               </p>
-              <PrimaryButton disabled={!noticeAccepted} onClick={() => start(false)}>
+              <PrimaryButton disabled={!noticeAccepted} onClick={() => startSession(false)}>
                 Start Research Session
               </PrimaryButton>
             </article>
@@ -216,7 +227,11 @@ export function ResearchPage() {
         </Panel>
       )}
 
-      <ResearchDataPanel data={storage.data} onChanged={refresh} />
+      <ResearchDataPanel
+        data={storage.data}
+        validationStatus={storage.issue ?? 'valid'}
+        onChanged={refresh}
+      />
 
       <ConfirmationDialog
         open={endConfirmation}
