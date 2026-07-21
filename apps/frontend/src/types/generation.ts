@@ -2,7 +2,12 @@ import type { AdaptationVersion, GameVersion, GeneratorVersion } from '../config
 import type { AdaptiveProfile, ExperiencePreset } from './adaptation';
 import type { ExitDirection, RoomDefinition, TileCoordinate } from './rooms';
 import type { EnemyCountPlan } from './enemies';
-import type { RoomArchetype, RoomFeatureVector } from './topology';
+import type {
+  FountainPlacementStyle,
+  FountainVisualVariant,
+  RoomArchetype,
+  RoomFeatureVector,
+} from './topology';
 
 export const GENERATED_ROOM_SAVE_SCHEMA_VERSION = 1;
 
@@ -50,6 +55,56 @@ export interface GeneratedRoomDetails {
   rejectionCounts?: Record<string, number>;
   featureSchemaVersion?: number;
   exitDecisions?: DirectionalExitDecision[];
+  recoveryDecision?: RecoveryDecision;
+}
+
+export interface RecoveryInputSnapshot {
+  healthDeficit: number;
+  recentDamage: number;
+  damageStreak: number;
+  recoveryDrought: number;
+  caution: number;
+  hazardTolerance: number;
+  exploration: number;
+  recentPressure: number;
+  previousSkipped: boolean;
+}
+
+export interface RecoveryDecision {
+  requested: boolean;
+  placementPossible: boolean;
+  spawned: boolean;
+  probability: number;
+  roll: number;
+  cooldownBefore: number;
+  cooldownAfter: number;
+  reasons: string[];
+  inputs: RecoveryInputSnapshot;
+  validPlacementCount: number;
+  placementStyle: FountainPlacementStyle | null;
+  selectedCoordinate: TileCoordinate | null;
+  visualVariant: FountainVisualVariant | null;
+}
+
+export interface RecoveryGenerationContext {
+  currentHealth: number;
+  maximumHealth: number;
+  recentGeneratedDamage: number[];
+  damageStreak: number;
+  roomsSinceLastGeneratedSpawn: number;
+  roomsSinceLastUse: number;
+  previousSkipped: boolean;
+  recentCombatPressure: number;
+  cooldownRemaining: number;
+  placementOverride?: 'force' | 'disable';
+  placementPreference?: FountainPlacementStyle;
+}
+
+export interface RecoveryRunState {
+  cooldownRemaining: number;
+  roomsSinceLastGeneratedSpawn: number;
+  roomsSinceLastUse: number;
+  previousSkipped: boolean;
 }
 
 export interface DirectionalExitDecision {
@@ -92,6 +147,7 @@ export interface GenerationRequest {
   generatorVersion?: GeneratorVersion;
   adaptationVersion?: AdaptationVersion;
   gameVersion?: GameVersion | 'mvp-0.2';
+  recovery?: RecoveryGenerationContext;
 }
 
 export interface RoomValidationResult {
@@ -114,6 +170,7 @@ export interface DungeonProgress {
   nextEntranceDirection?: ExitDirection | null;
   recentDecisionRecords?: RoomDecisionRecord[];
   completedDecisionCount?: number;
+  recovery?: RecoveryRunState;
 }
 
 export interface RoomDecisionRecord {
@@ -139,6 +196,22 @@ export interface RoomDecisionRecord {
   previousEntranceDirection: ExitDirection;
   nextEntranceDirection: ExitDirection;
   exitDecisions: DirectionalExitDecision[];
+  fountainOutcome?: {
+    requested: boolean;
+    placementPossible: boolean;
+    spawned: boolean;
+    placementStyle: FountainPlacementStyle | null;
+    used: boolean;
+    skipped: boolean;
+    healthWhenEncountered: number | null;
+    healthWhenUsed: number | null;
+    encounterToUseMs: number | null;
+    combatDelayedUse: boolean;
+    roomCompleted: boolean;
+    damageAfterEncounter: number;
+    gameVersion: string;
+    generatorVersion: GeneratorVersion;
+  };
 }
 
 export interface GeneratorTransitionRecord {

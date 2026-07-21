@@ -1,6 +1,7 @@
 import { TOPOLOGY_CONFIG } from '../config/topology';
 import type { RoomValidationResult } from '../types/generation';
 import type { ExitDirection, RoomDefinition, TileCoordinate } from '../types/rooms';
+import type { RestorationFountainFeature } from '../types/topology';
 import { pathDistance } from './enemySystem';
 import {
   coordinateKey,
@@ -96,6 +97,43 @@ export function validateGeneratedRoomV3(room: RoomDefinition): RoomValidationRes
       if (distance !== null && distance < TOPOLOGY_CONFIG.minimumGeneratedRatPathDistance)
         errors.push('enemy-spawn-too-close-to-player');
     }
+  }
+  const fountains = (room.features ?? []).filter(
+    (feature): feature is RestorationFountainFeature =>
+      feature.kind === 'restoration-fountain' && feature.blocking,
+  );
+  if (fountains.length > 1) errors.push('too-many-restoration-fountains');
+  for (const fountain of fountains) {
+    const key = coordinateKey(fountain.tile);
+    if (!floor.has(key) || walls.has(key) || hazards.has(key)) errors.push('invalid-fountain-tile');
+    if (room.exits.some((exit) => coordinatesMatch(exit.tile, fountain.tile)))
+      errors.push('fountain-exit-overlap');
+    if (spawn && coordinatesMatch(spawn, fountain.tile)) errors.push('fountain-entrance-overlap');
+    if ((room.enemySpawns ?? []).some((rat) => coordinatesMatch(rat.tile, fountain.tile)))
+      errors.push('fountain-rat-overlap');
+    const validInteractionTiles = fountain.interactionTiles.filter(
+      (tile) =>
+        floor.has(coordinateKey(tile)) &&
+        !walls.has(coordinateKey(tile)) &&
+        !blockingFeatures.has(coordinateKey(tile)) &&
+        (!spawn || shortestPath(room, spawn, tile)),
+    );
+    if (!validInteractionTiles.length) errors.push('fountain-no-reachable-interaction-tile');
+    if (
+      fountain.variant === 'wall-integrated' &&
+      (!fountain.orientation ||
+        !walls.has(
+          coordinateKey({
+            x:
+              fountain.tile.x +
+              (fountain.orientation === 'east' ? -1 : fountain.orientation === 'west' ? 1 : 0),
+            y:
+              fountain.tile.y +
+              (fountain.orientation === 'south' ? -1 : fountain.orientation === 'north' ? 1 : 0),
+          }),
+        ))
+    )
+      errors.push('invalid-wall-fountain-orientation');
   }
   return { valid: errors.length === 0, errors: [...new Set(errors)] };
 }

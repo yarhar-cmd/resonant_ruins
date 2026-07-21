@@ -139,7 +139,7 @@ function storedRat(overrides: Partial<StoredRatEnemy> = {}): StoredRatEnemy {
   };
 }
 
-describe('Resonant Ruins active-run storage v7', () => {
+describe('Resonant Ruins active-run storage v8', () => {
   beforeEach(() => localStorage.clear());
   it('round-trips preset, run seed, profile signals, Chamber analytics, and exact position', () => {
     const active = record();
@@ -523,5 +523,58 @@ describe('Resonant Ruins active-run storage v7', () => {
     expect(loadActiveRun()).toEqual({ record: null, issue: 'invalid' });
     expect(clearActiveRun()).toBeNull();
     expect(loadActiveRun()).toEqual({ record: null, issue: null });
+  });
+
+  it('migrates schema-v7 saves with safe recovery and interaction defaults', () => {
+    const legacy = { ...record(), version: 7 as const };
+    const migrated = parseActiveRunRecord(legacy);
+    expect(migrated).toMatchObject({
+      version: 8,
+      dungeonProgress: {
+        recovery: {
+          cooldownRemaining: 0,
+          roomsSinceLastGeneratedSpawn: 3,
+          roomsSinceLastUse: 3,
+          previousSkipped: false,
+        },
+      },
+    });
+  });
+
+  it('round-trips a Fountain channel by remaining duration and restores one deadline', () => {
+    const channel = record({
+      playerPosition: { x: 10, y: 2 },
+      facing: 'up',
+      evaluationProgress: {
+        ...record().evaluationProgress,
+        currentRoomIndex: 2,
+        currentRoomId: 'evaluation-room-03',
+      },
+      enemies: { ...record().enemies!, roomId: 'evaluation-room-03' },
+      interaction: {
+        targetId: 'evaluation-room-03-restoration-fountain',
+        type: 'restoration-fountain',
+        startedAt: 12_000,
+        deadline: null,
+        remainingMs: 350,
+        status: 'channeling',
+        cancellationReason: null,
+        result: null,
+      },
+      interactables: {
+        'evaluation-room-03-restoration-fountain': {
+          depleted: false,
+          encounteredAt: 12_000,
+          usedAt: null,
+        },
+      },
+    });
+    expect(parseActiveRunRecord(channel)).toEqual(channel);
+    const restored = restoreGameplayState(toRestorableGameplayRun(channel), 6, 100_000);
+    expect(restored.interaction).toMatchObject({
+      status: 'channeling',
+      deadline: 100_350,
+      remainingMs: 350,
+    });
   });
 });

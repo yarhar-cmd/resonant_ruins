@@ -13,12 +13,19 @@ import {
   type BoundaryFamily,
   type RoomArchetype,
   type RoomFeatureVector,
+  type RestorationFountainFeature,
 } from '../types/topology';
 import { pathDistance, selectGeneratedRatSpawns } from './enemySystem';
-import { coordinateKey } from './roomGeometry';
+import { coordinateKey, getWallLookup } from './roomGeometry';
+import { createRecoveryDecision } from './recoverySelection';
 import { createRules2Profile, scoreRoomFeatureVector, selectRankedCandidate } from './roomSelector';
 import { createSeededRandom, randomInteger, shuffleSeeded } from './seededRandom';
-import { analyzeRoomTopology, deriveOuterWalls, shortestPath } from './topologyAnalysis';
+import {
+  analyzeRoomTopology,
+  cardinalNeighbors,
+  deriveOuterWalls,
+  shortestPath,
+} from './topologyAnalysis';
 import { validateGeneratedRoomV3 } from './generatedRoomValidatorV3';
 
 const offsets: Record<ExitDirection, TileCoordinate> = {
@@ -188,6 +195,140 @@ function extractFeatureVector(
   };
 }
 
+function placeRestorationFountain(
+  room: RoomDefinition,
+  request: GenerationRequest,
+  seed: string,
+): NonNullable<GeneratedRoomSave['details']['recoveryDecision']> {
+  const occupied = new Set([
+    ...(room.hazards ?? []).map(coordinateKey),
+    ...(room.enemySpawns ?? []).map((spawn) => coordinateKey(spawn.tile)),
+    ...room.exits.map((exit) => coordinateKey(exit.tile)),
+    ...(room.entrance ? [coordinateKey(room.entrance.tile)] : []),
+    ...Object.values(room.spawnPoints ?? {})
+      .filter(Boolean)
+      .map((tile) => coordinateKey(tile!)),
+    ...(room.topology?.articulationPoints ?? []).map(coordinateKey),
+  ]);
+  const walls = getWallLookup(room);
+  const floor = new Set(room.floorTiles.map(coordinateKey));
+  const candidates = shuffleSeeded(
+    createSeededRandom(`${seed}:fountain-placements`),
+    room.floorTiles,
+  )
+    .filter((tile) => !occupied.has(coordinateKey(tile)))
+    .map((tile) => {
+      const interactionTiles = cardinalNeighbors(tile).filter(
+        (neighbor) => floor.has(coordinateKey(neighbor)) && !occupied.has(coordinateKey(neighbor)),
+      );
+      const wallDirection = (Object.entries(offsets) as [ExitDirection, TileCoordinate][]).find(
+        ([, offset]) => walls.has(coordinateKey({ x: tile.x + offset.x, y: tile.y + offset.y })),
+      )?.[0];
+      const feature: RestorationFountainFeature = {
+        id: `${room.id}-restoration-fountain`,
+        kind: 'restoration-fountain',
+        tile,
+        blocking: true,
+        source: 'generated',
+        placementStyle: 'safe',
+        variant: wallDirection ? 'wall-integrated' : 'freestanding',
+        ...(wallDirection ? { orientation: oppositeExitDirectionV3(wallDirection) } : {}),
+        interactionTiles,
+      };
+      const spawn = room.entrance ? room.spawnPoints?.[room.entrance.direction] : undefined;
+      const runeDistance = Math.min(
+        99,
+        ...(room.hazards ?? []).map(
+          (hazard) => Math.abs(hazard.x - tile.x) + Math.abs(hazard.y - tile.y),
+        ),
+      );
+      const ratDistance = Math.min(
+        99,
+        ...(room.enemySpawns ?? []).map(
+          (rat) => Math.abs(rat.tile.x - tile.x) + Math.abs(rat.tile.y - tile.y),
+        ),
+      );
+      const entranceDistance = spawn ? Math.abs(spawn.x - tile.x) + Math.abs(spawn.y - tile.y) : 0;
+      return {
+        feature,
+        valid: interactionTiles.length > 0 && entranceDistance > 1 && ratDistance > 1,
+        safeScore:
+          runeDistance * 2 + ratDistance + interactionTiles.length * 3 - entranceDistance * 0.15,
+        riskyScore: entranceDistance + (99 - Math.min(99, runeDistance)) * 0.25,
+      };
+    })
+    .filter((candidate) => candidate.valid);
+  const decision = createRecoveryDecision({
+    seed,
+    preset: request.experiencePreset,
+    profile: request.effectiveProfile,
+    recovery: request.recovery,
+    validPlacementCount: candidates.length,
+  });
+  if (!decision.spawned) return decision;
+  const lowHealth = decision.inputs.healthDeficit >= 0.5 || decision.inputs.recentDamage >= 0.5;
+  const requestedStyle = request.recovery?.placementPreference;
+  const style =
+    requestedStyle ?? (lowHealth || request.effectiveProfile.exploration < 0.55 ? 'safe' : 'risky');
+  const ranked = [...candidates].sort((left, right) => {
+    const score =
+      style === 'safe' ? right.safeScore - left.safeScore : right.riskyScore - left.riskyScore;
+    return (
+      score ||
+      left.feature.tile.y - right.feature.tile.y ||
+      left.feature.tile.x - right.feature.tile.x
+    );
+  });
+  const selected = ranked.find(
+    (candidate) => validateGeneratedRoomV3({ ...room, features: [candidate.feature] }).valid,
+  );
+  if (!selected)
+    return {
+      ...decision,
+      placementPossible: false,
+      spawned: false,
+      reasons: [...decision.reasons, 'no-valid-placement'],
+      validPlacementCount: 0,
+    };
+  selected.feature.placementStyle = style;
+  room.features = [selected.feature];
+  return {
+    ...decision,
+    placementStyle: style,
+    selectedCoordinate: selected.feature.tile,
+    visualVariant: selected.feature.variant,
+  };
+}
+
+function placeDecorativeTorches(room: RoomDefinition, seed: string): void {
+  const floor = new Set(room.floorTiles.map(coordinateKey));
+  const excluded = new Set([
+    ...room.exits.map((exit) => coordinateKey(exit.tile)),
+    ...(room.entrance ? [coordinateKey(room.entrance.tile)] : []),
+  ]);
+  const wallTiles = [...(room.outerWallTiles ?? []), ...(room.internalWallTiles ?? [])].filter(
+    (wall) =>
+      !excluded.has(coordinateKey(wall)) &&
+      cardinalNeighbors(wall).some((neighbor) => floor.has(coordinateKey(neighbor))),
+  );
+  const torchCount = Math.min(5, Math.max(2, Math.floor(room.floorTiles.length / 45)));
+  const torches = shuffleSeeded(createSeededRandom(`${seed}:torches`), wallTiles)
+    .filter((tile, index, all) =>
+      all
+        .slice(0, index)
+        .every((other) => Math.abs(other.x - tile.x) + Math.abs(other.y - tile.y) > 3),
+    )
+    .slice(0, torchCount)
+    .map((tile, index) => ({
+      id: `${room.id}-torch-${index + 1}`,
+      kind: 'ruin-torch',
+      tile,
+      blocking: false as const,
+      source: 'generated' as const,
+    }));
+  room.features = [...(room.features ?? []), ...torches];
+}
+
 function generateCandidate(
   request: GenerationRequest,
   archetype: RoomArchetype,
@@ -309,6 +450,13 @@ function generateCandidate(
     selectedCount: room.enemySpawns.length,
   };
   room.topology = analyzeRoomTopology(room);
+  const recoveryDecision = placeRestorationFountain(
+    room,
+    request,
+    `${roomSeed}:candidate:${attempt}`,
+  );
+  placeDecorativeTorches(room, `${roomSeed}:candidate:${attempt}`);
+  room.topology = analyzeRoomTopology(room);
   const exitDecisions: DirectionalExitDecision[] = exits.map((exit, index) => {
     const path = shortestPath(room, spawn, exit.tile);
     const safePath = shortestPath(
@@ -365,6 +513,7 @@ function generateCandidate(
       boundaryFamily: generated.boundary,
       exitDecisions,
       featureSchemaVersion: ROOM_FEATURE_VECTOR_SCHEMA_VERSION,
+      recoveryDecision,
     },
   };
   return { save, feature };

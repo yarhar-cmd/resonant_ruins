@@ -3,7 +3,7 @@ import { ARCHETYPE_IDS, TOPOLOGY_CONFIG } from '../config/topology';
 import { NEUTRAL_ADAPTIVE_PROFILE } from '../services/playerProfileStorage';
 import type { GenerationRequest } from '../types/generation';
 import type { ExitDirection } from '../types/rooms';
-import { coordinateKey } from './roomGeometry';
+import { coordinateKey, isWalkableCoordinate } from './roomGeometry';
 import { findRatPath, playerStaticEscapeTiles } from './enemySystem';
 import { createRules2Profile, scoreRoomFeatureVector } from './roomSelector';
 import {
@@ -12,6 +12,7 @@ import {
   oppositeExitDirectionV3,
 } from './generatedRoomGeneratorV3';
 import { validateGeneratedRoomV3 } from './generatedRoomValidatorV3';
+import { getRestorationFountains } from './interactions';
 
 function request(overrides: Partial<GenerationRequest> = {}): GenerationRequest {
   return {
@@ -97,6 +98,44 @@ describe('generator-3 topology and directional rooms', () => {
     expect(path).not.toBeNull();
     expect(path?.some((tile) => walls.has(coordinateKey(tile)))).toBe(false);
     expect(playerStaticEscapeTiles(room, spawn!).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('places at most one deterministic solid Fountain without breaking routes', () => {
+    const input = request({
+      runSeed: 'forced-fountain',
+      recovery: {
+        currentHealth: 1,
+        maximumHealth: 4,
+        recentGeneratedDamage: [1, 1],
+        damageStreak: 2,
+        roomsSinceLastGeneratedSpawn: 5,
+        roomsSinceLastUse: 5,
+        previousSkipped: false,
+        recentCombatPressure: 2,
+        cooldownRemaining: 0,
+        placementOverride: 'force',
+        placementPreference: 'safe',
+      },
+    });
+    const generated = generateArchetypeRoomV3(input, 'pillar-hall');
+    const repeat = generateArchetypeRoomV3(input, 'pillar-hall');
+    const fountains = getRestorationFountains(generated.roomSnapshot);
+    expect(generated).toEqual(repeat);
+    expect(fountains).toHaveLength(1);
+    expect(fountains[0]?.blocking).toBe(true);
+    expect(fountains[0]?.interactionTiles.length).toBeGreaterThan(0);
+    expect(validateGeneratedRoomV3(generated.roomSnapshot).valid).toBe(true);
+    expect(generated.roomSnapshot.topology?.safeRouteExists).toBe(true);
+    expect(isWalkableCoordinate(generated.roomSnapshot, fountains[0]!.tile)).toBe(false);
+    const spawn = generated.roomSnapshot.spawnPoints?.[input.entranceDirection];
+    expect(spawn).toBeDefined();
+    for (const rat of generated.roomSnapshot.enemySpawns ?? []) {
+      const path = findRatPath(generated.roomSnapshot, rat.tile, spawn!);
+      expect(path).not.toBeNull();
+      expect(path?.some((tile) => coordinateKey(tile) === coordinateKey(fountains[0]!.tile))).toBe(
+        false,
+      );
+    }
   });
 
   it('selects from one or two candidates without fallback and records reduced diversity', () => {
