@@ -63,6 +63,7 @@ export interface GeneratedRoomDetails {
   selectorVersion?: RoomSelectorVersion;
   selectorProfileConsumed?: boolean;
   selectorExplanation?: string[];
+  selectedFeatureVector?: RoomFeatureVector;
 }
 
 export interface RecoveryInputSnapshot {

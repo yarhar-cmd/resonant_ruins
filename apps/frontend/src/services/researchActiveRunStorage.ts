@@ -1,6 +1,6 @@
 import { RESEARCH_ACTIVE_RUN_KEY, RESEARCH_SCHEMA_VERSION } from '../config/research';
-import { PendingRoomFeedbackSchema } from '../research/schemas';
-import type { PendingRoomFeedback } from '../types/research';
+import { PendingRoomFeedbackSchema, ResearchRoomStartSnapshotSchema } from '../research/schemas';
+import type { PendingRoomFeedback, ResearchRoomStartSnapshot } from '../types/research';
 import { parseActiveRunRecord, type ActiveRunRecord } from './activeRunStorage';
 
 export interface ResearchActiveRunRecord {
@@ -9,6 +9,7 @@ export interface ResearchActiveRunRecord {
   researchRunId: string;
   gameplay: ActiveRunRecord;
   pendingFeedback: PendingRoomFeedback | null;
+  roomStart: ResearchRoomStartSnapshot | null;
 }
 
 export type ResearchActiveRunStorageIssue = 'invalid' | 'unavailable' | 'write-failed';
@@ -25,6 +26,10 @@ export function parseResearchActiveRun(value: unknown): ResearchActiveRunRecord 
     candidate.pendingFeedback === null
       ? null
       : PendingRoomFeedbackSchema.safeParse(candidate.pendingFeedback);
+  const roomStart =
+    candidate.roomStart === undefined || candidate.roomStart === null
+      ? null
+      : ResearchRoomStartSnapshotSchema.safeParse(candidate.roomStart);
   if (
     candidate.researchSchemaVersion !== RESEARCH_SCHEMA_VERSION ||
     typeof candidate.researchSessionId !== 'string' ||
@@ -32,7 +37,8 @@ export function parseResearchActiveRun(value: unknown): ResearchActiveRunRecord 
     typeof candidate.researchRunId !== 'string' ||
     !candidate.researchRunId ||
     !gameplay ||
-    (pending !== null && !pending.success)
+    (pending !== null && !pending.success) ||
+    (roomStart !== null && !roomStart.success)
   )
     return null;
   return {
@@ -41,6 +47,7 @@ export function parseResearchActiveRun(value: unknown): ResearchActiveRunRecord 
     researchRunId: candidate.researchRunId,
     gameplay,
     pendingFeedback: pending === null ? null : (pending.data as PendingRoomFeedback),
+    roomStart: roomStart === null ? null : (roomStart.data as ResearchRoomStartSnapshot),
   };
 }
 

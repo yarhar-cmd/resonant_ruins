@@ -205,6 +205,7 @@ export function generateDungeonRoomV4(
     selectorVersion: decision.selectorVersion,
     selectorProfileConsumed: decision.profileConsumed,
     selectorExplanation: decision.explanationTokens,
+    selectedFeatureVector: selected.featureVector,
     reasons: [
       ...save.details.reasons,
       ...decision.explanationTokens,

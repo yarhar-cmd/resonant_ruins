@@ -183,6 +183,26 @@ export const PendingRoomFeedbackSchema = z.object({
   record: RoomResearchRecordSchema,
 });
 
+export const ResearchRoomStartSnapshotSchema = z.object({
+  researchSchemaVersion: z.literal(RESEARCH_SCHEMA_VERSION),
+  roomId: z.string().min(1),
+  roomDecisionId: z.string().min(1),
+  roomSequence: z.number().int().positive(),
+  enteredAtMs: nonnegative,
+  capturedAt: timestamp,
+  healthBefore: nonnegative,
+  profileBefore: profile,
+  performance: z.object({
+    recentDamage: nonnegative,
+    damageStreak: nonnegative,
+    recentCombatPressure: nonnegative,
+    fountainCooldown: nonnegative,
+    roomsSinceFountainSpawn: nonnegative,
+    roomsSinceFountainUse: nonnegative,
+  }),
+  roomsClearedBefore: nonnegative,
+});
+
 export const ResearchConditionAssignmentSchema = z.object({
   unit: z.enum(['per-run', 'per-session']),
   methodId: z.literal('balanced-two-run-blocks-1'),

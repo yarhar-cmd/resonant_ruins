@@ -24,7 +24,15 @@ import { getStorageDiagnostics } from '../services/storageDiagnostics';
 import type { AdaptiveProfile, PlayerProfileRecord } from '../types/adaptation';
 import type { GridPosition } from '../types/player';
 import type { RoomDefinition, RoomExit } from '../types/rooms';
-import type { ResearchCondition } from '../types/research';
+import type {
+  PendingRoomFeedback,
+  ResearchCondition,
+  ResearchRoomStartSnapshot,
+  ResearchRun,
+  ResearchSession,
+  RoomFeedback,
+  RoomResearchRecord,
+} from '../types/research';
 import { getRunExecutionPolicy, type RunMode } from '../types/runMode';
 import {
   getEffectiveProfileV1,
@@ -58,6 +66,12 @@ import { useEnemyClock } from './useEnemyClock';
 import { useRoomTransition } from './useRoomTransition';
 import { createRoomEnemyState, livingRats } from '../utils/enemySystem';
 import { getAvailableInteraction, getFacingRestorationFountain } from '../utils/interactions';
+import {
+  buildRoomResearchRecord,
+  createPendingRoomFeedback,
+  createResearchRoomStart,
+} from '../research/roomRecord';
+import { shouldRequestResearchFeedback } from '../research/roomCompletion';
 
 function rememberRoom(cache: Map<string, RoomDefinition>, room: RoomDefinition) {
   cache.delete(room.id);
@@ -80,7 +94,14 @@ export interface RunControllerOptions {
   mode?: RunMode;
   researchCondition?: ResearchCondition;
   researchSessionProfile?: AdaptiveProfile;
+  researchSession?: ResearchSession;
+  researchRun?: ResearchRun;
+  pendingResearchFeedback?: PendingRoomFeedback | null;
+  researchRoomStart?: ResearchRoomStartSnapshot | null;
   onResearchSessionProfileChange?: (profile: AdaptiveProfile) => void;
+  onResearchRoomStart?: (snapshot: ResearchRoomStartSnapshot) => boolean;
+  onResearchPendingChange?: (pending: PendingRoomFeedback | null) => boolean;
+  onFinalizeResearchRecord?: (record: RoomResearchRecord) => boolean;
   saveActiveRecord?: (record: ActiveRunRecord) => ActiveRunStorageIssue | null;
   clearActiveRecord?: () => void;
   returnPath?: string;
@@ -112,10 +133,17 @@ export function useRunController(
   const [clockNow, setClockNow] = useState(Date.now);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [debugInterfaceOpen, setDebugInterfaceOpenState] = useState(false);
+  const [pendingResearchFeedback, setPendingResearchFeedback] = useState(
+    options.pendingResearchFeedback ?? null,
+  );
+  const [researchRoomStart, setResearchRoomStart] = useState(options.researchRoomStart ?? null);
   const debugOpenedAtRef = useRef<number | null>(null);
   const actionSequence = useRef(0);
   const gameRegionRef = useRef<HTMLDivElement>(null);
   const archivedRunIdsRef = useRef(new Set<string>());
+  const defeatedResearchRoomIdsRef = useRef(new Set<string>());
+  const researchProfileRef = useRef(options.researchSessionProfile);
+  researchProfileRef.current = options.researchSessionProfile ?? researchProfileRef.current;
   const roomSnapshotsRef = useRef(new Map<string, RoomDefinition>());
   const setDebugInterfaceOpen = useCallback(
     (open: boolean) => {
@@ -174,6 +202,53 @@ export function useRunController(
       gameplay.player,
     ],
   );
+
+  useEffect(() => {
+    if (
+      runMode !== 'research' ||
+      !generatedSave ||
+      !options.researchSession ||
+      !researchProfileRef.current ||
+      researchRoomStart?.roomId === generatedSave.roomSnapshot.id
+    )
+      return;
+    const snapshot = createResearchRoomStart({
+      gameplay,
+      generated: generatedSave,
+      sessionProfile: researchProfileRef.current,
+    });
+    if (options.onResearchRoomStart?.(snapshot)) setResearchRoomStart(snapshot);
+  }, [gameplay, generatedSave, options, researchRoomStart?.roomId, runMode]);
+
+  useEffect(() => {
+    if (
+      runMode !== 'research' ||
+      gameplay.status !== 'defeated' ||
+      !generatedSave ||
+      !researchRoomStart ||
+      !options.researchSession ||
+      !options.researchRun ||
+      defeatedResearchRoomIdsRef.current.has(researchRoomStart.roomDecisionId)
+    )
+      return;
+    const record = buildRoomResearchRecord({
+      session: options.researchSession,
+      run: options.researchRun,
+      condition: options.researchRun.condition,
+      gameplay,
+      generated: generatedSave,
+      roomStart: researchRoomStart,
+      profileAfter: gameplay.adaptation.currentRunProfile,
+      status: 'defeated',
+      capturedAt: new Date(
+        (gameplay.runStats.startedAt ?? 0) + (gameplay.runStats.timeSurvived ?? 0),
+      ).toISOString(),
+    });
+    if (options.onFinalizeResearchRecord?.(record)) {
+      defeatedResearchRoomIdsRef.current.add(researchRoomStart.roomDecisionId);
+      options.onResearchPendingChange?.(null);
+    }
+  }, [gameplay, generatedSave, options, researchRoomStart, runMode]);
 
   useEnemyClock({
     enabled: Boolean(
@@ -342,7 +417,7 @@ export function useRunController(
     dungeonRoomNumber: number,
     profile: AdaptiveProfile,
     longTermProfile = (runMode === 'research'
-      ? options.researchSessionProfile
+      ? researchProfileRef.current
       : playerProfile?.longTermProfile) ?? profile,
   ) {
     const dungeon = gameplay.dungeonProgress!;
@@ -408,7 +483,7 @@ export function useRunController(
     return { generatedRoom, entranceDirection, scheduled, effectiveProfile };
   }
 
-  function commitExitTransition(exit: RoomExit) {
+  function commitExitTransition(exit: RoomExit, feedbackFinalized = false) {
     if (
       !progress ||
       !gameplay.dungeonProgress ||
@@ -419,6 +494,48 @@ export function useRunController(
       return;
     const now = Date.now();
     const exitedAtMs = getTimeSurvived(gameplay.runStats, now, gameplay.pause);
+    if (
+      shouldRequestResearchFeedback({
+        runMode,
+        roomPhase: currentRoom.phase,
+        feedbackFinalized,
+        pendingFeedback: Boolean(pendingResearchFeedback),
+        livingEnemyCount,
+        hasGeneratedSave: Boolean(generatedSave),
+        hasRoomStart: Boolean(researchRoomStart),
+        hasResearchContext: Boolean(options.researchSession && options.researchRun),
+      }) &&
+      generatedSave &&
+      researchRoomStart &&
+      options.researchSession &&
+      options.researchRun
+    ) {
+      const preview = gameplayReducer(gameplay, {
+        type: 'commit-room-transition',
+        destinationRoomId: currentRoom.id,
+        destinationRoomIndex: progress.currentRoomIndex,
+        destinationSpawn: gameplay.player.position,
+        enteredFrom: progress.enteredFrom ?? 'west',
+        exitedAtMs,
+        exitChoice: null,
+        evaluationComplete: progress.evaluationComplete,
+        exitDirection: exit.direction,
+      });
+      const record = buildRoomResearchRecord({
+        session: options.researchSession,
+        run: options.researchRun,
+        condition: options.researchRun.condition,
+        gameplay,
+        generated: generatedSave,
+        roomStart: researchRoomStart,
+        profileAfter: preview.adaptation.currentRunProfile,
+        status: 'completed',
+        exit,
+      });
+      const pending = createPendingRoomFeedback(record);
+      if (options.onResearchPendingChange?.(pending)) setPendingResearchFeedback(pending);
+      return;
+    }
     const exitChoice =
       currentRoom.phase === 'evaluation'
         ? {
@@ -454,7 +571,7 @@ export function useRunController(
         debugProfileOverride ??
         gameplayReducer(gameplay, profilePreviewAction).adaptation.currentRunProfile;
       const profileSource =
-        runMode === 'research' ? options.researchSessionProfile : playerProfile?.longTermProfile;
+        runMode === 'research' ? researchProfileRef.current : playerProfile?.longTermProfile;
       const updatedLongTerm = profileSource
         ? updateLongTermProfile(profileSource, profileForRoom)
         : playerProfile
@@ -539,7 +656,11 @@ export function useRunController(
           updatedAt: new Date().toISOString(),
         },
       });
-    } else if (policy.writeResearchSessionProfile && currentRoom.phase === 'dungeon') {
+    } else if (
+      policy.writeResearchSessionProfile &&
+      (currentRoom.phase === 'dungeon' || completingChambers)
+    ) {
+      researchProfileRef.current = nextGameplay.adaptation.currentRunProfile;
       options.onResearchSessionProfileChange?.(nextGameplay.adaptation.currentRunProfile);
     }
     roomTransition.beginTransition({
@@ -557,6 +678,7 @@ export function useRunController(
       gameplay.status === 'active' &&
       !gameplay.pause.isPaused &&
       !roomTransition.isTransitioning &&
+      !pendingResearchFeedback &&
       !debugInterfaceOpen,
     ),
     onMove: (direction, trigger) => {
@@ -724,6 +846,34 @@ export function useRunController(
     navigate(runMode === 'research' ? (options.returnPath ?? '/research') : '/');
   }, [navigate, options, runMode]);
 
+  function updateResearchFeedback(feedback: RoomFeedback) {
+    if (!pendingResearchFeedback) return false;
+    const pending: PendingRoomFeedback = {
+      ...pendingResearchFeedback,
+      answersUpdatedAt: new Date().toISOString(),
+      record: { ...pendingResearchFeedback.record, feedback },
+    };
+    if (!options.onResearchPendingChange?.(pending)) return false;
+    setPendingResearchFeedback(pending);
+    return true;
+  }
+
+  function finalizeResearchFeedback(feedback: RoomFeedback) {
+    if (!pendingResearchFeedback) return false;
+    const record: RoomResearchRecord = { ...pendingResearchFeedback.record, feedback };
+    if (!options.onFinalizeResearchRecord?.(record)) return false;
+    if (!options.onResearchPendingChange?.(null)) return false;
+    const exit = currentRoom.exits.find(
+      (candidate) => candidate.id === record.outcome.chosenExitId,
+    );
+    if (!exit) return false;
+    researchProfileRef.current = record.profileAfter;
+    setPendingResearchFeedback(null);
+    setResearchRoomStart(null);
+    commitExitTransition(exit, true);
+    return true;
+  }
+
   const frozenTime = formatSurvivalTime(
     getTimeSurvived(gameplay.runStats, clockNow, gameplay.pause),
   );
@@ -739,6 +889,9 @@ export function useRunController(
     gameplay,
     runMode,
     runPolicy: policy,
+    pendingResearchFeedback,
+    updateResearchFeedback,
+    finalizeResearchFeedback,
     character,
     currentRoom,
     renderedRoom,

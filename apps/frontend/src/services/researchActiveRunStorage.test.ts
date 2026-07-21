@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createFreshRun } from '../utils/runLifecycle';
+import { researchFixture } from '../test/researchFixtures';
 import { createActiveRunRecord, loadActiveRun, saveActiveRun } from './activeRunStorage';
 import {
   clearResearchActiveRun,
@@ -41,6 +42,7 @@ describe('research active-run isolation', () => {
         researchRunId: 'research-run-1',
         gameplay: research,
         pendingFeedback: null,
+        roomStart: null,
       }),
     ).toBeNull();
     expect(loadActiveRun().record?.runId).toBe('normal-run');
@@ -52,5 +54,20 @@ describe('research active-run isolation', () => {
   it('rejects malformed research envelopes without deleting normal state', () => {
     localStorage.setItem('resonant-ruins:research-active-run:v1', '{');
     expect(loadResearchActiveRun()).toEqual({ record: null, issue: 'invalid' });
+  });
+
+  it('restores the exact room start and pending feedback after refresh', () => {
+    const fixture = researchFixture();
+    const gameplay = createActiveRunRecord(fixture.gameplay, 'warden', 20_000)!;
+    const active = {
+      researchSchemaVersion: 'research-1' as const,
+      researchSessionId: fixture.session.id,
+      researchRunId: fixture.run.id,
+      gameplay,
+      pendingFeedback: fixture.pending,
+      roomStart: fixture.roomStart,
+    };
+    expect(saveResearchActiveRun(active)).toBeNull();
+    expect(loadResearchActiveRun()).toEqual({ record: active, issue: null });
   });
 });

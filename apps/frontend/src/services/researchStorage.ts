@@ -14,7 +14,9 @@ import type {
   ResearchRun,
   ResearchSession,
   ResearchStorageEnvelope,
+  RoomResearchRecord,
 } from '../types/research';
+import { RoomResearchRecordSchema } from '../research/schemas';
 import { NEUTRAL_ADAPTIVE_PROFILE } from './playerProfileStorage';
 
 export type ResearchStorageIssue =
@@ -250,4 +252,34 @@ export function clearAllResearchData(storage?: Storage): ResearchStorageIssue | 
   } catch {
     return 'unavailable';
   }
+}
+
+export function finalizeRoomResearchRecord(
+  record: RoomResearchRecord,
+  storage?: Storage,
+): { issue: ResearchStorageIssue | null; duplicate: boolean } {
+  if (!RoomResearchRecordSchema.safeParse(record).success)
+    return { issue: 'invalid', duplicate: false };
+  const loaded = loadResearchStorage(storage);
+  const session = loaded.data.sessions.find((item) => item.id === record.researchSessionId);
+  const run = session?.runs.find((item) => item.id === record.runId);
+  if (!session || !run) return { issue: 'not-found', duplicate: false };
+  const existing = run.rooms.find((room) => room.roomDecisionId === record.roomDecisionId);
+  if (existing)
+    return JSON.stringify(existing) === JSON.stringify(record)
+      ? { issue: null, duplicate: true }
+      : { issue: 'conflict', duplicate: true };
+  const terminal = record.outcome.status === 'defeated' || record.outcome.status === 'interrupted';
+  const nextRun: ResearchRun = {
+    ...run,
+    rooms: [...run.rooms, record],
+    status: terminal ? record.outcome.status : run.status,
+    endedAt: terminal ? record.capturedAt : run.endedAt,
+  };
+  const nextSession: ResearchSession = {
+    ...session,
+    sessionProfile: { ...record.profileAfter },
+    runs: session.runs.map((item) => (item.id === run.id ? nextRun : item)),
+  };
+  return { issue: updateResearchSession(nextSession, storage), duplicate: false };
 }

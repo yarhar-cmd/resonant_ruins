@@ -9,6 +9,7 @@ import { PauseMenu } from '../components/mirrorvault/PauseMenu';
 import { RoomStatus } from '../components/mirrorvault/RoomStatus';
 import { StatusPanel } from '../components/mirrorvault/StatusPanel';
 import { StorageWarning } from '../components/mirrorvault/StorageWarning';
+import { RoomFeedbackDialog } from '../components/mirrorvault/RoomFeedbackDialog';
 import { useRunController } from '../hooks/useRunController';
 import { loadActiveRun, type ActiveRunRecord } from '../services/activeRunStorage';
 import { roomBounds } from '../utils/roomGeometry';
@@ -52,7 +53,14 @@ export function DungeonRunSession({
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
-      if (event.code !== 'Escape' || event.repeat || event.defaultPrevented || paused || defeated)
+      if (
+        event.code !== 'Escape' ||
+        event.repeat ||
+        event.defaultPrevented ||
+        paused ||
+        defeated ||
+        run.pendingResearchFeedback
+      )
         return;
       event.preventDefault();
       if (debugOpen) setDebugOpen(false);
@@ -60,12 +68,16 @@ export function DungeonRunSession({
     }
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [debugOpen, defeated, paused, pauseRun]);
+  }, [debugOpen, defeated, paused, pauseRun, run.pendingResearchFeedback]);
 
   const isInvulnerable =
     run.roomTransition.isTransitioning || run.gameplay.invulnerability.expiresAt !== null;
   const controlsDisabled =
-    run.gameplay.status !== 'active' || paused || run.roomTransition.isTransitioning || debugOpen;
+    run.gameplay.status !== 'active' ||
+    paused ||
+    run.roomTransition.isTransitioning ||
+    debugOpen ||
+    Boolean(run.pendingResearchFeedback);
   const enemiesRemaining = run.gameplay.enemies.rats.filter(
     (rat) => rat.health > 0 && rat.state !== 'corpse',
   ).length;
@@ -193,6 +205,13 @@ export function DungeonRunSession({
         onRestart={run.restartRun}
         onMainMenu={run.returnToMainMenuPreservingRun}
       />
+      {run.pendingResearchFeedback && (
+        <RoomFeedbackDialog
+          pending={run.pendingResearchFeedback}
+          onChange={run.updateResearchFeedback}
+          onFinalize={run.finalizeResearchFeedback}
+        />
+      )}
       {import.meta.env.DEV && run.debug && (
         <DebugDrawer
           open={debugOpen}

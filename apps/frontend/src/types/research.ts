@@ -67,6 +67,19 @@ export interface RoomResearchOutcome {
   fountainHealthAfter: number | null;
 }
 
+export interface ResearchRoomStartSnapshot {
+  researchSchemaVersion: 'research-1';
+  roomId: string;
+  roomDecisionId: string;
+  roomSequence: number;
+  enteredAtMs: number;
+  capturedAt: string;
+  healthBefore: number;
+  profileBefore: AdaptiveProfile;
+  performance: ResearchPerformanceSummary;
+  roomsClearedBefore: number;
+}
+
 export interface RoomResearchRecord {
   researchSchemaVersion: 'research-1';
   feedbackSchemaVersion: 'feedback-1';
