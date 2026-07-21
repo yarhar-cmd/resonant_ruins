@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { evaluationRooms } from '../data/rooms/evaluationRooms';
+import { NEUTRAL_ADAPTIVE_PROFILE } from '../services/playerProfileStorage';
 import { createRoomEnemyState } from './enemySystem';
+import { gameplayReducer } from './gameplayState';
+import { generateArchetypeRoomV3 } from './generatedRoomGeneratorV3';
+import { coordinateToGridPosition, findSafeSpawn } from './roomGeometry';
 import { createFreshRun } from './runLifecycle';
 import {
   formatDiagnosticTile,
@@ -76,9 +80,9 @@ describe('preview-safe Playtest Diagnostics selectors', () => {
     expect(snapshot.room).toMatchObject({
       number: 4,
       seed: 'authored-room',
-      gameVersion: 'mvp-0.2',
-      generatorVersion: 'generator-2',
-      adaptationVersion: 'rules-1',
+      gameVersion: 'mvp-0.3',
+      generatorVersion: 'generator-3',
+      adaptationVersion: 'rules-2',
       type: 'Awakening Chamber',
       mode: 'not applicable',
     });
@@ -120,7 +124,7 @@ describe('preview-safe Playtest Diagnostics selectors', () => {
     );
 
     expect(summary).toContain('Room 4 | seed authored-room');
-    expect(summary).toContain('game=mvp-0.2 generator=generator-2');
+    expect(summary).toContain('game=mvp-0.3 generator=generator-3');
     expect(summary).toContain('Player tile=1,5 facing=right');
     expect(summary).toContain(
       'Rat evaluation-room-04-rat-1 tile=9,5 facing=left awareness=alerted state=telegraphing',
@@ -128,5 +132,50 @@ describe('preview-safe Playtest Diagnostics selectors', () => {
     expect(summary).toContain('timers=475/0/0ms');
     expect(summary).toContain('bodyLockPreventions=2');
     expect(summary).not.toContain('localStorage');
+  });
+
+  it('reports every generated directional exit decision and its route distances', () => {
+    const generated = generateArchetypeRoomV3(
+      {
+        runSeed: 'diagnostic-topology',
+        dungeonRoomNumber: 10,
+        chosenExitId: 'diagnostic-entry',
+        entranceDirection: 'west',
+        experiencePreset: 'dungeon-veteran',
+        effectiveProfile: { ...NEUTRAL_ADAPTIVE_PROFILE, exploration: 1, pace: 0 },
+        mode: 'reinforce',
+        generatorVersion: 'generator-3',
+        adaptationVersion: 'rules-2',
+        gameVersion: 'mvp-0.3',
+      },
+      'open-arena',
+    );
+    const initial = createFreshRun({
+      maximumHealth: 6,
+      experiencePreset: 'dungeon-veteran',
+      startedAt: 1_000,
+      runId: 'diagnostic-topology-run',
+      runSeed: generated.runSeed,
+    });
+    const gameplay = gameplayReducer(initial, {
+      type: 'commit-room-transition',
+      destinationRoomId: generated.roomSnapshot.id,
+      destinationRoomIndex: 5,
+      destinationSpawn: coordinateToGridPosition(findSafeSpawn(generated.roomSnapshot, 'west')),
+      enteredFrom: 'west',
+      exitedAtMs: 2_000,
+      exitChoice: null,
+      evaluationComplete: true,
+      generatedRoom: generated,
+      chosenExitId: 'diagnostic-entry',
+      exitDirection: 'east',
+    });
+    const snapshot = selectPlaytestDiagnostics(gameplay, generated.roomSnapshot, 2_000);
+
+    expect(snapshot.room.availableExitIds).toEqual(
+      generated.roomSnapshot.exits.map((exit) => exit.id),
+    );
+    expect(snapshot.room.exitDecisions).toEqual(generated.details.exitDecisions);
+    expect(formatPlaytestDiagnosticSummary(snapshot)).toContain('safeDistance=');
   });
 });

@@ -1,4 +1,5 @@
 import { VERSION_INFO, type GeneratorVersion } from '../config/version';
+import type { DirectionalExitDecision } from '../types/generation';
 import type { GameplayState } from './gameplayState';
 import type { CardinalDirection } from '../types/player';
 import type { RatAwareness, RatState } from '../types/enemies';
@@ -31,7 +32,26 @@ export interface PlaytestDiagnosticsSnapshot {
     adaptationVersion: string;
     type: string;
     mode: string;
+    archetype: string;
+    boundaryFamily: string;
+    requestedCandidates: number;
+    validCandidates: number;
+    rejectedCandidates: number;
+    reducedDiversity: boolean;
+    fallbackUsed: boolean;
+    selectedCandidateRank: number | null;
+    selectedCandidateScore: number | null;
+    availableExitIds: string[];
+    availableExitDirections: string[];
+    exitDecisions: DirectionalExitDecision[];
+    chosenExitId: string | null;
+    chosenExitDirection: string | null;
+    previousEntranceDirection: string | null;
+    nextEntranceDirection: string | null;
+    mixedGeneratorProvenance: boolean;
   };
+  topology: RoomDefinition['topology'];
+  asciiMap: string;
   player: {
     position: TileCoordinate;
     facing: CardinalDirection;
@@ -83,6 +103,8 @@ export function selectPlaytestDiagnostics(
   const generated = gameplay.dungeonProgress?.currentRoom;
   const currentGeneratedRoom = generated?.roomSnapshot.id === room.id ? generated : null;
   const metrics = gameplay.enemies.combatMetrics;
+  const details = currentGeneratedRoom?.details;
+  const provenance = gameplay.dungeonProgress?.provenance;
 
   return {
     room: {
@@ -90,16 +112,42 @@ export function selectPlaytestDiagnostics(
         currentGeneratedRoom?.dungeonRoomNumber ??
         (gameplay.evaluationProgress ? gameplay.evaluationProgress.currentRoomIndex + 1 : 0),
       seed: currentGeneratedRoom?.roomSeed ?? 'authored-room',
-      gameVersion: VERSION_INFO.gameVersion,
-      generatorVersion: currentGeneratedRoom?.generatorVersion ?? VERSION_INFO.generatorVersion,
-      adaptationVersion: VERSION_INFO.adaptationVersion,
+      gameVersion:
+        currentGeneratedRoom?.gameVersion ?? provenance?.gameVersion ?? VERSION_INFO.gameVersion,
+      generatorVersion:
+        currentGeneratedRoom?.generatorVersion ??
+        provenance?.activeGeneratorVersion ??
+        VERSION_INFO.generatorVersion,
+      adaptationVersion:
+        currentGeneratedRoom?.adaptationVersion ??
+        provenance?.adaptationVersion ??
+        VERSION_INFO.adaptationVersion,
       type: currentGeneratedRoom
         ? `generated ${currentGeneratedRoom.details.shape}`
         : room.phase === 'evaluation'
           ? 'Awakening Chamber'
           : room.phase,
       mode: currentGeneratedRoom?.details.mode ?? 'not applicable',
+      archetype: details?.archetype ?? room.archetype ?? 'authored',
+      boundaryFamily: details?.boundaryFamily ?? room.boundaryFamily ?? 'authored',
+      requestedCandidates: details?.requestedCandidateCount ?? 0,
+      validCandidates: details?.validCandidateCount ?? 0,
+      rejectedCandidates: details?.rejectedCandidateCount ?? 0,
+      reducedDiversity: details?.reducedDiversity ?? false,
+      fallbackUsed: details?.fallbackUsed ?? false,
+      selectedCandidateRank: details?.selectedCandidateRank ?? null,
+      selectedCandidateScore: details?.selectedCandidateScore ?? null,
+      availableExitIds: room.exits.map((exit) => exit.id),
+      availableExitDirections: room.exits.map((exit) => exit.direction),
+      exitDecisions: details?.exitDecisions ?? [],
+      chosenExitId: gameplay.dungeonProgress?.lastChosenExitId ?? null,
+      chosenExitDirection: gameplay.dungeonProgress?.lastChosenExitDirection ?? null,
+      previousEntranceDirection: gameplay.dungeonProgress?.previousEntranceDirection ?? null,
+      nextEntranceDirection: gameplay.dungeonProgress?.nextEntranceDirection ?? null,
+      mixedGeneratorProvenance: gameplay.dungeonProgress?.provenance?.mixed ?? false,
     },
+    topology: room.topology,
+    asciiMap: formatAsciiRoom(room, gameplay),
     player: {
       position: playerPosition,
       facing: gameplay.player.facing,
@@ -152,6 +200,12 @@ export function formatPlaytestDiagnosticSummary(snapshot: PlaytestDiagnosticsSna
     `Player tile=${formatDiagnosticTile(snapshot.player.position)} facing=${snapshot.player.facing} shielding=${snapshot.player.shielding}`,
     `Combat started=${snapshot.combat.attacksStarted} landed=${snapshot.combat.attacksLanded} dodged=${snapshot.combat.attacksDodged} regularBlocks=${snapshot.combat.regularBlocks} perfectBlocks=${snapshot.combat.perfectBlocks}`,
     `Sword swings=${snapshot.combat.swordSwings} hits=${snapshot.combat.swordHits} playerDamage=${snapshot.combat.playerDamageTaken} bodyLockPreventions=${snapshot.combat.bodyLockPreventionActivations}`,
+    `Topology archetype=${snapshot.room.archetype} boundary=${snapshot.room.boundaryFamily} candidates=${snapshot.room.validCandidates}/${snapshot.room.requestedCandidates} rejected=${snapshot.room.rejectedCandidates} reduced=${snapshot.room.reducedDiversity} fallback=${snapshot.room.fallbackUsed}`,
+    `Directions available=${snapshot.room.availableExitDirections.join(',')} chosen=${snapshot.room.chosenExitDirection ?? 'none'} previousEntrance=${snapshot.room.previousEntranceDirection ?? 'none'} nextEntrance=${snapshot.room.nextEntranceDirection ?? 'none'} mixed=${snapshot.room.mixedGeneratorProvenance}`,
+    ...snapshot.room.exitDecisions.map(
+      (exit) =>
+        `Exit ${exit.exitId} direction=${exit.direction} distance=${exit.pathDistance} safeDistance=${exit.safePathDistance ?? 'none'} route=${exit.route}`,
+    ),
   ];
 
   for (const rat of snapshot.rats) {
@@ -160,5 +214,45 @@ export function formatPlaytestDiagnosticSummary(snapshot: PlaytestDiagnosticsSna
     );
   }
 
+  lines.push('ASCII ROOM', snapshot.asciiMap);
+
+  return lines.join('\n');
+}
+
+export function formatAsciiRoom(room: RoomDefinition, gameplay: GameplayState): string {
+  const floor = new Set(room.floorTiles.map(coordinateKey));
+  const outer = new Set((room.outerWallTiles ?? room.wallTiles ?? []).map(coordinateKey));
+  const internal = new Set((room.internalWallTiles ?? []).map(coordinateKey));
+  const runes = new Set((room.hazards ?? []).map(coordinateKey));
+  const rats = new Set(gameplay.enemies.rats.map((rat) => coordinateKey(rat.position)));
+  const player = coordinateKey(gridPositionToCoordinate(gameplay.player.position));
+  const exits = new Set(room.exits.map((exit) => coordinateKey(exit.tile)));
+  const entrance = room.entrance ? coordinateKey(room.entrance.tile) : '';
+  const lines: string[] = [];
+  for (let y = 0; y < room.height; y += 1) {
+    let line = '';
+    for (let x = 0; x < room.width; x += 1) {
+      const key = coordinateKey({ x, y });
+      line +=
+        key === player
+          ? 'P'
+          : rats.has(key)
+            ? 'R'
+            : runes.has(key)
+              ? '^'
+              : exits.has(key)
+                ? 'E'
+                : key === entrance
+                  ? 'S'
+                  : internal.has(key)
+                    ? 'W'
+                    : outer.has(key)
+                      ? '#'
+                      : floor.has(key)
+                        ? '.'
+                        : ' ';
+    }
+    lines.push(line.trimEnd());
+  }
   return lines.join('\n');
 }

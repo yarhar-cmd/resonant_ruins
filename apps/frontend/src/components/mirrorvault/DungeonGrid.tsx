@@ -17,7 +17,13 @@ import type { RoomDefinition, TileCoordinate } from '../../types/rooms';
 import type { EnemyRoomState } from '../../types/enemies';
 import { RAT_COMBAT_CONFIG } from '../../config/combat';
 import { positionsMatch } from '../../utils/playerActions';
-import { coordinateKey, findExitAt, getFloorLookup, getWallLookup } from '../../utils/roomGeometry';
+import {
+  coordinateKey,
+  findExitAt,
+  getFloorLookup,
+  getInternalWallLookup,
+  getWallLookup,
+} from '../../utils/roomGeometry';
 
 const legacyEnemies = new Set(['2-3', '3-5']);
 const MAX_ROOM_COLUMNS = 21;
@@ -74,6 +80,7 @@ export function DungeonGrid({
   );
   const floorLookup = room ? getFloorLookup(room) : null;
   const wallLookup = room ? getWallLookup(room) : null;
+  const internalWallLookup = room ? getInternalWallLookup(room) : null;
   const facingArrows: Record<CardinalDirection, string> = {
     up: '↑',
     down: '↓',
@@ -155,6 +162,7 @@ export function DungeonGrid({
               (candidate) => coordinateKey(candidate.position) === coordinateKey(coordinate),
             );
             const isWall = Boolean(wallLookup?.has(coordinateKey(coordinate)));
+            const isInternalWall = Boolean(internalWallLookup?.has(coordinateKey(coordinate)));
             const isFloor = Boolean(floorLookup?.has(coordinateKey(coordinate)));
             const isAttackTarget =
               status === 'active' && visibleAttack?.target
@@ -187,7 +195,9 @@ export function DungeonGrid({
                       ? 'exit-sealed'
                       : 'exit-closed'
                   : isWall
-                    ? 'wall'
+                    ? isInternalWall
+                      ? 'internal-wall'
+                      : 'wall'
                     : isFloor
                       ? 'floor'
                       : 'void'
@@ -203,7 +213,14 @@ export function DungeonGrid({
               .join(' ');
 
             return (
-              <span key={key} className={className} aria-hidden="true">
+              <span
+                key={key}
+                className={className}
+                data-tile-x={column}
+                data-tile-y={row}
+                data-tile-kind={kind}
+                aria-hidden="true"
+              >
                 {isPlayer && (
                   <span
                     className={[

@@ -11,6 +11,8 @@ import {
 } from '../../utils/roomGeometry';
 import { DungeonGrid } from './DungeonGrid';
 import { createRoomEnemyState } from '../../utils/enemySystem';
+import { NEUTRAL_ADAPTIVE_PROFILE } from '../../services/playerProfileStorage';
+import { generateArchetypeRoomV3 } from '../../utils/generatedRoomGeneratorV3';
 
 const bounds = { rows: 5, columns: 8 } as const;
 const basePlayer: PlayerState = {
@@ -429,6 +431,32 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.dungeon-grid-viewport')).toHaveAttribute(
       'data-maximum-rows',
       '15',
+    );
+  });
+
+  it('renders generator-3 void and internal structures as distinct solid tile layers', () => {
+    const request = {
+      runSeed: 'grid-topology',
+      dungeonRoomNumber: 10,
+      chosenExitId: 'grid-topology-exit',
+      entranceDirection: 'west' as const,
+      experiencePreset: 'dungeon-veteran' as const,
+      effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
+      mode: 'reinforce' as const,
+      generatorVersion: 'generator-3' as const,
+      adaptationVersion: 'rules-2' as const,
+      gameVersion: 'mvp-0.3' as const,
+    };
+    const lRoom = generateArchetypeRoomV3(request, 'true-l-ruin').roomSnapshot;
+    const { container, rerender } = render(dataDrivenGrid(lRoom));
+
+    expect(container.querySelectorAll('[data-tile-kind="void"]')).not.toHaveLength(0);
+    expect(container.querySelectorAll('[data-tile-kind="wall"]')).not.toHaveLength(0);
+
+    const ringRoom = generateArchetypeRoomV3(request, 'ring-route').roomSnapshot;
+    rerender(dataDrivenGrid(ringRoom));
+    expect(container.querySelectorAll('[data-tile-kind="internal-wall"]')).toHaveLength(
+      ringRoom.internalWallTiles?.length ?? 0,
     );
   });
 

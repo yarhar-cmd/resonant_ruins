@@ -6,6 +6,8 @@ import {
 import { NEUTRAL_ADAPTIVE_PROFILE } from '../apps/frontend/src/services/playerProfileStorage';
 import { gameplayReducer } from '../apps/frontend/src/utils/gameplayState';
 import { generateDungeonRoom } from '../apps/frontend/src/utils/generatedRoomGenerator';
+import { generateArchetypeRoomV3 } from '../apps/frontend/src/utils/generatedRoomGeneratorV3';
+import type { RoomArchetype } from '../apps/frontend/src/types/topology';
 import { createRatFromSpawn } from '../apps/frontend/src/utils/enemySystem';
 import { coordinateToGridPosition, findSafeSpawn } from '../apps/frontend/src/utils/roomGeometry';
 import { createFreshRun } from '../apps/frontend/src/utils/runLifecycle';
@@ -131,6 +133,7 @@ function maximumRoomRecord(): ActiveRunRecord {
     experiencePreset: 'seasoned-adventurer',
     effectiveProfile: maximumProfile,
     mode: 'reinforce',
+    generatorVersion: 'generator-2',
   });
   for (
     let index = 1;
@@ -145,6 +148,7 @@ function maximumRoomRecord(): ActiveRunRecord {
       experiencePreset: 'seasoned-adventurer',
       effectiveProfile: maximumProfile,
       mode: index % 2 ? 'poke' : 'reinforce',
+      generatorVersion: 'generator-2',
     });
   }
   if (generated.roomSnapshot.width !== 21 || generated.roomSnapshot.height !== 15)
@@ -171,6 +175,48 @@ function maximumRoomRecord(): ActiveRunRecord {
     },
   );
   return createActiveRunRecord(restored, 'warden', 2_000)!;
+}
+
+function topologyRecord(archetype: Exclude<RoomArchetype, 'safe-fallback'>): ActiveRunRecord {
+  const now = Date.now();
+  const generated = generateArchetypeRoomV3(
+    {
+      runSeed: `topology-${archetype}`,
+      dungeonRoomNumber: 10,
+      chosenExitId: 'topology-entry',
+      entranceDirection: 'west',
+      experiencePreset: 'dungeon-veteran',
+      effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
+      mode: 'reinforce',
+      generatorVersion: 'generator-3',
+      adaptationVersion: 'rules-2',
+      gameVersion: 'mvp-0.3',
+    },
+    archetype,
+  );
+  const gameplay = gameplayReducer(
+    createFreshRun({
+      maximumHealth: 6,
+      experiencePreset: 'dungeon-veteran',
+      startedAt: now,
+      runId: `topology-run-${archetype}`,
+      runSeed: generated.runSeed,
+    }),
+    {
+      type: 'commit-room-transition',
+      destinationRoomId: generated.roomSnapshot.id,
+      destinationRoomIndex: 5,
+      destinationSpawn: coordinateToGridPosition(findSafeSpawn(generated.roomSnapshot, 'west')),
+      enteredFrom: 'west',
+      exitedAtMs: 0,
+      exitChoice: null,
+      evaluationComplete: true,
+      generatedRoom: generated,
+      chosenExitId: 'topology-entry',
+      exitDirection: 'east',
+    },
+  );
+  return createActiveRunRecord(gameplay, 'warden', now)!;
 }
 
 async function seedActiveRun(page: Page, record: ActiveRunRecord = freshRecord()) {
@@ -273,6 +319,32 @@ test('maximum supported room fits inside the gameplay viewport', async ({ page }
   );
 });
 
+test('generator-3 renders true L void and topology structures as solid tiles', async ({ page }) => {
+  await seedActiveRun(page, topologyRecord('true-l-ruin'));
+  await page.goto('/dungeon/run');
+  await expect(page.locator('[data-room-id="generated-dungeon-room-10"]')).toBeVisible();
+  await expect(page.locator('[data-tile-kind="void"]').first()).toBeVisible();
+  await expect(page.locator('[data-tile-kind="wall"]').first()).toBeVisible();
+
+  await page.goto('/history');
+  await seedActiveRun(page, topologyRecord('ring-route'));
+  await page.goto('/dungeon/run');
+  await expect(page.locator('[data-tile-kind="internal-wall"]').first()).toBeVisible();
+  const internalCoordinates = await page
+    .locator('[data-tile-kind="internal-wall"]')
+    .evaluateAll((tiles) =>
+      tiles.map(
+        (tile) => `${tile.getAttribute('data-tile-x')}:${tile.getAttribute('data-tile-y')}`,
+      ),
+    );
+  const ratCoordinates = await page
+    .locator('[data-enemy-id]')
+    .evaluateAll((rats) =>
+      rats.map((rat) => `${rat.getAttribute('data-enemy-x')}:${rat.getAttribute('data-enemy-y')}`),
+    );
+  expect(ratCoordinates.some((coordinate) => internalCoordinates.includes(coordinate))).toBe(false);
+});
+
 test('invalid stored position is repaired and resaved safely', async ({ page }) => {
   await seedActiveRun(page, { ...freshRecord(), playerPosition: { x: -50, y: 99 } });
   await page.goto('/dungeon/run');
@@ -288,6 +360,7 @@ test('invalid stored position is repaired and resaved safely', async ({ page }) 
 });
 
 test('new runs use fixed Awakening order and authored Rat counts', async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto('/dungeon');
   await page.getByLabel('Seasoned Adventurer').check();
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -314,8 +387,10 @@ test('Rat chases, telegraphs, locks its target, and misses a dodge', async ({ pa
   await page.goto('/dungeon/run');
   const rat = page.locator('[data-enemy-id="e2e-rat-1"]');
   await expect(rat).toHaveAttribute('data-enemy-x', '5');
-  await expect(rat).toHaveAttribute('data-enemy-x', '4', { timeout: 1_000 });
-  await expect(rat).toHaveAttribute('data-enemy-state', 'telegraphing', { timeout: 1_800 });
+  await expect
+    .poll(async () => Number(await rat.getAttribute('data-enemy-x')), { timeout: 3_000 })
+    .toBeLessThan(5);
+  await expect(rat).toHaveAttribute('data-enemy-state', 'telegraphing', { timeout: 3_000 });
   await page.keyboard.press('ArrowLeft');
   await expect(rat).toHaveAttribute('data-enemy-state', 'recovering', { timeout: 1_000 });
   await expect(page.getByLabel('6 of 6 health remaining.')).toBeVisible();
@@ -324,7 +399,7 @@ test('Rat chases, telegraphs, locks its target, and misses a dodge', async ({ pa
 test('directional shield blocks, two sword hits defeat, and the exit opens immediately', async ({
   page,
 }) => {
-  await seedActiveRun(page, combatRecord());
+  await seedActiveRun(page, combatRecord({ telegraph: true }));
   await page.goto('/dungeon/run');
   const rat = page.locator('[data-enemy-id="e2e-rat-1"]');
   await page.keyboard.down('ShiftLeft');

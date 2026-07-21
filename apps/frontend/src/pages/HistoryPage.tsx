@@ -26,7 +26,12 @@ const experienceLabels: Record<StoredExperiencePreset, string> = {
   'dungeon-veteran': EXPERIENCE_PRESETS['dungeon-veteran'].label,
   unknown: 'Unknown Experience',
 };
-const clearFilters: RunArchiveFilters = { characterId: 'all', experiencePreset: 'all' };
+const clearFilters: RunArchiveFilters = {
+  characterId: 'all',
+  experiencePreset: 'all',
+  gameVersion: 'all',
+  generatorVersion: 'all',
+};
 
 export function HistoryPage() {
   const [loaded] = useState(loadRunArchive);
@@ -37,7 +42,12 @@ export function HistoryPage() {
     [filters, loaded.data],
   );
   const allRuns = Object.values(loaded.data.histories).flat();
-  const filtersActive = filters.characterId !== 'all' || filters.experiencePreset !== 'all';
+  const gameVersions = [...new Set(allRuns.map((run) => run.gameVersion))].sort();
+  const filtersActive =
+    filters.characterId !== 'all' ||
+    filters.experiencePreset !== 'all' ||
+    filters.gameVersion !== 'all' ||
+    filters.generatorVersion !== 'all';
   const bestBadges = new Map<string, string[]>();
   for (const [label, runId] of [
     ['Best Survival', view.best.bestTimeRunId],
@@ -101,6 +111,40 @@ export function HistoryPage() {
         <SecondaryButton disabled={!filtersActive} onClick={() => setFilters(clearFilters)}>
           Clear Filters
         </SecondaryButton>
+        <label>
+          Game version
+          <select
+            value={filters.gameVersion}
+            onChange={(event) =>
+              setFilters((current) => ({ ...current, gameVersion: event.target.value }))
+            }
+          >
+            <option value="all">All</option>
+            {gameVersions.map((version) => (
+              <option key={version} value={version}>
+                {version}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Generator
+          <select
+            value={filters.generatorVersion}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                generatorVersion: event.target.value as RunArchiveFilters['generatorVersion'],
+              }))
+            }
+          >
+            <option value="all">All</option>
+            <option value="generator-1">generator-1</option>
+            <option value="generator-2">generator-2</option>
+            <option value="generator-3">generator-3</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </label>
       </div>
 
       <section className="best-runs" aria-labelledby="best-runs-title">
@@ -152,6 +196,13 @@ export function HistoryPage() {
                   <p className="eyebrow">{new Date(run.endedAt).toLocaleString()}</p>
                   <h3>{characterLabels[run.characterId]}</h3>
                   <p>{experienceLabels[run.experiencePreset]}</p>
+                  <p>
+                    {run.gameVersion} ·{' '}
+                    {run.generatorVersions.length
+                      ? run.generatorVersions.join(' + ')
+                      : 'unknown generator'}
+                    {run.mixedGeneratorProvenance ? ' · mixed provenance' : ''}
+                  </p>
                 </header>
                 <dl>
                   <div>
