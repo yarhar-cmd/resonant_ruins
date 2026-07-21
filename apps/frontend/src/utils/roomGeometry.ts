@@ -95,7 +95,29 @@ export function getFloorLookup(room: RoomDefinition): ReadonlySet<string> {
 }
 
 export function getWallLookup(room: RoomDefinition): ReadonlySet<string> {
-  return new Set((room.wallTiles ?? []).map(coordinateKey));
+  if (!room.outerWallTiles && !room.internalWallTiles)
+    return new Set((room.wallTiles ?? []).map(coordinateKey));
+  const walls = new Set<string>();
+  for (const tile of room.outerWallTiles ?? []) walls.add(coordinateKey(tile));
+  for (const tile of room.internalWallTiles ?? []) walls.add(coordinateKey(tile));
+  return walls;
+}
+
+export function getOuterWallLookup(room: RoomDefinition): ReadonlySet<string> {
+  return new Set((room.outerWallTiles ?? room.wallTiles ?? []).map(coordinateKey));
+}
+
+export function getInternalWallLookup(room: RoomDefinition): ReadonlySet<string> {
+  return new Set((room.internalWallTiles ?? []).map(coordinateKey));
+}
+
+export function getBlockingFeatureLookup(room: RoomDefinition): ReadonlySet<string> {
+  if (!room.features?.length) return new Set();
+  return new Set(
+    room.features
+      .filter((feature) => feature.blocking)
+      .map((feature) => coordinateKey(feature.tile)),
+  );
 }
 
 export function findExitAt(room: RoomDefinition, coordinate: TileCoordinate): RoomExit | null {
@@ -118,6 +140,7 @@ export function isWalkableCoordinate(
   if (!isCoordinateInRoom(room, coordinate)) return false;
   if (!getFloorLookup(room).has(coordinateKey(coordinate))) return false;
   if (getWallLookup(room).has(coordinateKey(coordinate))) return false;
+  if (getBlockingFeatureLookup(room).has(coordinateKey(coordinate))) return false;
   const exit = findExitAt(room, coordinate);
   return !exit || isExitConditionMet(exit, livingEnemyCount);
 }

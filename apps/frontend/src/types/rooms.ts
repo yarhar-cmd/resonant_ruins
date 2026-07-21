@@ -37,12 +37,22 @@ export interface RoomDefinition {
   height: number;
   floorTiles: TileCoordinate[];
   wallTiles?: TileCoordinate[];
+  /** Canonical generator-3 outer boundary. Legacy rooms use wallTiles. */
+  outerWallTiles?: TileCoordinate[];
+  /** Canonical generator-3 permanent structures. */
+  internalWallTiles?: TileCoordinate[];
   exits: RoomExit[];
   spawnPoints?: Partial<Record<ExitDirection, TileCoordinate>>;
   hazards?: TileCoordinate[];
   entrance?: { direction: ExitDirection; tile: TileCoordinate };
-  shape?: 'rectangle' | 'l-shape';
+  shape?: 'rectangle' | 'l-shape' | 'irregular';
   enemySpawns?: EnemySpawnDefinition[];
+  featureSchemaVersion?: 1;
+  features?: RoomFeature[];
+  archetype?: RoomArchetype;
+  boundaryFamily?: BoundaryFamily;
+  boundaryModifiers?: string[];
+  topology?: TopologyMetrics;
 }
 
 export interface EvaluationExitChoice {
@@ -64,3 +74,4 @@ export interface EvaluationProgress {
   exitChoices: EvaluationExitChoice[];
   evaluationComplete: boolean;
 }
+import type { BoundaryFamily, RoomArchetype, RoomFeature, TopologyMetrics } from './topology';

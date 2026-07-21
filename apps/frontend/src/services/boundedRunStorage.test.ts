@@ -36,6 +36,9 @@ describe('Resonant Ruins bounded active-run storage', () => {
         experiencePreset: 'seasoned-adventurer',
         effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
         mode: roomNumber % 2 === 0 ? 'poke' : 'reinforce',
+        gameVersion: 'mvp-0.2',
+        generatorVersion: 'generator-2',
+        adaptationVersion: 'rules-1',
       });
       state = {
         ...state,

@@ -57,6 +57,7 @@ import {
   playerStaticEscapeTiles,
 } from './enemySystem';
 import { coordinateKey } from './roomGeometry';
+import { VERSION_INFO, type AdaptationVersion, type GeneratorVersion } from '../config/version';
 
 export const INVULNERABILITY_DURATION_MS = PLAYER_DAMAGE_INVULNERABILITY_MS;
 export const ATTACK_COOLDOWN_MS = 400;
@@ -143,6 +144,8 @@ export type GameplayAction =
       longTermProfile?: AdaptiveProfile;
       runSeed?: string;
       enemies?: EnemyRoomState;
+      generatorVersion?: GeneratorVersion;
+      adaptationVersion?: AdaptationVersion;
     }
   | { type: 'reset-room' }
   | { type: 'reset-to-idle'; maximumHealth: number }
@@ -867,6 +870,75 @@ function completeRoomSignals(
   };
 }
 
+function updateGenerationProvenance(
+  current: DungeonProgress['provenance'],
+  nextGenerator: GeneratorVersion,
+  nextAdaptation: AdaptationVersion,
+  roomNumber: number,
+): DungeonProgress['provenance'] {
+  const existing = current ?? {
+    gameVersion: 'unknown' as const,
+    adaptationVersion: nextAdaptation,
+    startingGeneratorVersion: nextGenerator,
+    activeGeneratorVersion: nextGenerator,
+    mixed: false,
+    transitions: [],
+  };
+  if (existing.activeGeneratorVersion === nextGenerator) {
+    return { ...existing, adaptationVersion: nextAdaptation };
+  }
+  return {
+    ...existing,
+    adaptationVersion: nextAdaptation,
+    activeGeneratorVersion: nextGenerator,
+    mixed: true,
+    transitions: [
+      ...existing.transitions,
+      {
+        roomNumber,
+        from: existing.activeGeneratorVersion,
+        to: nextGenerator,
+        reason:
+          existing.activeGeneratorVersion === 'generator-1'
+            ? 'generator-1-continuation'
+            : 'version-migration',
+      },
+    ],
+  };
+}
+
+function createRoomDecisionRecord(
+  room: GeneratedRoomSave,
+  chosenExitId: string,
+  chosenExitDirection: ExitDirection,
+  nextEntranceDirection: ExitDirection,
+): NonNullable<DungeonProgress['recentDecisionRecords']>[number] {
+  return {
+    roomNumber: room.dungeonRoomNumber,
+    roomId: room.roomSnapshot.id,
+    gameVersion: room.gameVersion ?? 'unknown',
+    generatorVersion: room.generatorVersion,
+    adaptationVersion: room.adaptationVersion ?? 'rules-1',
+    archetype: room.details.archetype ?? room.roomSnapshot.archetype ?? 'legacy',
+    featureSchemaVersion: room.details.featureSchemaVersion ?? 0,
+    selectedCandidateId: room.details.selectedCandidateId ?? null,
+    selectedRank: room.details.selectedCandidateRank ?? null,
+    selectedScore: room.details.selectedCandidateScore ?? null,
+    seededSelectionRoll: room.details.seededSelectionRoll ?? null,
+    topCandidates: room.details.topCandidates ?? [],
+    rejectionCounts: room.details.rejectionCounts ?? {},
+    validCandidateCount: room.details.validCandidateCount ?? 1,
+    reducedDiversity: room.details.reducedDiversity ?? false,
+    availableExitIds: room.roomSnapshot.exits.map((exit) => exit.id),
+    availableExitDirections: room.roomSnapshot.exits.map((exit) => exit.direction),
+    chosenExitId,
+    chosenExitDirection,
+    previousEntranceDirection: room.details.entranceDirection,
+    nextEntranceDirection,
+    exitDecisions: room.details.exitDecisions ?? [],
+  };
+}
+
 export function gameplayReducer(state: GameplayState, action: GameplayAction): GameplayState {
   if (action.type === 'start-run') {
     const evaluationProgress =
@@ -900,6 +972,20 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
         chosenExitIds: [],
         pokeCooldown: 0,
         previousMode: null,
+        provenance: {
+          gameVersion: VERSION_INFO.gameVersion,
+          adaptationVersion: action.adaptationVersion ?? VERSION_INFO.adaptationVersion,
+          startingGeneratorVersion: action.generatorVersion ?? VERSION_INFO.generatorVersion,
+          activeGeneratorVersion: action.generatorVersion ?? VERSION_INFO.generatorVersion,
+          mixed: false,
+          transitions: [],
+        },
+        lastChosenExitId: null,
+        lastChosenExitDirection: null,
+        previousEntranceDirection: null,
+        nextEntranceDirection: null,
+        recentDecisionRecords: [],
+        completedDecisionCount: 0,
       },
       adaptation,
       enemies,
@@ -1232,6 +1318,42 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
           : state.dungeonProgress.chosenExitIds,
         pokeCooldown: action.nextPokeCooldown ?? state.dungeonProgress.pokeCooldown,
         previousMode: action.nextMode ?? state.dungeonProgress.previousMode,
+        provenance: action.generatedRoom
+          ? updateGenerationProvenance(
+              state.dungeonProgress.provenance,
+              action.generatedRoom.generatorVersion,
+              action.generatedRoom.adaptationVersion ?? 'rules-1',
+              action.generatedRoom.dungeonRoomNumber,
+            )
+          : state.dungeonProgress.provenance,
+        lastChosenExitId: action.chosenExitId ?? state.dungeonProgress.lastChosenExitId,
+        lastChosenExitDirection:
+          action.exitDirection ?? state.dungeonProgress.lastChosenExitDirection,
+        previousEntranceDirection: action.generatedRoom
+          ? (state.dungeonProgress.currentRoom?.details.entranceDirection ??
+            state.evaluationProgress.enteredFrom)
+          : state.dungeonProgress.previousEntranceDirection,
+        nextEntranceDirection: action.generatedRoom
+          ? action.enteredFrom
+          : state.dungeonProgress.nextEntranceDirection,
+        recentDecisionRecords:
+          state.dungeonProgress.currentRoom &&
+          action.generatedRoom &&
+          action.chosenExitId &&
+          action.exitDirection
+            ? [
+                ...(state.dungeonProgress.recentDecisionRecords ?? []),
+                createRoomDecisionRecord(
+                  state.dungeonProgress.currentRoom,
+                  action.chosenExitId,
+                  action.exitDirection,
+                  action.enteredFrom,
+                ),
+              ].slice(-5)
+            : state.dungeonProgress.recentDecisionRecords,
+        completedDecisionCount:
+          (state.dungeonProgress.completedDecisionCount ?? 0) +
+          (state.dungeonProgress.currentRoom && action.generatedRoom ? 1 : 0),
       },
       adaptation,
       enemies,

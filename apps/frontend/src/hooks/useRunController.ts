@@ -23,7 +23,11 @@ import { getStorageDiagnostics } from '../services/storageDiagnostics';
 import type { AdaptiveProfile, PlayerProfileRecord } from '../types/adaptation';
 import type { GridPosition } from '../types/player';
 import type { RoomDefinition, RoomExit } from '../types/rooms';
-import { getEffectiveProfile, updateLongTermProfile } from '../utils/adaptiveProfile';
+import {
+  getEffectiveProfileV1,
+  getEffectiveProfileV2,
+  updateLongTermProfile,
+} from '../utils/adaptiveProfile';
 import { generateDungeonRoom, oppositeExitDirection } from '../utils/generatedRoomGenerator';
 import { chooseGeneratedRoomMode } from '../utils/generatedRoomParameters';
 import {
@@ -178,12 +182,24 @@ export function useRunController(initialRecord: ActiveRunRecord) {
         timeSurvivedMs: timeSurvived,
         dungeonRoomsCleared,
         enemiesDefeated,
+        gameVersion: gameplay.dungeonProgress?.provenance?.gameVersion ?? 'unknown',
+        generatorVersions: gameplay.dungeonProgress?.provenance
+          ? [
+              gameplay.dungeonProgress.provenance.startingGeneratorVersion,
+              gameplay.dungeonProgress.provenance.activeGeneratorVersion,
+            ]
+          : [],
+        adaptationVersions: gameplay.dungeonProgress?.provenance
+          ? [gameplay.dungeonProgress.provenance.adaptationVersion]
+          : [],
+        mixedGeneratorProvenance: gameplay.dungeonProgress?.provenance?.mixed ?? false,
       }),
     );
     if (result.issue === 'invalid') setStorageWarning(RUN_STORAGE_INVALID_WARNING);
     if (result.issue === 'unavailable' || result.issue === 'write-failed')
       setStorageWarning(RUN_STORAGE_WARNING);
   }, [
+    gameplay.dungeonProgress,
     gameplay.experiencePreset,
     gameplay.pause.totalPausedMs,
     gameplay.runStats,
@@ -245,7 +261,13 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       previousMode: dungeon.previousMode,
       pokeCooldown: dungeon.pokeCooldown,
     });
-    const effectiveProfile = getEffectiveProfile(longTermProfile, profile, dungeonRoomNumber);
+    const pinnedGenerator = dungeon.provenance?.activeGeneratorVersion ?? 'generator-2';
+    const generatorVersion = pinnedGenerator === 'generator-1' ? 'generator-2' : pinnedGenerator;
+    const adaptationVersion = generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1';
+    const effectiveProfile =
+      adaptationVersion === 'rules-2'
+        ? getEffectiveProfileV2(longTermProfile, profile)
+        : getEffectiveProfileV1(longTermProfile, profile, dungeonRoomNumber);
     const entranceDirection = oppositeExitDirection(exit.direction);
     const generatedRoom = generateDungeonRoom({
       runSeed: dungeon.runSeed,
@@ -255,6 +277,9 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       experiencePreset: gameplay.experiencePreset!,
       effectiveProfile,
       mode: scheduled.mode,
+      generatorVersion,
+      adaptationVersion,
+      gameVersion: generatorVersion === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
     });
     rememberRoom(roomSnapshotsRef.current, generatedRoom.roomSnapshot);
     return { generatedRoom, entranceDirection, scheduled, effectiveProfile };

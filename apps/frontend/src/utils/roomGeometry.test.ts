@@ -68,6 +68,29 @@ describe('Resonant Ruins room geometry', () => {
     expect(isWalkableCoordinate(placeholderDungeonRoom, { x: 16, y: 6 })).toBe(false);
   });
 
+  it('treats versioned blocking features as solid without hard-coding a feature kind', () => {
+    const room = createRectangularRoom({
+      id: 'feature-geometry-room',
+      phase: 'dungeon',
+      width: 7,
+      height: 5,
+      exitEnabled: true,
+    });
+    room.featureSchemaVersion = 1;
+    room.features = [
+      { id: 'solid-feature', kind: 'future-solid-feature', tile: { x: 3, y: 2 }, blocking: true },
+      {
+        id: 'decorative-feature',
+        kind: 'future-decorative-feature',
+        tile: { x: 4, y: 2 },
+        blocking: false,
+      },
+    ];
+
+    expect(isWalkableCoordinate(room, { x: 3, y: 2 })).toBe(false);
+    expect(isWalkableCoordinate(room, { x: 4, y: 2 })).toBe(true);
+  });
+
   it('requires a second eastward step from the doorway before crossing', () => {
     const room = evaluationRooms[0]!;
     const exit = room.exits[0]!;

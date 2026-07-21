@@ -252,13 +252,29 @@ export function getAdaptationStrength(dungeonRoomNumber: number): number {
   return 1;
 }
 
-export function getEffectiveProfile(
+export function getEffectiveProfileV1(
   longTerm: AdaptiveProfile,
   currentRun: AdaptiveProfile,
   dungeonRoomNumber: number,
 ): AdaptiveProfile {
   const learned = blendProfiles(longTerm, currentRun, 0.5);
   return blendProfiles(NEUTRAL_ADAPTIVE_PROFILE, learned, getAdaptationStrength(dungeonRoomNumber));
+}
+
+/** Rules-2 uses depth only for content availability; trait strength is depth-independent. */
+export function getEffectiveProfileV2(
+  longTerm: AdaptiveProfile,
+  currentRun: AdaptiveProfile,
+): AdaptiveProfile {
+  return blendProfiles(longTerm, currentRun, 0.5);
+}
+
+export function getEffectiveProfile(
+  longTerm: AdaptiveProfile,
+  currentRun: AdaptiveProfile,
+  dungeonRoomNumber: number,
+): AdaptiveProfile {
+  return getEffectiveProfileV1(longTerm, currentRun, dungeonRoomNumber);
 }
 
 export function subtractSignals(
