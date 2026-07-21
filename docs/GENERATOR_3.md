@@ -30,11 +30,22 @@ rejection counts, and a bounded five-record decision history. It does not contai
 - `floorTiles` is the exact reachable floor mask, including door tiles.
 - `outerWallTiles` is derived from adjacency to that floor mask, not a bounding rectangle.
 - `internalWallTiles` represents pillars, dividers, and loop centers inside the boundary.
-- `features` is a versioned generic blocking/decorative extension point.
+- `features` is a versioned blocking/decorative layer containing Restoration Fountains and
+  deterministic decorative torches.
 - `hazards` and `enemySpawns` remain separate gameplay layers.
 - `topology` stores derived metrics used for validation and diagnostics.
 
-The feature extension point does not implement a Fountain, healing, or any new gameplay object.
+Generated Restoration Fountains are optional and limited to one. Candidate placement excludes
+walls, void, runes, Rat spawns, entrances, exits, and articulation points; requires a reachable
+cardinal interaction tile; and reruns complete generator-3 validation with the Fountain treated as
+solid. Safe placement favors rune/Rat distance and multiple interaction sides. Risky placement may
+favor optional distance while remaining safely reachable. Wall-integrated and freestanding variants
+share identical collision and interaction rules.
+
+Recovery selection is a bounded seeded rule system. Inputs are health deficit, recent generated-room
+damage, damage streak, generated-Fountain drought, skipped state, recent combat pressure, experience
+preset, and profile traits. Depth is not an input. A generated spawn suppresses the next two
+generated rooms; the authored Awakening Chamber 3 Fountain never starts or extends this cooldown.
 
 ## Archetypes
 

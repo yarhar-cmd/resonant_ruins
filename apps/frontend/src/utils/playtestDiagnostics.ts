@@ -6,6 +6,7 @@ import type { RatAwareness, RatState } from '../types/enemies';
 import type { RoomDefinition, TileCoordinate } from '../types/rooms';
 import { coordinateKey, gridPositionToCoordinate } from './roomGeometry';
 import { playerLegalEscapeTiles } from './enemySystem';
+import { getRestorationFountains } from './interactions';
 
 export interface PlaytestRatDiagnostic {
   id: string;
@@ -79,6 +80,29 @@ export interface PlaytestDiagnosticsSnapshot {
     combatDurationMs: number;
   };
   rats: PlaytestRatDiagnostic[];
+  fountain: {
+    spawned: boolean;
+    source: 'authored' | 'generated' | 'none';
+    reasons: string[];
+    probability: number | null;
+    roll: number | null;
+    cooldown: number;
+    placementStyle: string;
+    coordinate: TileCoordinate | null;
+    variant: string;
+    interactionTiles: TileCoordinate[];
+    depleted: boolean;
+    combatLock: boolean;
+    channelStatus: string;
+    channelRemainingMs: number;
+    cancellationReason: string;
+  };
+  effects: {
+    setting: 'full' | 'reduced' | 'off';
+    reducedMotion: boolean;
+    effectiveMode: 'full' | 'reduced' | 'off';
+  };
+  sandbox: { mode: 'normal'; persistenceGuardsActive: false };
 }
 
 export function remainingDiagnosticTime(deadline: number | null, now: number): number {
@@ -94,6 +118,8 @@ export function selectPlaytestDiagnostics(
   room: RoomDefinition,
   now: number,
   transitionInvulnerable = false,
+  effectsSetting: 'full' | 'reduced' | 'off' = 'full',
+  reducedMotion = false,
 ): PlaytestDiagnosticsSnapshot {
   const playerPosition = gridPositionToCoordinate(gameplay.player.position);
   const livingRats = gameplay.enemies.rats.filter(
@@ -105,6 +131,8 @@ export function selectPlaytestDiagnostics(
   const metrics = gameplay.enemies.combatMetrics;
   const details = currentGeneratedRoom?.details;
   const provenance = gameplay.dungeonProgress?.provenance;
+  const fountain = getRestorationFountains(room)[0];
+  const recovery = details?.recoveryDecision;
 
   return {
     room: {
@@ -189,6 +217,33 @@ export function selectPlaytestDiagnostics(
       pathBlocked: rat.pathBlocked,
       bodyLockPreventionApplied: rat.bodyLockPreventionApplied,
     })),
+    fountain: {
+      spawned: Boolean(fountain),
+      source: fountain?.source ?? 'none',
+      reasons:
+        recovery?.reasons ?? (fountain?.source === 'authored' ? ['authored-introduction'] : []),
+      probability: recovery?.probability ?? null,
+      roll: recovery?.roll ?? null,
+      cooldown: gameplay.dungeonProgress?.recovery?.cooldownRemaining ?? 0,
+      placementStyle: fountain?.placementStyle ?? 'none',
+      coordinate: fountain?.tile ?? null,
+      variant: fountain?.variant ?? 'none',
+      interactionTiles: fountain?.interactionTiles ?? [],
+      depleted: fountain ? Boolean(gameplay.interactables[fountain.id]?.depleted) : false,
+      combatLock: livingRats.some((rat) => rat.awareness === 'alerted'),
+      channelStatus: gameplay.interaction.status,
+      channelRemainingMs:
+        gameplay.interaction.status === 'channeling'
+          ? remainingDiagnosticTime(gameplay.interaction.deadline, now)
+          : gameplay.interaction.remainingMs,
+      cancellationReason: gameplay.interaction.cancellationReason ?? 'none',
+    },
+    effects: {
+      setting: effectsSetting,
+      reducedMotion,
+      effectiveMode: effectsSetting === 'off' ? 'off' : reducedMotion ? 'reduced' : effectsSetting,
+    },
+    sandbox: { mode: 'normal', persistenceGuardsActive: false },
   };
 }
 
@@ -202,6 +257,8 @@ export function formatPlaytestDiagnosticSummary(snapshot: PlaytestDiagnosticsSna
     `Sword swings=${snapshot.combat.swordSwings} hits=${snapshot.combat.swordHits} playerDamage=${snapshot.combat.playerDamageTaken} bodyLockPreventions=${snapshot.combat.bodyLockPreventionActivations}`,
     `Topology archetype=${snapshot.room.archetype} boundary=${snapshot.room.boundaryFamily} candidates=${snapshot.room.validCandidates}/${snapshot.room.requestedCandidates} rejected=${snapshot.room.rejectedCandidates} reduced=${snapshot.room.reducedDiversity} fallback=${snapshot.room.fallbackUsed}`,
     `Directions available=${snapshot.room.availableExitDirections.join(',')} chosen=${snapshot.room.chosenExitDirection ?? 'none'} previousEntrance=${snapshot.room.previousEntranceDirection ?? 'none'} nextEntrance=${snapshot.room.nextEntranceDirection ?? 'none'} mixed=${snapshot.room.mixedGeneratorProvenance}`,
+    `Fountain spawned=${snapshot.fountain.spawned} source=${snapshot.fountain.source} tile=${formatDiagnosticTile(snapshot.fountain.coordinate)} style=${snapshot.fountain.placementStyle} variant=${snapshot.fountain.variant} depleted=${snapshot.fountain.depleted} channel=${snapshot.fountain.channelStatus}/${snapshot.fountain.channelRemainingMs}ms cancel=${snapshot.fountain.cancellationReason}`,
+    `Effects setting=${snapshot.effects.setting} reducedMotion=${snapshot.effects.reducedMotion} effective=${snapshot.effects.effectiveMode}`,
     ...snapshot.room.exitDecisions.map(
       (exit) =>
         `Exit ${exit.exitId} direction=${exit.direction} distance=${exit.pathDistance} safeDistance=${exit.safePathDistance ?? 'none'} route=${exit.route}`,
@@ -228,6 +285,17 @@ export function formatAsciiRoom(room: RoomDefinition, gameplay: GameplayState): 
   const player = coordinateKey(gridPositionToCoordinate(gameplay.player.position));
   const exits = new Set(room.exits.map((exit) => coordinateKey(exit.tile)));
   const entrance = room.entrance ? coordinateKey(room.entrance.tile) : '';
+  const fountains = new Map(
+    getRestorationFountains(room).map((feature) => [
+      coordinateKey(feature.tile),
+      gameplay.interactables[feature.id]?.depleted ? 'f' : 'F',
+    ]),
+  );
+  const torches = new Set(
+    (room.features ?? [])
+      .filter((feature) => feature.kind === 'ruin-torch')
+      .map((feature) => coordinateKey(feature.tile)),
+  );
   const lines: string[] = [];
   for (let y = 0; y < room.height; y += 1) {
     let line = '';
@@ -236,21 +304,25 @@ export function formatAsciiRoom(room: RoomDefinition, gameplay: GameplayState): 
       line +=
         key === player
           ? 'P'
-          : rats.has(key)
-            ? 'R'
-            : runes.has(key)
-              ? '^'
-              : exits.has(key)
-                ? 'E'
-                : key === entrance
-                  ? 'S'
-                  : internal.has(key)
-                    ? 'W'
-                    : outer.has(key)
-                      ? '#'
-                      : floor.has(key)
-                        ? '.'
-                        : ' ';
+          : fountains.has(key)
+            ? fountains.get(key)!
+            : torches.has(key)
+              ? 'T'
+              : rats.has(key)
+                ? 'R'
+                : runes.has(key)
+                  ? '^'
+                  : exits.has(key)
+                    ? 'E'
+                    : key === entrance
+                      ? 'S'
+                      : internal.has(key)
+                        ? 'W'
+                        : outer.has(key)
+                          ? '#'
+                          : floor.has(key)
+                            ? '.'
+                            : ' ';
     }
     lines.push(line.trimEnd());
   }

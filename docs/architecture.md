@@ -338,7 +338,7 @@ The local frontend now separates three persistence lifetimes:
   long-term adaptive traits, and confidence metadata.
 - `activeRunStorage.ts` owns volatile per-run signals, current-run/effective profiles, the run seed,
   poke cooldown, authored Chamber analytics, dungeon-only room count, player state, and the exact
-  current generated-room snapshot. Schema version 7 stores generator provenance, cardinal entrance
+  current generated-room snapshot. Schema version 8 stores generator provenance, cardinal entrance
   and chosen-exit directions, and a bounded five-record compact decision history. It stores only the
   selected full layout plus top-three feature summaries and aggregate rejection counts; rejected
   floor masks are never persisted.
@@ -388,7 +388,17 @@ topology and preserves the effective five-path-tile generated spawn minimum.
 as `rules-2`; telemetry schema remains `1`. Existing generator-2 runs continue under generator-2.
 Legacy generator-1 current rooms restore unchanged, with a recorded transition to generator-2 for
 future rooms. This intentionally allows mixed-provenance archives without relabeling old layouts.
-Fountain gameplay and healing are not present; the feature schema is only an extension point.
+The generic feature layer includes solid Restoration Fountains and non-blocking deterministic
+torches. `types/interactions.ts` defines the reusable contract; `utils/interactions.ts` owns
+deterministic adjacent-facing discovery; and `gameplayState.ts` owns channel start, pause shifting,
+cancellation, idempotent completion, one-HP restoration, and depleted runtime state.
+`config/recovery.ts` and `recoverySelection.ts` own the bounded rule-based recovery selector. This
+is deterministic adaptive rules logic, not machine learning.
+
+Active-run schema v8 stores remaining channel duration rather than a wall-clock deadline, restores
+only a still-valid channel, and migrates schema v7 with safe defaults. Fountain tiles use the
+existing blocking-feature lookup, so player movement, Rat BFS, topology paths, body-lock analysis,
+and sword collision share one physical rule. Full validation runs after placement.
 
 The dungeon has two route boundaries. `/dungeon` uses the normal website shell and contains only
 experience selection and run setup. `/dungeon/run` uses `GameShell` without the website header,
@@ -412,6 +422,12 @@ versions; persisted storage-envelope versions remain owned by their storage modu
 govern migrations.
 `import.meta.env.DEV` removes the Debug boundary from production, and the post-build
 production-safety scanner verifies emitted JavaScript and CSS.
+
+Topology Lab gating follows the same compile-time boundary. Local `vite serve` enables the Lab;
+Vercel Preview requires exact preview metadata plus `VITE_ENABLE_TOPOLOGY_LAB=true`; production
+builds eliminate the lazy route and navigation. The Lab holds room mutations in component memory
+and imports no normal persistence writer, providing one sandbox boundary rather than scattered
+gameplay conditionals. User Visual Effects settings remain the only shared mutable preference.
 
 Preview diagnostics are deliberately separate from `DebugTools`. `config/buildEnvironment.ts`
 requires both Vercel's exact `VERCEL_ENV=preview` marker and the exact public flag

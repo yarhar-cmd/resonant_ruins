@@ -19,8 +19,21 @@ full rejected masks.
 
 Existing `generator-2` runs remain generator-2. A restored `generator-1` room is preserved exactly,
 then future generation transitions explicitly to generator-2. Run History identifies mixed
-generator provenance. Fountain gameplay is not implemented in this checkpoint; the room model only
-adds a generic, versioned blocking/decorative feature boundary for later content.
+generator provenance.
+
+Checkpoint 3 adds a reusable KeyE interaction contract and reducer-owned channel state. Restoration
+Fountains are optional, single-use, solid features that restore exactly one HP after a 700 ms
+channel when the player is adjacent, facing the feature, below maximum health, and no living Rat is
+alerted. Movement, turn-away, attack, shield, damage, Rat alert, defeat, transition, or invalid state
+cancels; pause preserves remaining time. Awakening Chamber 3 contains the authored introduction.
+
+Generated recovery uses a deterministic bounded multi-signal selector, safe/risky placement scoring,
+and a two-generated-room cooldown. Depth unlocks content but does not alter recovery probability.
+Active-run schema v8 migrates v7 saves and stores Fountain runtime/channel state. History has
+character, experience, game-version, and generator-version filters plus an accessible recent-History
+clear operation that preserves bests and unrelated local data. Visual Effects offers Full, Reduced,
+and Off. Local development and explicitly enabled Vercel Preview builds include an isolated in-memory
+Topology Lab; production does not.
 
 ## Current implementation update: Rat Combat & Kiting v0.2
 

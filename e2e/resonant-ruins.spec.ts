@@ -9,6 +9,7 @@ import { generateDungeonRoom } from '../apps/frontend/src/utils/generatedRoomGen
 import { generateArchetypeRoomV3 } from '../apps/frontend/src/utils/generatedRoomGeneratorV3';
 import type { RoomArchetype } from '../apps/frontend/src/types/topology';
 import { createRatFromSpawn } from '../apps/frontend/src/utils/enemySystem';
+import { emptyEnemyRoomState } from '../apps/frontend/src/utils/enemySystem';
 import { coordinateToGridPosition, findSafeSpawn } from '../apps/frontend/src/utils/roomGeometry';
 import { createFreshRun } from '../apps/frontend/src/utils/runLifecycle';
 import { evaluationRooms } from '../apps/frontend/src/data/rooms/evaluationRooms';
@@ -219,6 +220,66 @@ function topologyRecord(archetype: Exclude<RoomArchetype, 'safe-fallback'>): Act
   return createActiveRunRecord(gameplay, 'warden', now)!;
 }
 
+function fountainRecord({
+  currentHealth = 5,
+  alertedRat = false,
+}: {
+  currentHealth?: number;
+  alertedRat?: boolean;
+} = {}): ActiveRunRecord {
+  const now = Date.now();
+  const room = evaluationRooms[2]!;
+  const enemies = emptyEnemyRoomState(room.id);
+  if (alertedRat) {
+    enemies.aiFrozen = true;
+    enemies.rats = [
+      {
+        ...createRatFromSpawn(
+          {
+            id: 'e2e-fountain-rat',
+            type: 'rat',
+            tile: { x: 3, y: 3 },
+            order: 1,
+            source: 'debug',
+            reason: 'Controlled Fountain combat-lock fixture',
+          },
+          now,
+        ),
+        awareness: 'alerted',
+        state: 'chasing',
+      },
+    ];
+  }
+  let gameplay = gameplayReducer(
+    createFreshRun({
+      maximumHealth: 6,
+      experiencePreset: 'seasoned-adventurer',
+      startedAt: now,
+      runId: `fountain-run-${now}`,
+      runSeed: `fountain-seed-${now}`,
+    }),
+    {
+      type: 'commit-room-transition',
+      destinationRoomId: room.id,
+      destinationRoomIndex: 2,
+      destinationSpawn: coordinateToGridPosition({ x: 10, y: 2 }),
+      enteredFrom: 'west',
+      exitedAtMs: 0,
+      exitChoice: null,
+      evaluationComplete: false,
+      destinationRoom: room,
+      enemies,
+    },
+  );
+  gameplay = gameplayReducer(gameplay, {
+    type: 'turn',
+    direction: 'up',
+    trigger: 'press',
+    timestamp: now,
+  });
+  return createActiveRunRecord({ ...gameplay, currentHealth }, 'warden', now)!;
+}
+
 async function seedActiveRun(page: Page, record: ActiveRunRecord = freshRecord()) {
   await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
     key: ACTIVE_RUN_KEY,
@@ -343,6 +404,174 @@ test('generator-3 renders true L void and topology structures as solid tiles', a
       rats.map((rat) => `${rat.getAttribute('data-enemy-x')}:${rat.getAttribute('data-enemy-y')}`),
     );
   expect(ratCoordinates.some((coordinate) => internalCoordinates.includes(coordinate))).toBe(false);
+});
+
+test('all six generator-3 archetypes render through active-run restoration', async ({ page }) => {
+  const archetypes: Exclude<RoomArchetype, 'safe-fallback'>[] = [
+    'open-arena',
+    'true-l-ruin',
+    'split-chamber',
+    'pillar-hall',
+    'ring-route',
+    'twin-chambers',
+  ];
+  for (const archetype of archetypes) {
+    await seedActiveRun(page, topologyRecord(archetype));
+    await page.goto('/dungeon/run');
+    await expect(page.locator('[data-room-id="generated-dungeon-room-10"]')).toBeVisible();
+    await expect(page.getByRole('application')).toHaveAttribute('data-room-columns', /\d+/);
+    await expect(page.locator('[data-tile-kind="exit-open"]')).not.toHaveCount(0);
+  }
+});
+
+test('authored Fountain supports KeyE, pointer use, cancellation, and depleted persistence', async ({
+  page,
+}) => {
+  await seedActiveRun(page, fountainRecord());
+  await page.goto('/dungeon/run');
+  const fountain = page.locator('[data-feature-id$="restoration-fountain"]');
+  await expect(fountain).toHaveAttribute('data-fountain-variant', 'wall-integrated');
+  await expect(fountain).toHaveAttribute('data-fountain-state', 'unused');
+  await expect(page.getByRole('button', { name: 'Restore Health' })).toBeVisible();
+
+  await page.keyboard.press('KeyE');
+  await expect(page.getByRole('progressbar', { name: 'Restoration progress' })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('progressbar', { name: 'Restoration progress' })).toHaveCount(0);
+  await expect(page.getByLabel('5 of 6 health remaining.')).toBeVisible();
+
+  await page.keyboard.press('ArrowUp');
+  await page.getByRole('button', { name: 'Restore Health' }).click();
+  await expect(page.getByLabel('6 of 6 health remaining.')).toBeVisible({ timeout: 2_000 });
+  await expect(fountain).toHaveAttribute('data-fountain-state', 'depleted');
+  await page.reload();
+  await expect(page.locator('[data-feature-id$="restoration-fountain"]')).toHaveAttribute(
+    'data-fountain-state',
+    'depleted',
+  );
+});
+
+test('full health and alerted combat leave the authored Fountain unused', async ({ page }) => {
+  await seedActiveRun(page, fountainRecord({ currentHealth: 6 }));
+  await page.goto('/dungeon/run');
+  await page.keyboard.press('KeyE');
+  await expect(page.locator('[data-status-field="health"]')).toHaveClass(/health--full-feedback/);
+  await expect(page.locator('[data-feature-id$="restoration-fountain"]')).toHaveAttribute(
+    'data-fountain-state',
+    'unused',
+  );
+
+  await seedActiveRun(page, fountainRecord({ alertedRat: true }));
+  await page.goto('/dungeon/run');
+  await expect(page.getByRole('button', { name: 'Restore Health' })).toHaveCount(0);
+  await page.keyboard.press('KeyE');
+  await expect(page.getByRole('progressbar', { name: 'Restoration progress' })).toHaveCount(0);
+  await expect(page.locator('[data-feature-id$="restoration-fountain"]')).toHaveAttribute(
+    'data-fountain-state',
+    'unused',
+  );
+});
+
+test('Fountain channel pauses and restores across refresh without healing twice', async ({
+  page,
+}) => {
+  await seedActiveRun(page, fountainRecord());
+  await page.goto('/dungeon/run');
+  await page.keyboard.press('KeyE');
+  await page.waitForTimeout(200);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
+  const before = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    ACTIVE_RUN_KEY,
+  );
+  expect(before.interaction.status).toBe('channeling');
+  expect(before.interaction.remainingMs).toBeGreaterThan(0);
+
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
+  const after = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    ACTIVE_RUN_KEY,
+  );
+  expect(after.interaction.remainingMs).toBe(before.interaction.remainingMs);
+  await page.getByRole('button', { name: 'Resume' }).click();
+  await expect(page.getByLabel('6 of 6 health remaining.')).toBeVisible({ timeout: 2_000 });
+  await page.waitForTimeout(800);
+  await expect(page.getByLabel('6 of 6 health remaining.')).toBeVisible();
+  await expect(page.locator('[data-feature-id$="restoration-fountain"]')).toHaveAttribute(
+    'data-fountain-state',
+    'depleted',
+  );
+});
+
+test('Visual Effects choice persists and leaves essential gameplay feedback enabled', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await page.getByLabel('Visual Effects').selectOption('off');
+  await expect(page.locator('.app-shell')).toHaveClass(/effects-off/);
+  await page.reload();
+  await expect(page.getByLabel('Visual Effects')).toHaveValue('off');
+  await seedActiveRun(page, combatRecord({ telegraph: true }));
+  await page.goto('/dungeon/run');
+  await expect(page.locator('[data-enemy-state="telegraphing"]')).toBeVisible();
+  await page.keyboard.down('ShiftLeft');
+  await expect(page.locator('.player-token__shield--active')).toBeVisible();
+  await page.keyboard.up('ShiftLeft');
+});
+
+test('Clear Run History requires confirmation and preserves best records', async ({ page }) => {
+  await seedActiveRun(page, { ...freshRecord(), status: 'defeated', currentHealth: 0 });
+  await page.goto('/dungeon/run');
+  await expect(page.getByRole('dialog', { name: 'Game Over' })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('mirrorvault:run-archive:v1')))
+    .not.toBeNull();
+  const bestBefore = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('mirrorvault:run-archive:v1')!).bestStats,
+  );
+  await page.goto('/history');
+  await page.getByRole('button', { name: 'Clear Run History' }).click();
+  await expect(page.getByRole('alertdialog', { name: 'Clear Run History?' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.history-card')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Clear Run History' }).click();
+  await page.getByRole('button', { name: 'Clear recent runs' }).click();
+  await expect(page.locator('.history-card')).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('Best records were preserved');
+  const archiveAfter = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('mirrorvault:run-archive:v1')!),
+  );
+  expect(archiveAfter.bestStats).toEqual(bestBefore);
+});
+
+test('development Topology Lab is visibly sandboxed and does not write normal data', async ({
+  page,
+}) => {
+  await seedActiveRun(page);
+  const protectedKeys = [
+    ACTIVE_RUN_KEY,
+    'mirrorvault:player-profile:v1',
+    'mirrorvault:run-archive:v1',
+  ];
+  const before = await page.evaluate(
+    (keys) => Object.fromEntries(keys.map((key) => [key, localStorage.getItem(key)])),
+    protectedKeys,
+  );
+  await page.goto('/topology-lab');
+  await expect(page.getByRole('heading', { name: 'Topology Lab' })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('SANDBOX');
+  await page.getByLabel('Archetype').selectOption('twin-chambers');
+  await page.getByLabel('Placement').selectOption('risky');
+  await page.getByRole('button', { name: 'Generate new seed' }).click();
+  await expect(page.getByLabel('Generated room ASCII map')).toContainText('F');
+  expect(
+    await page.evaluate(
+      (keys) => Object.fromEntries(keys.map((key) => [key, localStorage.getItem(key)])),
+      protectedKeys,
+    ),
+  ).toEqual(before);
 });
 
 test('invalid stored position is repaired and resaved safely', async ({ page }) => {

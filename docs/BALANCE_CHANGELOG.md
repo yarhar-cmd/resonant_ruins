@@ -1,5 +1,28 @@
 # Resonant Ruins balance changelog
 
+## mvp-0.3 — Restoration and run pacing
+
+Recovery values are centralized in `apps/frontend/src/config/recovery.ts`.
+
+- Restoration Fountain channel: 700 ms; restores exactly 1 HP; maximum one generated Fountain per
+  room; no invulnerability; no enemy pause; single use.
+- Generated cooldown: a spawn suppresses the next 2 generated rooms, including when skipped.
+- Base opportunity: 0.08. Weights: health deficit 0.42, recent damage 0.20, damage streak 0.10,
+  recovery drought 0.12, caution 0.06, recent combat pressure 0.06; skipped penalty 0.08.
+- Probability ceilings: New Delver 0.72, Seasoned Adventurer 0.56, Dungeon Veteran 0.40.
+- Safe placement favors rune/Rat distance and multiple interaction tiles. Risky placement favors an
+  optional longer route but must still pass connectivity and safe-route validation.
+- Depth only controls feature availability and does not change recovery probability.
+- Shield block feedback changed from sage to larger metallic silver/gray; timing and combat rules did
+  not change. Health symbols are larger and include explicit current/max text.
+
+### Remaining balance questions
+
+- Do the preset ceilings provide enough support without making Fountains predictable?
+- Does a two-room cooldown feel sparse when a spawned Fountain is skipped?
+- Are risky placements meaningfully optional without delaying room flow too much?
+- Is 700 ms readable under one to three Rat pressure after combat clears?
+
 ## mvp-0.3 — Dungeon Topology foundation
 
 Generator values are centralized in `apps/frontend/src/config/topology.ts`.

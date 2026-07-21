@@ -1,4 +1,14 @@
-# Mirrorvault backlog
+# Resonant Ruins backlog
+
+## Checkpoint 3: Dungeon Topology & Run Pacing
+
+- [x] **Critical — Reusable interactions, Fountain channel, collision, validation, and persistence**
+- [x] **High — Seeded recovery selection, safe/risky placement, cooldown, and outcome records**
+- [x] **High — Visual Effects, health/shield polish, and deterministic torches**
+- [x] **High — History provenance filters and best-preserving clear confirmation**
+- [x] **High — Production-excluded, preview-gated, in-memory Topology Lab**
+- [ ] **Medium — Tune recovery ceilings and safe/risky weights from structured local playtests**
+- [ ] **Medium — Expand the Lab with optional path overlays and manual candidate selection**
 
 ## Checkpoint 2: Dungeon Topology foundation
 

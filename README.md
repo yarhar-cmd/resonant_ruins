@@ -145,6 +145,14 @@ valid candidates, and deterministically selects among the top three. Actual floo
 walls, cardinal boundary exits, safe paths, red-rune hazards, and Rat spawns are validated as one
 layered room model. Depth unlocks archetype vocabulary but does not directly raise difficulty.
 
+Generator-3 may also place one optional solid Restoration Fountain. A bounded, seeded recovery
+calculation combines current health deficit, recent generated-room damage, damage streak, recovery
+drought, recent combat pressure, preset, and profile signals; room depth is not a probability input.
+Face an available Fountain and press E (or its visible Interact button) to channel for 700 ms and
+restore exactly one HP. Generated Fountains impose a two-room spawn cooldown, remain visible when
+depleted, and participate in player, Rat, attack, path, and safe-route validation. Awakening Chamber
+3 contains the authored introduction and does not affect generated cooldown.
+
 The active-run record stores the exact selected current-room snapshot, compact top-three candidate
 summaries, bounded decision history, chosen exit direction, and generator provenance. Refreshes do
 not regenerate the current room. Existing `generator-2` runs continue under generator-2; legacy
@@ -172,20 +180,27 @@ The browser stores only prototype data under these keys:
 - `mirrorvault:character`
 - `mirrorvault:settings`
 - `mirrorvault:player-profile:v1`
-- `mirrorvault:run-archive:v1` (version 2 envelope)
+- `mirrorvault:run-archive:v1` (version 3 envelope)
 - `mirrorvault:active-run:v1`
 
 Development builds may also use `mirrorvault:awakening-editor-drafts:v1`. It is isolated from normal
 gameplay storage and absent from production output.
+
+Local development exposes an in-memory Topology Lab at `/topology-lab`. A Vercel Preview includes it
+only when `VERCEL_ENV=preview` and `VITE_ENABLE_TOPOLOGY_LAB=true`; normal production builds exclude
+the route, navigation, and mutation controls. The Lab does not call normal active-run, profile,
+History, best-record, or recovery persistence.
 
 The active-run record contains the run ID, character, health, elapsed active time, room order,
 current room and tile, facing, stable statistics, Awakening analytics, authoritative pause state,
 and remaining invulnerability, pending-rune, and attack-cooldown durations. Temporary held input,
 fade, visual feedback, and focus state remain excluded. Active-run Pause-menu navigation to Settings
 or Main Menu preserves the record; Game Over Main Menu intentionally clears it. Restart replaces it.
-The v6 active-run schema also keeps exact Rat facing, awareness, combat state, locked target,
+The v8 active-run schema also keeps exact Rat facing, awareness, combat state, locked target,
 outcome, recovery kind, and remaining enemy deadlines for the current room only. Physically held
 keyboard/pointer input is intentionally cleared on pause or refresh so the shield resumes lowered.
+Schema v8 adds generated-recovery cooldown, Fountain unused/depleted state, and remaining interaction
+channel time; schema-v7 saves migrate with safe defaults.
 It keeps exact visited tiles only for the current room, five detailed recent
 room snapshots, and a fixed-size numeric summary for older rooms. The completed archive keeps five
 recent defeats per character plus fixed-size best statistics. Clear site data in browser settings to

@@ -13,11 +13,15 @@ export function PlaytestDiagnostics({
   room,
   isInvulnerable,
   now = Date.now(),
+  effectsSetting = 'full',
+  reducedMotion = false,
 }: {
   gameplay: GameplayState;
   room: RoomDefinition;
   isInvulnerable: boolean;
   now?: number;
+  effectsSetting?: 'full' | 'reduced' | 'off';
+  reducedMotion?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
@@ -26,8 +30,9 @@ export function PlaytestDiagnostics({
   const closeRef = useRef<HTMLButtonElement>(null);
   const previouslyOpenRef = useRef(false);
   const snapshot = useMemo(
-    () => selectPlaytestDiagnostics(gameplay, room, now, isInvulnerable),
-    [gameplay, isInvulnerable, now, room],
+    () =>
+      selectPlaytestDiagnostics(gameplay, room, now, isInvulnerable, effectsSetting, reducedMotion),
+    [effectsSetting, gameplay, isInvulnerable, now, reducedMotion, room],
   );
 
   useEffect(() => {
@@ -283,6 +288,83 @@ export function PlaytestDiagnostics({
                     <dd>{value}</dd>
                   </div>
                 ))}
+              </dl>
+            </section>
+
+            <section aria-labelledby={`${titleId}-fountain`}>
+              <h3 id={`${titleId}-fountain`}>Restoration Fountain</h3>
+              <dl>
+                <div>
+                  <dt>Spawned / source</dt>
+                  <dd>
+                    {String(snapshot.fountain.spawned)} / {snapshot.fountain.source}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Coordinate / variant</dt>
+                  <dd>
+                    {formatDiagnosticTile(snapshot.fountain.coordinate)} /{' '}
+                    {snapshot.fountain.variant}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Placement / depleted</dt>
+                  <dd>
+                    {snapshot.fountain.placementStyle} / {String(snapshot.fountain.depleted)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Probability / roll</dt>
+                  <dd>
+                    {snapshot.fountain.probability ?? 'n/a'} / {snapshot.fountain.roll ?? 'n/a'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Cooldown</dt>
+                  <dd>{snapshot.fountain.cooldown}</dd>
+                </div>
+                <div>
+                  <dt>Combat lock</dt>
+                  <dd>{String(snapshot.fountain.combatLock)}</dd>
+                </div>
+                <div>
+                  <dt>Channel / remaining</dt>
+                  <dd>
+                    {snapshot.fountain.channelStatus} / {snapshot.fountain.channelRemainingMs} ms
+                  </dd>
+                </div>
+                <div>
+                  <dt>Latest cancellation</dt>
+                  <dd>{snapshot.fountain.cancellationReason}</dd>
+                </div>
+                <div>
+                  <dt>Reasons</dt>
+                  <dd>{snapshot.fountain.reasons.join(', ') || 'none'}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section aria-labelledby={`${titleId}-effects`}>
+              <h3 id={`${titleId}-effects`}>Effects and run mode</h3>
+              <dl>
+                <div>
+                  <dt>Visual Effects</dt>
+                  <dd>{snapshot.effects.setting}</dd>
+                </div>
+                <div>
+                  <dt>Reduced motion / effective</dt>
+                  <dd>
+                    {String(snapshot.effects.reducedMotion)} / {snapshot.effects.effectiveMode}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Run mode</dt>
+                  <dd>{snapshot.sandbox.mode}</dd>
+                </div>
+                <div>
+                  <dt>Sandbox guards</dt>
+                  <dd>{String(snapshot.sandbox.persistenceGuardsActive)}</dd>
+                </div>
               </dl>
             </section>
 
