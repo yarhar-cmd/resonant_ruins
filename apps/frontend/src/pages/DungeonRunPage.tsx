@@ -13,6 +13,7 @@ import { useRunController } from '../hooks/useRunController';
 import { loadActiveRun, type ActiveRunRecord } from '../services/activeRunStorage';
 import { roomBounds } from '../utils/roomGeometry';
 import { PLAYTEST_DIAGNOSTICS_ENABLED } from '../config/environment';
+import type { RunControllerOptions } from '../hooks/useRunController';
 
 const PreviewPlaytestDiagnostics = PLAYTEST_DIAGNOSTICS_ENABLED
   ? lazy(async () => {
@@ -27,8 +28,14 @@ export function DungeonRunPage() {
   return <DungeonRunSession initialRecord={initialRun.record} />;
 }
 
-function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }) {
-  const run = useRunController(initialRecord);
+export function DungeonRunSession({
+  initialRecord,
+  controllerOptions,
+}: {
+  initialRecord: ActiveRunRecord;
+  controllerOptions?: RunControllerOptions;
+}) {
+  const run = useRunController(initialRecord, controllerOptions);
   const [debugOpen, setDebugOpen] = useState(false);
   const pauseButtonRef = useRef<HTMLButtonElement>(null);
   const debugButtonRef = useRef<HTMLButtonElement>(null);
@@ -89,7 +96,7 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
       <RoomStatus label={run.roomLabel} />
       <StatusPanel
         roomLabel={run.roomLabel}
-        mode="Exploring"
+        mode={run.runMode === 'research' ? 'Research session' : 'Exploring'}
         character={run.character.name}
         currentHealth={run.gameplay.currentHealth}
         maximumHealth={run.gameplay.maximumHealth}
@@ -129,7 +136,13 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
         >
           <div className="chamber-label">
             <span>{run.roomLabel}</span>
-            <span>{run.inGeneratedDungeon ? 'Dungeon active' : 'Awakening active'}</span>
+            <span>
+              {run.runMode === 'research'
+                ? 'Research run active'
+                : run.inGeneratedDungeon
+                  ? 'Dungeon active'
+                  : 'Awakening active'}
+            </span>
           </div>
           <DungeonGrid
             bounds={roomBounds(run.renderedRoom)}

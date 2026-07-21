@@ -10,6 +10,8 @@ import { HistoryPage } from '../pages/HistoryPage';
 import { HomePage } from '../pages/HomePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { ResearchPage } from '../pages/ResearchPage';
+import { ResearchRunPage } from '../pages/ResearchRunPage';
 import { TOPOLOGY_LAB_ENABLED } from '../config/environment';
 
 const TopologyLabPage = TOPOLOGY_LAB_ENABLED
@@ -23,6 +25,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="dungeon/run" element={<DungeonRunPage />} />
+      <Route path="research/run" element={<ResearchRunPage />} />
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route path="dungeon" element={<DungeonEntryPage />} />
@@ -30,6 +33,7 @@ export function AppRoutes() {
         <Route path="history" element={<HistoryPage />} />
         <Route path="about" element={<AboutPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="research" element={<ResearchPage />} />
         {TopologyLabPage && (
           <Route
             path="topology-lab"

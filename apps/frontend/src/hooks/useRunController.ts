@@ -15,6 +15,7 @@ import {
   saveActiveRun,
   toRestorableGameplayRun,
   type ActiveRunRecord,
+  type ActiveRunStorageIssue,
 } from '../services/activeRunStorage';
 import { characters } from '../services/mockAdventureService';
 import { createPlayerProfile, savePlayerProfile } from '../services/playerProfileStorage';
@@ -23,6 +24,8 @@ import { getStorageDiagnostics } from '../services/storageDiagnostics';
 import type { AdaptiveProfile, PlayerProfileRecord } from '../types/adaptation';
 import type { GridPosition } from '../types/player';
 import type { RoomDefinition, RoomExit } from '../types/rooms';
+import type { ResearchCondition } from '../types/research';
+import { getRunExecutionPolicy, type RunMode } from '../types/runMode';
 import {
   getEffectiveProfileV1,
   getEffectiveProfileV2,
@@ -73,8 +76,23 @@ function countTrailingDamagedRooms(
   return count;
 }
 
-export function useRunController(initialRecord: ActiveRunRecord) {
+export interface RunControllerOptions {
+  mode?: RunMode;
+  researchCondition?: ResearchCondition;
+  researchSessionProfile?: AdaptiveProfile;
+  onResearchSessionProfileChange?: (profile: AdaptiveProfile) => void;
+  saveActiveRecord?: (record: ActiveRunRecord) => ActiveRunStorageIssue | null;
+  clearActiveRecord?: () => void;
+  returnPath?: string;
+}
+
+export function useRunController(
+  initialRecord: ActiveRunRecord,
+  options: RunControllerOptions = {},
+) {
   const navigate = useNavigate();
+  const runMode = options.mode ?? 'normal';
+  const policy = getRunExecutionPolicy(runMode);
   const { settings, playerProfile, setPlayerProfile } = useAdventure();
   const playableCharacterId = getPlayableCharacterId(initialRecord.characterId);
   const character = characters.find((item) => item.id === playableCharacterId) ?? characters[0]!;
@@ -193,14 +211,19 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   ]);
 
   useEffect(() => {
-    if (!playerProfile) {
+    if (policy.writePermanentProfile && !playerProfile) {
       const recovered = createPlayerProfile(
         initialRecord.experiencePreset ?? 'seasoned-adventurer',
       );
       setPlayerProfile(recovered);
       savePlayerProfile(recovered);
     }
-  }, [initialRecord.experiencePreset, playerProfile, setPlayerProfile]);
+  }, [
+    initialRecord.experiencePreset,
+    playerProfile,
+    policy.writePermanentProfile,
+    setPlayerProfile,
+  ]);
 
   useEffect(() => {
     if (!storageWarning) return;
@@ -219,6 +242,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     const { runId, startedAt, timeSurvived, dungeonRoomsCleared, enemiesDefeated } =
       gameplay.runStats;
     if (
+      !policy.writeNormalHistory ||
       gameplay.status !== 'defeated' ||
       !runId ||
       startedAt === null ||
@@ -259,6 +283,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     gameplay.runStats,
     gameplay.status,
     playableCharacterId,
+    policy.writeNormalHistory,
   ]);
 
   useInvulnerabilityTimer({
@@ -273,6 +298,8 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   const saveNow = useActiveRunPersistence({
     gameplay,
     characterId: playableCharacterId,
+    enabled: policy.writeNormalActiveRun || policy.writeResearchActiveRun,
+    saveRecord: options.saveActiveRecord,
     onIssue: handleActiveRunIssue,
     onSaved: setLastSavedAt,
   });
@@ -280,7 +307,11 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     (next: GameplayState, now: number) => {
       const record = createActiveRunRecord(next, playableCharacterId, now);
       if (!record) return false;
-      const issue = saveActiveRun(record);
+      const issue = options.saveActiveRecord
+        ? options.saveActiveRecord(record)
+        : policy.writeNormalActiveRun
+          ? saveActiveRun(record)
+          : null;
       if (issue) {
         setStorageWarning(ACTIVE_RUN_STORAGE_WARNING);
         return false;
@@ -288,7 +319,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       setLastSavedAt(now);
       return true;
     },
-    [playableCharacterId],
+    [options, playableCharacterId, policy.writeNormalActiveRun],
   );
 
   function nextActionId(prefix: 'move' | 'attack') {
@@ -297,6 +328,11 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   }
 
   function saveProfile(next: PlayerProfileRecord) {
+    if (!policy.writePermanentProfile) {
+      if (policy.writeResearchSessionProfile)
+        options.onResearchSessionProfileChange?.(next.longTermProfile);
+      return;
+    }
     setPlayerProfile(next);
     if (savePlayerProfile(next)) setStorageWarning(ACTIVE_RUN_STORAGE_WARNING);
   }
@@ -305,7 +341,9 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     exit: RoomExit,
     dungeonRoomNumber: number,
     profile: AdaptiveProfile,
-    longTermProfile = playerProfile?.longTermProfile ?? profile,
+    longTermProfile = (runMode === 'research'
+      ? options.researchSessionProfile
+      : playerProfile?.longTermProfile) ?? profile,
   ) {
     const dungeon = gameplay.dungeonProgress!;
     const scheduled = chooseGeneratedRoomMode({
@@ -342,7 +380,10 @@ export function useRunController(initialRecord: ActiveRunRecord) {
           : generatorVersion === 'generator-3'
             ? 'mvp-0.3'
             : 'mvp-0.2',
-      selectorId: 'rules-adaptive',
+      selectorId:
+        runMode === 'research' && options.researchCondition === 'NEUTRAL_PROCEDURAL'
+          ? 'neutral-procedural'
+          : 'rules-adaptive',
       recentArchetypes: (dungeon.recentDecisionRecords ?? [])
         .map((record) => record.archetype)
         .filter((archetype) => archetype !== 'legacy'),
@@ -412,9 +453,13 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       const profileForRoom =
         debugProfileOverride ??
         gameplayReducer(gameplay, profilePreviewAction).adaptation.currentRunProfile;
-      const updatedLongTerm = playerProfile
-        ? updateLongTermProfile(playerProfile.longTermProfile, profileForRoom)
-        : profileForRoom;
+      const profileSource =
+        runMode === 'research' ? options.researchSessionProfile : playerProfile?.longTermProfile;
+      const updatedLongTerm = profileSource
+        ? updateLongTermProfile(profileSource, profileForRoom)
+        : playerProfile
+          ? updateLongTermProfile(playerProfile.longTermProfile, profileForRoom)
+          : profileForRoom;
       const { generatedRoom, entranceDirection, scheduled, effectiveProfile } = generateDestination(
         exit,
         nextNumber,
@@ -469,7 +514,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     }
 
     const nextGameplay = gameplayReducer(gameplay, action);
-    if (completingChambers && playerProfile) {
+    if (policy.writePermanentProfile && completingChambers && playerProfile) {
       saveProfile({
         ...playerProfile,
         shortcutUnlocked: true,
@@ -482,7 +527,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
           updatedAt: new Date().toISOString(),
         },
       });
-    } else if (currentRoom.phase === 'dungeon' && playerProfile) {
+    } else if (policy.writePermanentProfile && currentRoom.phase === 'dungeon' && playerProfile) {
       saveProfile({
         ...playerProfile,
         longTermProfile: updateLongTermProfile(
@@ -494,6 +539,8 @@ export function useRunController(initialRecord: ActiveRunRecord) {
           updatedAt: new Date().toISOString(),
         },
       });
+    } else if (policy.writeResearchSessionProfile && currentRoom.phase === 'dungeon') {
+      options.onResearchSessionProfileChange?.(nextGameplay.adaptation.currentRunProfile);
     }
     roomTransition.beginTransition({
       destinationRoomId: action.destinationRoomId,
@@ -574,6 +621,11 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   });
 
   const restartRun = useCallback(() => {
+    if (runMode === 'research') {
+      options.clearActiveRecord?.();
+      navigate(options.returnPath ?? '/research', { replace: true });
+      return;
+    }
     const preset = gameplay.experiencePreset ?? playerProfile?.experiencePreset;
     if (!preset) {
       clearActiveRun();
@@ -609,7 +661,15 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       )!,
     });
     persistGameplayState(next, now);
-  }, [character.health, gameplay.experiencePreset, navigate, persistGameplayState, playerProfile]);
+  }, [
+    character.health,
+    gameplay.experiencePreset,
+    navigate,
+    options,
+    persistGameplayState,
+    playerProfile,
+    runMode,
+  ]);
 
   const toggleResults = useCallback(
     () =>
@@ -655,13 +715,14 @@ export function useRunController(initialRecord: ActiveRunRecord) {
 
   const returnToMainMenuPreservingRun = useCallback(() => {
     saveNow();
-    navigate('/');
-  }, [navigate, saveNow]);
+    navigate(runMode === 'research' ? (options.returnPath ?? '/research') : '/');
+  }, [navigate, options.returnPath, runMode, saveNow]);
 
   const returnToMainMenuAfterDefeat = useCallback(() => {
-    clearActiveRun();
-    navigate('/');
-  }, [navigate]);
+    if (runMode === 'research') options.clearActiveRecord?.();
+    else clearActiveRun();
+    navigate(runMode === 'research' ? (options.returnPath ?? '/research') : '/');
+  }, [navigate, options, runMode]);
 
   const frozenTime = formatSurvivalTime(
     getTimeSurvived(gameplay.runStats, clockNow, gameplay.pause),
@@ -676,6 +737,8 @@ export function useRunController(initialRecord: ActiveRunRecord) {
 
   return {
     gameplay,
+    runMode,
+    runPolicy: policy,
     character,
     currentRoom,
     renderedRoom,
