@@ -457,7 +457,8 @@ function parseRoomSnapshot(value: unknown): RoomDefinition | null {
 function parseGeneratorVersion(value: unknown): GeneratedRoomSave['generatorVersion'] | null {
   if (value === 1 || value === 'generator-1') return 'generator-1';
   if (value === 'generator-2') return 'generator-2';
-  return value === 'generator-3' ? 'generator-3' : null;
+  if (value === 'generator-3') return 'generator-3';
+  return value === 'generator-4' ? 'generator-4' : null;
 }
 function parseGeneratedSave(value: unknown): GeneratedRoomSave | null {
   const generatorVersion = isObject(value) ? parseGeneratorVersion(value.generatorVersion) : null;
@@ -512,7 +513,9 @@ function parseGeneratedSave(value: unknown): GeneratedRoomSave | null {
   const roomSnapshot = parseRoomSnapshot(value.roomSnapshot);
   if (
     !roomSnapshot ||
-    (generatorVersion !== 'generator-3' && roomSnapshot.shape !== value.details.shape) ||
+    (generatorVersion !== 'generator-3' &&
+      generatorVersion !== 'generator-4' &&
+      roomSnapshot.shape !== value.details.shape) ||
     roomSnapshot.entrance?.direction !== value.details.entranceDirection
   )
     return null;
@@ -617,8 +620,10 @@ function parseRunProvenance(
   }
   const generator = currentGenerator ?? 'generator-2';
   return {
-    gameVersion: generator === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
-    adaptationVersion: generator === 'generator-3' ? 'rules-2' : 'rules-1',
+    gameVersion:
+      generator === 'generator-4' ? 'mvp-0.4' : generator === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
+    adaptationVersion:
+      generator === 'generator-3' || generator === 'generator-4' ? 'rules-2' : 'rules-1',
     startingGeneratorVersion: generator,
     activeGeneratorVersion: generator,
     mixed: false,

@@ -1,6 +1,5 @@
 import type { ExitDirection, RoomDefinition, RoomExit, TileCoordinate } from '../types/rooms';
 import {
-  GENERATED_ROOM_SAVE_SCHEMA_VERSION,
   type GeneratedRoomSave,
   type GenerationRequest,
   type HazardPattern,
@@ -11,6 +10,7 @@ import { validateGeneratedRoom } from './generatedRoomValidator';
 import { createSeededRandom, randomInteger, shuffleSeeded, weightedChoice } from './seededRandom';
 import { selectGeneratedRatSpawns } from './enemySystem';
 import { deriveRoomSeedV3, generateDungeonRoomV3 } from './generatedRoomGeneratorV3';
+import { deriveRoomSeedV4, generateDungeonRoomV4 } from './generatedRoomGeneratorV4';
 
 const GENERATOR_2_VERSION = 'generator-2' as const;
 
@@ -209,7 +209,7 @@ function generateCandidate(request: GenerationRequest, retry: number): Generated
   roomSnapshot.enemySpawns = enemySelection.spawns;
   const validation = validateGeneratedRoom(roomSnapshot);
   return {
-    schemaVersion: GENERATED_ROOM_SAVE_SCHEMA_VERSION,
+    schemaVersion: 1,
     generatorVersion: GENERATOR_2_VERSION,
     gameVersion: 'mvp-0.2',
     adaptationVersion: 'rules-1',
@@ -288,7 +288,7 @@ function createFallback(request: GenerationRequest, errors: string[]): Generated
   });
   roomSnapshot.enemySpawns = enemySelection.spawns;
   return {
-    schemaVersion: GENERATED_ROOM_SAVE_SCHEMA_VERSION,
+    schemaVersion: 1,
     generatorVersion: GENERATOR_2_VERSION,
     gameVersion: 'mvp-0.2',
     adaptationVersion: 'rules-1',
@@ -337,16 +337,19 @@ export function generateDungeonRoomV2(
 }
 
 export function deriveRoomSeed(request: GenerationRequest): string {
-  return (request.generatorVersion ?? 'generator-3') === 'generator-3'
-    ? deriveRoomSeedV3(request)
-    : deriveRoomSeedV2(request);
+  const generatorVersion = request.generatorVersion ?? 'generator-4';
+  if (generatorVersion === 'generator-4') return deriveRoomSeedV4(request);
+  return generatorVersion === 'generator-3' ? deriveRoomSeedV3(request) : deriveRoomSeedV2(request);
 }
 
 export function generateDungeonRoom(
   request: GenerationRequest,
   validator?: typeof validateGeneratedRoom,
 ): GeneratedRoomSave {
-  const generatorVersion = request.generatorVersion ?? 'generator-3';
+  const generatorVersion = request.generatorVersion ?? 'generator-4';
+  if (generatorVersion === 'generator-4') {
+    return generateDungeonRoomV4(request, validator);
+  }
   if (generatorVersion === 'generator-3') {
     return generateDungeonRoomV3(request, validator);
   }

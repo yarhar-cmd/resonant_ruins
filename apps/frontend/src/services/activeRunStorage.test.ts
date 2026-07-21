@@ -465,8 +465,8 @@ describe('Resonant Ruins active-run storage v8', () => {
     saveActiveRun(active);
     expect(loadActiveRun().record?.dungeonProgress).toMatchObject(active.dungeonProgress!);
   });
-  it('preserves chosen direction with generator-2 and generator-3 room snapshots', () => {
-    for (const generatorVersion of ['generator-2', 'generator-3'] as const) {
+  it('preserves chosen direction with generator-2, generator-3, and generator-4 snapshots', () => {
+    for (const generatorVersion of ['generator-2', 'generator-3', 'generator-4'] as const) {
       const generated = generateDungeonRoom({
         runSeed: `direction-${generatorVersion}`,
         dungeonRoomNumber: 1,
@@ -476,7 +476,13 @@ describe('Resonant Ruins active-run storage v8', () => {
         effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
         mode: 'reinforce',
         generatorVersion,
-        adaptationVersion: generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1',
+        adaptationVersion: generatorVersion === 'generator-2' ? 'rules-1' : 'rules-2',
+        gameVersion:
+          generatorVersion === 'generator-4'
+            ? 'mvp-0.4'
+            : generatorVersion === 'generator-3'
+              ? 'mvp-0.3'
+              : 'mvp-0.2',
       });
       const spawn = generated.roomSnapshot.spawnPoints?.south;
       expect(spawn).toBeDefined();
@@ -498,8 +504,13 @@ describe('Resonant Ruins active-run storage v8', () => {
           lastChosenExitDirection: 'north',
           nextEntranceDirection: 'south',
           provenance: {
-            gameVersion: generatorVersion === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
-            adaptationVersion: generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1',
+            gameVersion:
+              generatorVersion === 'generator-4'
+                ? 'mvp-0.4'
+                : generatorVersion === 'generator-3'
+                  ? 'mvp-0.3'
+                  : 'mvp-0.2',
+            adaptationVersion: generatorVersion === 'generator-2' ? 'rules-1' : 'rules-2',
             startingGeneratorVersion: generatorVersion,
             activeGeneratorVersion: generatorVersion,
             mixed: false,

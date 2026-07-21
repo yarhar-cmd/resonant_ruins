@@ -6,6 +6,8 @@ import type {
   GenerationRequest,
   RoomCandidateSummary,
 } from '../types/generation';
+import type { AdaptiveProfile } from '../types/adaptation';
+import type { GeneratorVersion } from '../config/version';
 import type { ExitDirection, RoomDefinition, RoomExit, TileCoordinate } from '../types/rooms';
 import {
   ROOM_FEATURE_SCHEMA_VERSION,
@@ -148,7 +150,7 @@ function boundaryDoor(
   return options[0] ?? null;
 }
 
-function extractFeatureVector(
+export function extractRoomFeatureVectorV3(
   room: RoomDefinition,
   contentUnlockLevel: number,
   fallbackUsed = false,
@@ -329,36 +331,62 @@ function placeDecorativeTorches(room: RoomDefinition, seed: string): void {
   room.features = [...(room.features ?? []), ...torches];
 }
 
-function generateCandidate(
+export interface TopologyCandidateOptions {
+  roomSeed?: string;
+  generatorVersion?: Extract<GeneratorVersion, 'generator-3' | 'generator-4'>;
+  gameVersion?: 'mvp-0.3' | 'mvp-0.4';
+  constructionProfile?: AdaptiveProfile;
+  constructionMode?: 'reinforce' | 'poke';
+  fountainPlacementPreference?: 'safe' | 'risky';
+}
+
+export function generateTopologyCandidate(
   request: GenerationRequest,
   archetype: RoomArchetype,
   attempt: number,
+  options: TopologyCandidateOptions = {},
 ): { save: GeneratedRoomSave; feature: RoomFeatureVector } {
-  const roomSeed = deriveRoomSeedV3(request);
+  const roomSeed = options.roomSeed ?? deriveRoomSeedV3(request);
+  const generatorVersion = options.generatorVersion ?? 'generator-3';
+  const candidateRequest: GenerationRequest = {
+    ...request,
+    effectiveProfile: options.constructionProfile ?? request.effectiveProfile,
+    mode: options.constructionMode ?? request.mode,
+    recovery:
+      options.fountainPlacementPreference && request.recovery
+        ? { ...request.recovery, placementPreference: options.fountainPlacementPreference }
+        : request.recovery,
+  };
   const random = createSeededRandom(`${roomSeed}:candidate:${attempt}:${archetype}`);
   const width = randomInteger(random, archetype === 'true-l-ruin' ? 15 : 13, 21);
   const height = randomInteger(random, archetype === 'true-l-ruin' ? 11 : 9, 15);
   const generated = floorForArchetype(archetype, width, height);
-  const entranceDoor = boundaryDoor(generated.floor, request.entranceDirection, width, height);
+  const entranceDoor = boundaryDoor(
+    generated.floor,
+    candidateRequest.entranceDirection,
+    width,
+    height,
+  );
   if (!entranceDoor) throw new Error('no-valid-entrance-boundary');
   const floor = [...generated.floor];
   const availableDirections = shuffleSeeded(
     random,
     (['north', 'east', 'south', 'west'] as ExitDirection[]).filter(
       (direction) =>
-        direction !== request.entranceDirection && boundaryDoor(floor, direction, width, height),
+        direction !== candidateRequest.entranceDirection &&
+        boundaryDoor(floor, direction, width, height),
     ),
   );
-  const exploration = request.effectiveProfile.exploration;
-  const pace = request.effectiveProfile.pace;
+  const exploration = candidateRequest.effectiveProfile.exploration;
+  const pace = candidateRequest.effectiveProfile.pace;
   const archetypeOptions =
     archetype === 'open-arena' || archetype === 'ring-route' || archetype === 'twin-chambers'
       ? 0.08
       : 0;
   const presetOptions =
-    request.experiencePreset === 'dungeon-veteran'
+    candidateRequest.experiencePreset === 'dungeon-veteran'
       ? 0.06
-      : request.experiencePreset === 'new-delver'
+      : candidateRequest.experiencePreset === 'new-delver'
         ? -0.06
         : 0;
   const directionalOptions = exploration + archetypeOptions + presetOptions - pace * 0.08;
@@ -397,8 +425,8 @@ function generateCandidate(
     outerWallTiles: [],
     internalWallTiles: generated.internal,
     exits,
-    entrance: { direction: request.entranceDirection, tile: entranceDoor.door },
-    spawnPoints: { [request.entranceDirection]: entranceDoor.approach },
+    entrance: { direction: candidateRequest.entranceDirection, tile: entranceDoor.door },
+    spawnPoints: { [candidateRequest.entranceDirection]: entranceDoor.approach },
     hazards: [],
     enemySpawns: [],
     featureSchemaVersion: ROOM_FEATURE_SCHEMA_VERSION,
@@ -427,15 +455,15 @@ function generateCandidate(
   const maximumRunes =
     archetype === 'safe-fallback'
       ? 0
-      : Math.min(5, Math.max(0, Math.round(request.effectiveProfile.hazardTolerance * 4)));
+      : Math.min(5, Math.max(0, Math.round(candidateRequest.effectiveProfile.hazardTolerance * 4)));
   room.hazards = shuffleSeeded(random, room.floorTiles)
     .filter((tile) => !reserved.has(coordinateKey(tile)))
     .slice(0, maximumRunes);
   const enemySelection = selectGeneratedRatSpawns(room, {
     roomSeed: `${roomSeed}:candidate:${attempt}`,
-    preset: request.experiencePreset,
-    profile: request.effectiveProfile,
-    mode: request.mode,
+    preset: candidateRequest.experiencePreset,
+    profile: candidateRequest.effectiveProfile,
+    mode: candidateRequest.mode,
     playerSpawn: spawn,
   });
   room.enemySpawns = enemySelection.spawns
@@ -452,7 +480,7 @@ function generateCandidate(
   room.topology = analyzeRoomTopology(room);
   const recoveryDecision = placeRestorationFountain(
     room,
-    request,
+    candidateRequest,
     `${roomSeed}:candidate:${attempt}`,
   );
   placeDecorativeTorches(room, `${roomSeed}:candidate:${attempt}`);
@@ -474,19 +502,24 @@ function generateCandidate(
     };
   });
   const contentUnlockLevel = ARCHETYPE_IDS.filter(
-    (id) => ARCHETYPE_UNLOCK_ROOM[request.experiencePreset][id] <= request.dungeonRoomNumber,
+    (id) =>
+      ARCHETYPE_UNLOCK_ROOM[candidateRequest.experiencePreset][id] <=
+      candidateRequest.dungeonRoomNumber,
   ).length;
-  const feature = extractFeatureVector(room, contentUnlockLevel);
+  const feature = extractRoomFeatureVectorV3(room, contentUnlockLevel);
   const save: GeneratedRoomSave = {
     schemaVersion: 2,
-    generatorVersion: 'generator-3',
-    gameVersion: request.gameVersion ?? VERSION_INFO.gameVersion,
-    adaptationVersion: request.adaptationVersion ?? 'rules-2',
-    runSeed: request.runSeed,
+    generatorVersion,
+    gameVersion:
+      options.gameVersion ??
+      request.gameVersion ??
+      (generatorVersion === 'generator-4' ? VERSION_INFO.gameVersion : 'mvp-0.3'),
+    adaptationVersion: candidateRequest.adaptationVersion ?? 'rules-2',
+    runSeed: candidateRequest.runSeed,
     roomSeed,
-    dungeonRoomNumber: request.dungeonRoomNumber,
+    dungeonRoomNumber: candidateRequest.dungeonRoomNumber,
     adaptiveInput: {
-      mode: request.mode,
+      mode: candidateRequest.mode,
       shapeWeights: { rectangle: 0.42, lShape: 0.58 },
       minWidth: 13,
       maxWidth: 21,
@@ -500,14 +533,17 @@ function generateCandidate(
     roomSnapshot: room,
     details: {
       roomSeed,
-      generatorVersion: 'generator-3',
+      generatorVersion,
       shape: room.shape === 'l-shape' ? 'l-shape' : 'rectangle',
-      entranceDirection: request.entranceDirection,
+      entranceDirection: candidateRequest.entranceDirection,
       hazardPattern: 'scattered',
-      mode: request.mode,
+      mode: candidateRequest.mode,
       retryCount: attempt,
       validationErrors: [],
-      reasons: [`${archetype} topology candidate`, `Incoming from ${request.entranceDirection}`],
+      reasons: [
+        `${archetype} topology candidate`,
+        `Incoming from ${candidateRequest.entranceDirection}`,
+      ],
       enemyCountPlan,
       archetype,
       boundaryFamily: generated.boundary,
@@ -524,7 +560,7 @@ export function generateArchetypeRoomV3(
   archetype: Exclude<RoomArchetype, 'safe-fallback'>,
   attempt = 0,
 ): GeneratedRoomSave {
-  return generateCandidate(request, archetype, attempt).save;
+  return generateTopologyCandidate(request, archetype, attempt).save;
 }
 
 export function generateDungeonRoomV3(
@@ -545,7 +581,7 @@ export function generateDungeonRoomV3(
     if (valid.length >= TOPOLOGY_CONFIG.requestedCandidateCount) break;
     const archetype = available[attempt % available.length]!;
     try {
-      const candidate = generateCandidate(rules2Request, archetype, attempt);
+      const candidate = generateTopologyCandidate(rules2Request, archetype, attempt);
       const validation = validator(candidate.save.roomSnapshot);
       if (!validation.valid) {
         rejectedCandidateCount += 1;
@@ -571,7 +607,7 @@ export function generateDungeonRoomV3(
     }
   }
   if (!valid.length) {
-    const fallback = generateCandidate(rules2Request, 'safe-fallback', 10_000).save;
+    const fallback = generateTopologyCandidate(rules2Request, 'safe-fallback', 10_000).save;
     fallback.details = {
       ...fallback.details,
       archetype: 'safe-fallback',

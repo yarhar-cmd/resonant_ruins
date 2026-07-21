@@ -159,7 +159,11 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
     value.version === 3 &&
     Array.isArray(value.generatorVersions) &&
     value.generatorVersions.every(
-      (item) => item === 'generator-1' || item === 'generator-2' || item === 'generator-3',
+      (item) =>
+        item === 'generator-1' ||
+        item === 'generator-2' ||
+        item === 'generator-3' ||
+        item === 'generator-4',
     )
       ? (value.generatorVersions as GeneratorVersion[])
       : [];

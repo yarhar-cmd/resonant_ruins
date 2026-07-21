@@ -317,7 +317,10 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     });
     const pinnedGenerator = dungeon.provenance?.activeGeneratorVersion ?? 'generator-2';
     const generatorVersion = pinnedGenerator === 'generator-1' ? 'generator-2' : pinnedGenerator;
-    const adaptationVersion = generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1';
+    const adaptationVersion =
+      generatorVersion === 'generator-3' || generatorVersion === 'generator-4'
+        ? 'rules-2'
+        : 'rules-1';
     const effectiveProfile =
       adaptationVersion === 'rules-2'
         ? getEffectiveProfileV2(longTermProfile, profile)
@@ -333,9 +336,18 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       mode: scheduled.mode,
       generatorVersion,
       adaptationVersion,
-      gameVersion: generatorVersion === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
+      gameVersion:
+        generatorVersion === 'generator-4'
+          ? 'mvp-0.4'
+          : generatorVersion === 'generator-3'
+            ? 'mvp-0.3'
+            : 'mvp-0.2',
+      selectorId: 'rules-adaptive',
+      recentArchetypes: (dungeon.recentDecisionRecords ?? [])
+        .map((record) => record.archetype)
+        .filter((archetype) => archetype !== 'legacy'),
       recovery:
-        generatorVersion === 'generator-3'
+        generatorVersion === 'generator-3' || generatorVersion === 'generator-4'
           ? {
               currentHealth: gameplay.currentHealth,
               maximumHealth: gameplay.maximumHealth,
