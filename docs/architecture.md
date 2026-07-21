@@ -338,14 +338,13 @@ The local frontend now separates three persistence lifetimes:
   long-term adaptive traits, and confidence metadata.
 - `activeRunStorage.ts` owns volatile per-run signals, current-run/effective profiles, the run seed,
   poke cooldown, authored Chamber analytics, dungeon-only room count, player state, and the exact
-  current generated-room snapshot. Schema version 5 stores reducer-owned pause state and safe
-  remaining durations for invulnerability, pending rune damage, and attack cooldown. It bounds
-  exact signal storage to the current room, retains five detailed generated-room snapshots, and
-  compacts older rooms into a fixed numeric summary. Version 3 migrates and compacts on load;
-  versions 1 and 2 migrate as unpaused.
-- `runArchive.ts` owns completed records. Version 2 records store `experiencePreset` and
-  `dungeonRoomsCleared`; legacy records migrate to the explicit `unknown` preset. Bests are
-  partitioned by character and preset.
+  current generated-room snapshot. Schema version 7 stores generator provenance, cardinal entrance
+  and chosen-exit directions, and a bounded five-record compact decision history. It stores only the
+  selected full layout plus top-three feature summaries and aggregate rejection counts; rejected
+  floor masks are never persisted.
+- `runArchive.ts` owns completed records. Version 3 records store `experiencePreset`,
+  `dungeonRoomsCleared`, game/adaptation/generator versions, and whether provenance is mixed. Legacy
+  records migrate to explicit unknown values. Bests remain partitioned by character and preset.
 
 Enemy Framework v0.2 is reducer-owned and frontend-authoritative. `config/combat.ts` centralizes
 timing and awareness values; `enemySystem.ts` provides deterministic cardinal BFS, path distance,
@@ -363,16 +362,33 @@ and perfect-block input timestamps are deliberately not restored, so the shield 
 Living Rats seal `enemies-defeated` exits, corpses become non-blocking immediately, and adaptation
 affects generated Rat quantity only—not Rat stats, timing, awareness, or intelligence.
 
-Generation remains frontend-only and deterministic. Pure utilities map bounded profiles to typed
-parameters, derive a room seed from the run seed/room number/chosen exit/generator version, generate
-rectangle or L-shaped floor regions, place exits and existing rune hazards, validate connectivity and
-safe cardinal paths, retry at most 20 times, and fall back to a known-safe rectangle. Generated rooms
-may contain deterministic safe Rat spawns and rune hazards; treasure, branches, internal wall
-structures, and backtracking remain outside this milestone.
+Generation remains frontend-only and deterministic behind a version dispatcher. The generator-2
+implementation is retained as the frozen compatibility path. New runs use generator-3, which derives
+candidate seeds from the run seed, room number, chosen exit, incoming entrance direction, profile,
+preset, archetype, rules version, and generator version. It targets ten valid candidates within a
+twenty-attempt ceiling, ranks typed feature vectors under rules-2, and uses a seeded 50/30/20 choice
+among the top three. One or two candidates produce a deterministic reduced-diversity result; zero
+valid candidates produces a known-safe fallback.
 
-`VERSION_INFO` identifies new gameplay as `mvp-0.2` and new generated rooms as `generator-2`.
-Generated-room saves retain the generator version that produced their snapshot; legacy numeric
-version `1` restores as `generator-1`. Adaptation remains `rules-1` and telemetry schema remains `1`.
+Generator-3 rooms separate reachable floor, floor-derived outer walls, internal walls, generic
+versioned features, hazards, exits, and entity spawns. Its six archetypes are Open Arena, True L-Ruin,
+Split Chamber, Pillar Hall, Ring Route, and Twin Chambers. Cardinal exits sit on the actual reachable
+floor boundary rather than the room's bounding rectangle. Choosing north/south/east/west gives the
+next room a south/north/west/east entrance through an explicit opposite-direction helper. Entrances
+collapse after entry; the model does not add completed-room backtracking.
+
+Rules-2 uses a stable long-term/current profile blend and bounded scoring influences. Exploration may
+favor distinct directional options and optional routes; pace may favor a shorter direct option and
+fewer choices. Poke deterministically contrasts one, occasionally two, traits by 25 percent toward
+their inverse. Depth unlocks archetype vocabulary only and is not a difficulty multiplier. Rune
+placement reserves a safe path, articulation points, spawn, and exits; Rat pathing uses all solid
+topology and preserves the effective five-path-tile generated spawn minimum.
+
+`VERSION_INFO` identifies new gameplay as `mvp-0.3`, generated rooms as `generator-3`, and adaptation
+as `rules-2`; telemetry schema remains `1`. Existing generator-2 runs continue under generator-2.
+Legacy generator-1 current rooms restore unchanged, with a recorded transition to generator-2 for
+future rooms. This intentionally allows mixed-provenance archives without relabeling old layouts.
+Fountain gameplay and healing are not present; the feature schema is only an extension point.
 
 The dungeon has two route boundaries. `/dungeon` uses the normal website shell and contains only
 experience selection and run setup. `/dungeon/run` uses `GameShell` without the website header,

@@ -1,5 +1,31 @@
 # Resonant Ruins balance changelog
 
+## mvp-0.3 — Dungeon Topology foundation
+
+Generator values are centralized in `apps/frontend/src/config/topology.ts`.
+
+- Added generator-3 with a target of 10 valid candidates, a 20-attempt ceiling, and seeded top-three
+  selection weights of 50%, 30%, and 20%.
+- Added preset-specific archetype unlock schedules. Room depth only unlocks layout vocabulary and
+  does not multiply difficulty or scoring.
+- Added rules-2 poke contrast: one trait, occasionally two at a 22% seeded chance, moves 25% toward
+  its inverse for candidate scoring.
+- Added mild scoring influence from distinct directional exit options: exploration favors options;
+  pace favors a clearer direct route and slightly fewer choices.
+- Preserved an effective minimum generated Rat spawn path distance of 5 in generator-3. Generator-2
+  has a nominal planner value of 4 but its shipped validator rejects values below 5; generator-2 is
+  unchanged.
+- Reserved spawn, exits, the direct safe path, and topology articulation points from Rune placement.
+
+### Remaining balance questions
+
+- Do 10 candidates create enough visible layout diversity without making generation feel repetitive?
+- Is the 50/30/20 choice varied enough while still reflecting profile scoring?
+- Are multi-exit rooms frequent and legible enough for exploratory profiles?
+- Are optional routes meaningfully longer without creating confusing dead ends?
+- Does rules-2 poke feel like a mild contrast rather than a reversal of the player's style?
+- Are preset archetype unlocks introduced at an understandable pace?
+
 ## mvp-0.2 — Rat Combat & Kiting
 
 Initial values are centralized in `apps/frontend/src/config/combat.ts`.

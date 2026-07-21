@@ -1,6 +1,26 @@
 # Resonant Ruins current state
 
-Updated: 2026-07-20
+Updated: 2026-07-21
+
+## Current implementation update: Dungeon Topology & Healing foundation v0.3
+
+New runs now use deterministic `generator-3` rooms and `rules-2` selection. The generator produces
+six topology archetypes (Open Arena, True L-Ruin, Split Chamber, Pillar Hall, Ring Route, and Twin
+Chambers), real irregular floor boundaries, separate outer/internal wall layers, and one to three
+cardinal exits placed on reachable physical boundaries. Choosing an exit records its direction and
+normally gives the next room the opposite entrance direction; completed rooms remain unavailable.
+
+Generation targets ten valid candidates within twenty attempts. Valid layouts are scored from a
+versioned feature vector, and a seeded 50/30/20 roll selects among the top three. With one or two
+valid candidates, selection remains deterministic and is marked reduced-diversity; only zero valid
+candidates triggers the safe fallback. Normal persistence stores the selected full layout, compact
+top-three summaries, aggregate rejection counts, directional decisions, and bounded provenance—not
+full rejected masks.
+
+Existing `generator-2` runs remain generator-2. A restored `generator-1` room is preserved exactly,
+then future generation transitions explicitly to generator-2. Run History identifies mixed
+generator provenance. Fountain gameplay is not implemented in this checkpoint; the room model only
+adds a generic, versioned blocking/decorative feature boundary for later content.
 
 ## Current implementation update: Rat Combat & Kiting v0.2
 

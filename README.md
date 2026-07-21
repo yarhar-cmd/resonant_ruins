@@ -138,11 +138,18 @@ visually, and recover after every hit, miss, or block. Hold Shift to raise a dir
 raising it or turning it correctly during the final 125 ms before impact produces a perfect block
 and longer Rat recovery. See [Enemy Framework v0.2](docs/ENEMY_FRAMEWORK.md) for constants and rules.
 
-Generated rooms are derived from a run seed, room number, chosen exit, and generator version. The
-generator supports rectangles and L-shapes, one to three exits, red-rune hazards, deterministic
-validation/retries, and a known-safe fallback. The active-run record stores both the seed inputs and
-the exact validated current-room snapshot so refreshes do not change the room. New rooms use
-`generator-2`; saved rooms retain the generator version that produced them.
+Generated rooms are derived from a run seed, room number, chosen exit, incoming entrance direction,
+profile, preset, archetype, and generator version. New runs use `generator-3`/`rules-2`, which
+generates ten topology candidates from six archetypes, validates up to twenty attempts, scores the
+valid candidates, and deterministically selects among the top three. Actual floor masks, internal
+walls, cardinal boundary exits, safe paths, red-rune hazards, and Rat spawns are validated as one
+layered room model. Depth unlocks archetype vocabulary but does not directly raise difficulty.
+
+The active-run record stores the exact selected current-room snapshot, compact top-three candidate
+summaries, bounded decision history, chosen exit direction, and generator provenance. Refreshes do
+not regenerate the current room. Existing `generator-2` runs continue under generator-2; legacy
+`generator-1` rooms remain intact and explicitly transition to generator-2 for future rooms. See
+[Generator 3 topology](docs/GENERATOR_3.md) and [architecture](docs/architecture.md).
 
 ## Frontend and backend communication
 

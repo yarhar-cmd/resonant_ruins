@@ -1,5 +1,17 @@
 # Resonant Ruins feature roadmap
 
+## Completed checkpoint: mvp-0.3 Dungeon Topology foundation
+
+- [x] Six deterministic generator-3 archetypes with real floor masks and layered outer/internal walls.
+- [x] Ten-candidate target, twenty-attempt cap, compact top-three scoring summaries, and safe fallback.
+- [x] Cardinal physical exits, opposite-direction room continuity, and persisted directional choices.
+- [x] Rules-2 bounded reinforce/poke selection with no direct depth-to-difficulty multiplier.
+- [x] Topology-aware Rune and Rat placement plus safe-route validation.
+- [x] Generator provenance migration, mixed-version History display, diagnostics, ASCII maps, and stress coverage.
+
+Deferred from this checkpoint: Fountain gameplay, healing, new enemy types, rewards, completed-room
+backtracking, backend authority, research telemetry, and machine learning.
+
 ## Completed milestone: mvp-0.2 Rat Combat & Kiting
 
 - [x] CSS Rat silhouette with readable four-direction facing, telegraph, lunge, recovery, corpse, and reduced-motion state cues.

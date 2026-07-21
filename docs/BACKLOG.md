@@ -1,5 +1,16 @@
 # Mirrorvault backlog
 
+## Checkpoint 2: Dungeon Topology foundation
+
+- [x] **Critical — Generator dispatcher and provenance** · Preserve generator-2 output and migrate generator-1 continuation explicitly.
+- [x] **Critical — Layered topology** · Generate and validate real floor, outer-wall, internal-wall, and void layers.
+- [x] **Critical — Directional transitions** · Place physical cardinal exits and persist chosen/opposite entrance directions.
+- [x] **High — Candidate selection** · Target ten valid candidates, cap at twenty attempts, and store only compact decision evidence.
+- [x] **High — Rules-2 adaptation** · Score topology from profile/preset/mode without making depth a difficulty multiplier.
+- [x] **High — Placement safety** · Keep at least one Rune-free route and enforce topology-aware Rat placement.
+- [x] **Medium — Inspection and history** · Add read-only topology diagnostics, ASCII maps, and mixed-provenance filters.
+- [ ] **Deferred — Fountain gameplay and healing** · Not part of Checkpoint 2; requires a separately approved milestone.
+
 Checkboxes are grouped by phase and priority. The matching task in [ROADMAP.md](ROADMAP.md) contains the full scope, rationale, affected areas, prerequisites, difficulty, backend requirement, and definition of done. Completion gates are repeated here so this file can be used during execution.
 
 ## Phase 1: Fix and stabilize
