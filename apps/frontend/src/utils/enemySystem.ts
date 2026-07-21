@@ -8,6 +8,7 @@ import {
   coordinateKey,
   coordinatesMatch,
   getCollapsedEntrance,
+  getBlockingFeatureLookup,
   getFloorLookup,
   getWallLookup,
   isCoordinateInRoom,
@@ -34,6 +35,10 @@ export function livingRats(enemyState: EnemyRoomState): RatEnemy[] {
   return enemyState.rats.filter(isLivingRat);
 }
 
+export function isAnyLivingRatAlerted(enemyState: EnemyRoomState): boolean {
+  return enemyState.rats.some((rat) => isLivingRat(rat) && rat.awareness === 'alerted');
+}
+
 export function pathNeighbors(coordinate: TileCoordinate): TileCoordinate[] {
   return RAT_PATH_NEIGHBOR_ORDER.map((direction) => ({
     x: coordinate.x + offsets[direction].x,
@@ -52,6 +57,7 @@ export function isStaticRatPathTile(
   return (
     getFloorLookup(room).has(key) &&
     !getWallLookup(room).has(key) &&
+    !getBlockingFeatureLookup(room).has(key) &&
     !room.exits.some((exit) => coordinatesMatch(exit.tile, tile))
   );
 }

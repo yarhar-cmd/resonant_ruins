@@ -8,6 +8,11 @@ import type {
 } from '../types/adaptation';
 import type { DungeonProgress, GeneratedRoomSave } from '../types/generation';
 import type { EnemyRoomState, RatEnemy, StoredEnemyRoomState } from '../types/enemies';
+import type {
+  InteractableRuntimeStates,
+  InteractionCancellationReason,
+  InteractionChannelState,
+} from '../types/interactions';
 import {
   PLAYER_DAMAGE_INVULNERABILITY_MS,
   RAT_ATTACK_DAMAGE,
@@ -38,6 +43,7 @@ import {
 import {
   coordinateToGridPosition,
   coordinatesMatch,
+  getBlockingFeatureLookup,
   gridPositionToCoordinate,
   isWalkableCoordinate,
   roomBounds,
@@ -51,6 +57,7 @@ import {
   directionFromPlayerToRat,
   emptyEnemyRoomState,
   isLivingRat,
+  isAnyLivingRatAlerted,
   livingRats,
   pathDistance,
   playerLegalEscapeTiles,
@@ -58,6 +65,13 @@ import {
 } from './enemySystem';
 import { coordinateKey } from './roomGeometry';
 import { VERSION_INFO, type AdaptationVersion, type GeneratorVersion } from '../config/version';
+import {
+  createIdleInteractionState,
+  createInteractableRuntimeStates,
+  getAvailableInteraction,
+  getRestorationFountains,
+  isInteractionTargetValid,
+} from './interactions';
 
 export const INVULNERABILITY_DURATION_MS = PLAYER_DAMAGE_INVULNERABILITY_MS;
 export const ATTACK_COOLDOWN_MS = 400;
@@ -123,6 +137,8 @@ export interface GameplayState {
   dungeonProgress: DungeonProgress | null;
   adaptation: AdaptiveRunState;
   enemies: EnemyRoomState;
+  interaction: InteractionChannelState;
+  interactables: InteractableRuntimeStates;
   lastMove: MoveResult | null;
   blockedMove: MoveResult | null;
   lastAttack: AttackAction | null;
@@ -146,6 +162,7 @@ export type GameplayAction =
       enemies?: EnemyRoomState;
       generatorVersion?: GeneratorVersion;
       adaptationVersion?: AdaptationVersion;
+      room?: RoomDefinition;
     }
   | { type: 'reset-room' }
   | { type: 'reset-to-idle'; maximumHealth: number }
@@ -181,12 +198,16 @@ export type GameplayAction =
       exitDirection?: ExitDirection;
       effectiveProfile?: AdaptiveProfile;
       enemies?: EnemyRoomState;
+      destinationRoom?: RoomDefinition;
     }
   | { type: 'enemy-tick'; timestamp: number; room: RoomDefinition }
   | { type: 'debug-spawn-rat'; timestamp: number; room: RoomDefinition }
   | { type: 'debug-defeat-all-enemies'; timestamp: number }
   | { type: 'debug-freeze-enemy-ai'; frozen: boolean }
   | { type: 'shift-enemy-timers'; duration: number }
+  | { type: 'start-interaction'; timestamp: number; room: RoomDefinition; targetId: string }
+  | { type: 'interaction-tick'; timestamp: number; room: RoomDefinition }
+  | { type: 'interaction-unavailable-feedback'; timestamp: number; targetId: string }
   | { type: 'apply-debug-profile'; profile: AdaptiveProfile }
   | {
       type: 'invulnerability-expired';
@@ -233,6 +254,23 @@ function createAttackCooldownState(): AttackCooldownState {
 function createShieldTimingState(): ShieldTimingState {
   return { raisedAt: null, lastFacingChangedAt: null };
 }
+function cancelInteraction(
+  state: GameplayState,
+  reason: InteractionCancellationReason,
+): GameplayState {
+  if (state.interaction.status !== 'channeling') return state;
+  return {
+    ...state,
+    interaction: {
+      ...createIdleInteractionState(),
+      targetId: state.interaction.targetId,
+      type: state.interaction.type,
+      status: 'cancelled',
+      cancellationReason: reason,
+    },
+    announcement: 'Restoration interrupted.',
+  };
+}
 function clampHealth(health: number, maximumHealth: number): number {
   return Math.min(Math.max(0, health), maximumHealth);
 }
@@ -254,6 +292,8 @@ export function createGameplayState(maximumHealth: number): GameplayState {
     dungeonProgress: null,
     adaptation: createAdaptiveRunState(),
     enemies: emptyEnemyRoomState(),
+    interaction: createIdleInteractionState(),
+    interactables: {},
     lastMove: null,
     blockedMove: null,
     lastAttack: null,
@@ -313,6 +353,16 @@ export function applyPlayerDamage(
             },
           }
         : state.enemies,
+    interaction:
+      state.interaction.status === 'channeling'
+        ? {
+            ...createIdleInteractionState(),
+            targetId: state.interaction.targetId,
+            type: state.interaction.type,
+            status: 'cancelled',
+            cancellationReason: fatal ? 'defeat' : 'damage',
+          }
+        : state.interaction,
     lastAttack: fatal ? null : state.lastAttack,
     lastDamage: { ...event, fatal },
     lastAvoidedDamage: null,
@@ -912,7 +962,11 @@ function createRoomDecisionRecord(
   chosenExitId: string,
   chosenExitDirection: ExitDirection,
   nextEntranceDirection: ExitDirection,
+  state: GameplayState,
 ): NonNullable<DungeonProgress['recentDecisionRecords']>[number] {
+  const recovery = room.details.recoveryDecision;
+  const fountain = getRestorationFountains(room.roomSnapshot)[0];
+  const runtime = fountain ? state.interactables[fountain.id] : undefined;
   return {
     roomNumber: room.dungeonRoomNumber,
     roomId: room.roomSnapshot.id,
@@ -936,6 +990,34 @@ function createRoomDecisionRecord(
     previousEntranceDirection: room.details.entranceDirection,
     nextEntranceDirection,
     exitDecisions: room.details.exitDecisions ?? [],
+    ...(recovery || fountain
+      ? {
+          fountainOutcome: {
+            requested: recovery?.requested ?? true,
+            placementPossible: recovery?.placementPossible ?? true,
+            spawned: Boolean(fountain),
+            placementStyle: fountain?.placementStyle ?? recovery?.placementStyle ?? null,
+            used: runtime?.depleted ?? false,
+            skipped: Boolean(fountain && !runtime?.depleted),
+            healthWhenEncountered: runtime?.encounteredAt !== null ? state.currentHealth : null,
+            healthWhenUsed: runtime?.usedAt !== null ? state.currentHealth : null,
+            encounterToUseMs:
+              runtime?.encounteredAt !== null &&
+              runtime?.encounteredAt !== undefined &&
+              runtime.usedAt !== null
+                ? Math.max(0, runtime.usedAt - runtime.encounteredAt)
+                : null,
+            combatDelayedUse: state.enemies.combatMetrics.maximumSimultaneouslyAlertedRats > 0,
+            roomCompleted: true,
+            damageAfterEncounter:
+              runtime?.encounteredAt !== null && runtime?.encounteredAt !== undefined
+                ? state.adaptation.signals.damageTaken
+                : 0,
+            gameVersion: room.gameVersion ?? 'unknown',
+            generatorVersion: room.generatorVersion,
+          },
+        }
+      : {}),
   };
 }
 
@@ -986,9 +1068,16 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
         nextEntranceDirection: null,
         recentDecisionRecords: [],
         completedDecisionCount: 0,
+        recovery: {
+          cooldownRemaining: 0,
+          roomsSinceLastGeneratedSpawn: 3,
+          roomsSinceLastUse: 3,
+          previousSkipped: false,
+        },
       },
       adaptation,
       enemies,
+      interactables: action.room ? createInteractableRuntimeStates(action.room) : {},
     };
   }
   if (action.type === 'reset-to-idle') return createGameplayState(action.maximumHealth);
@@ -1017,19 +1106,36 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
       },
     };
   if (state.status !== 'active') return state;
-  if (action.type === 'enemy-tick') return processEnemyTick(state, action);
+  if (action.type === 'enemy-tick') {
+    const next = processEnemyTick(state, action);
+    return isAnyLivingRatAlerted(next.enemies) ? cancelInteraction(next, 'combat-alert') : next;
+  }
   if (action.type === 'debug-freeze-enemy-ai')
     return { ...state, enemies: { ...state.enemies, aiFrozen: action.frozen } };
   if (action.type === 'shift-enemy-timers')
     return action.duration <= 0
       ? state
-      : { ...state, enemies: shiftEnemyTimers(state.enemies, action.duration) };
+      : {
+          ...state,
+          enemies: shiftEnemyTimers(state.enemies, action.duration),
+          interaction:
+            state.interaction.status === 'channeling'
+              ? {
+                  ...state.interaction,
+                  deadline:
+                    state.interaction.deadline === null
+                      ? null
+                      : state.interaction.deadline + action.duration,
+                }
+              : state.interaction,
+        };
   if (action.type === 'debug-spawn-rat') {
     const occupied = new Set([
       ...livingRats(state.enemies).map((rat) => coordinateKey(rat.position)),
       coordinateKey(gridPositionToCoordinate(state.player.position)),
       ...(action.room.hazards ?? []).map(coordinateKey),
       ...action.room.exits.map((exit) => coordinateKey(exit.tile)),
+      ...getBlockingFeatureLookup(action.room),
     ]);
     const tile = [...action.room.floorTiles]
       .sort((left, right) => left.y - right.y || left.x - right.x)
@@ -1136,6 +1242,16 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
             : state.attackCooldown.readyAt + pausedDuration,
       },
       enemies: shiftEnemyTimers(state.enemies, pausedDuration),
+      interaction:
+        state.interaction.status === 'channeling'
+          ? {
+              ...state.interaction,
+              deadline:
+                state.interaction.deadline === null
+                  ? null
+                  : state.interaction.deadline + pausedDuration,
+            }
+          : state.interaction,
       adaptation: {
         ...state.adaptation,
         lastMeaningfulActionAt:
@@ -1147,6 +1263,99 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
     };
   }
   if (state.pause.isPaused) return state;
+  if (action.type === 'start-interaction') {
+    if (state.interaction.status === 'channeling') return state;
+    const target = getAvailableInteraction({
+      room: action.room,
+      player: state.player,
+      currentHealth: state.currentHealth,
+      maximumHealth: state.maximumHealth,
+      enemies: state.enemies,
+      runtime: state.interactables,
+    });
+    if (!target || target.id !== action.targetId) return state;
+    return {
+      ...state,
+      interactables: {
+        ...state.interactables,
+        [target.id]: {
+          ...state.interactables[target.id],
+          depleted: false,
+          encounteredAt: state.interactables[target.id]?.encounteredAt ?? action.timestamp,
+          usedAt: null,
+        },
+      },
+      interaction: {
+        targetId: target.id,
+        type: target.type,
+        startedAt: action.timestamp,
+        deadline: action.timestamp + target.channelDurationMs,
+        remainingMs: target.channelDurationMs,
+        status: 'channeling',
+        cancellationReason: null,
+        result: null,
+      },
+      announcement: 'Restoring health…',
+    };
+  }
+  if (action.type === 'interaction-unavailable-feedback')
+    return {
+      ...state,
+      interaction: {
+        ...createIdleInteractionState(),
+        targetId: action.targetId,
+        type: 'restoration-fountain',
+        startedAt: action.timestamp,
+        status: 'cancelled',
+        cancellationReason: 'unavailable',
+      },
+      announcement: 'Health is already full.',
+    };
+  if (action.type === 'interaction-tick') {
+    const channel = state.interaction;
+    if (channel.status !== 'channeling' || !channel.targetId || channel.deadline === null)
+      return state;
+    if (
+      !isInteractionTargetValid(channel.targetId, {
+        room: action.room,
+        player: state.player,
+        currentHealth: state.currentHealth,
+        maximumHealth: state.maximumHealth,
+        enemies: state.enemies,
+        runtime: state.interactables,
+      })
+    )
+      return cancelInteraction(
+        state,
+        isAnyLivingRatAlerted(state.enemies) ? 'combat-alert' : 'unavailable',
+      );
+    if (action.timestamp < channel.deadline)
+      return {
+        ...state,
+        interaction: { ...channel, remainingMs: channel.deadline - action.timestamp },
+      };
+    if (state.interactables[channel.targetId]?.depleted) return state;
+    return {
+      ...state,
+      currentHealth: Math.min(state.maximumHealth, state.currentHealth + 1),
+      interactables: {
+        ...state.interactables,
+        [channel.targetId]: {
+          ...state.interactables[channel.targetId],
+          depleted: true,
+          usedAt: action.timestamp,
+        },
+      },
+      interaction: {
+        ...channel,
+        deadline: null,
+        remainingMs: 0,
+        status: 'completed',
+        result: 'restored-one-health',
+      },
+      announcement: `Health restored. ${Math.min(state.maximumHealth, state.currentHealth + 1)} of ${state.maximumHealth} health.`,
+    };
+  }
   if (action.type === 'shield') {
     if (state.player.isShielding === action.isShielding) return state;
     const timestamp = action.timestamp ?? Date.now();
@@ -1155,7 +1364,7 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
         ? Math.max(0, timestamp - state.adaptation.shieldStartedAt)
         : 0;
     const adaptation = withMeaningfulAction(state.adaptation, timestamp);
-    return {
+    const next = {
       ...state,
       player: {
         ...state.player,
@@ -1176,6 +1385,7 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
       },
       announcement: action.isShielding ? 'Shield raised.' : 'Shield lowered.',
     };
+    return action.isShielding ? cancelInteraction(next, 'shield') : next;
   }
   if (action.type === 'attack') {
     if (state.attackCooldown.readyAt !== null && action.timestamp < state.attackCooldown.readyAt)
@@ -1223,33 +1433,36 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
         ),
       },
     };
-    return {
-      ...state,
-      adaptation: {
-        ...adaptation,
-        signals: {
-          ...adaptation.signals,
-          swordSwings: adaptation.signals.swordSwings + 1,
-          swordSwingsAtEnemies: adaptation.signals.swordSwingsAtEnemies + (ratResult.hit ? 1 : 0),
-          ratsDamaged: adaptation.signals.ratsDamaged + ratResult.damaged,
-          ratsDefeated: adaptation.signals.ratsDefeated + ratResult.defeated,
+    return cancelInteraction(
+      {
+        ...state,
+        adaptation: {
+          ...adaptation,
+          signals: {
+            ...adaptation.signals,
+            swordSwings: adaptation.signals.swordSwings + 1,
+            swordSwingsAtEnemies: adaptation.signals.swordSwingsAtEnemies + (ratResult.hit ? 1 : 0),
+            ratsDamaged: adaptation.signals.ratsDamaged + ratResult.damaged,
+            ratsDefeated: adaptation.signals.ratsDefeated + ratResult.defeated,
+          },
         },
+        enemies,
+        runStats: {
+          ...state.runStats,
+          enemiesDefeated: state.runStats.enemiesDefeated + ratResult.defeated,
+        },
+        lastAttack: attack,
+        attackCooldown: { readyAt: action.timestamp + ATTACK_COOLDOWN_MS },
+        announcement: attack.target
+          ? ratResult.defeated
+            ? 'Rat defeated.'
+            : ratResult.hit
+              ? 'Rat injured.'
+              : `Attacked ${attack.facing}.`
+          : 'Attacked beyond the room boundary.',
       },
-      enemies,
-      runStats: {
-        ...state.runStats,
-        enemiesDefeated: state.runStats.enemiesDefeated + ratResult.defeated,
-      },
-      lastAttack: attack,
-      attackCooldown: { readyAt: action.timestamp + ATTACK_COOLDOWN_MS },
-      announcement: attack.target
-        ? ratResult.defeated
-          ? 'Rat defeated.'
-          : ratResult.hit
-            ? 'Rat injured.'
-            : `Attacked ${attack.facing}.`
-        : 'Attacked beyond the room boundary.',
-    };
+      'attack',
+    );
   }
   if (action.type === 'turn') {
     if (state.player.facing === action.direction) return state;
@@ -1257,24 +1470,33 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
       action.trigger === 'repeat'
         ? state.adaptation
         : withMeaningfulAction(state.adaptation, action.timestamp ?? Date.now());
-    return {
-      ...state,
-      adaptation: {
-        ...adaptation,
-        signals: {
-          ...adaptation.signals,
-          directionChanges:
-            adaptation.signals.directionChanges + (action.trigger === 'repeat' ? 0 : 1),
+    return cancelInteraction(
+      {
+        ...state,
+        adaptation: {
+          ...adaptation,
+          signals: {
+            ...adaptation.signals,
+            directionChanges:
+              adaptation.signals.directionChanges + (action.trigger === 'repeat' ? 0 : 1),
+          },
         },
+        player: turnPlayer(state.player, action.direction),
+        shieldTiming: state.player.isShielding
+          ? { ...state.shieldTiming, lastFacingChangedAt: action.timestamp ?? Date.now() }
+          : state.shieldTiming,
+        announcement: `Facing ${action.direction}.`,
       },
-      player: turnPlayer(state.player, action.direction),
-      shieldTiming: state.player.isShielding
-        ? { ...state.shieldTiming, lastFacingChangedAt: action.timestamp ?? Date.now() }
-        : state.shieldTiming,
-      announcement: `Facing ${action.direction}.`,
-    };
+      'turned-away',
+    );
   }
-  if (action.type === 'move') return movePlayer(state, action);
+  if (action.type === 'move') {
+    const next = movePlayer(state, action);
+    return next.player.position.row !== state.player.position.row ||
+      next.player.position.column !== state.player.position.column
+      ? cancelInteraction(next, 'movement')
+      : next;
+  }
   if (
     action.type === 'commit-room-transition' &&
     state.evaluationProgress &&
@@ -1284,6 +1506,14 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
       state.runStats.dungeonRoomsCleared + (action.incrementDungeonRooms ? 1 : 0);
     const adaptation = completeRoomSignals(state, action);
     const enemies = action.enemies ?? emptyEnemyRoomState(action.destinationRoomId);
+    const completedGeneratedFountain = state.dungeonProgress.currentRoom
+      ? getRestorationFountains(state.dungeonProgress.currentRoom.roomSnapshot).find(
+          (feature) => feature.source === 'generated',
+        )
+      : undefined;
+    const completedGeneratedFountainUsed = Boolean(
+      completedGeneratedFountain && state.interactables[completedGeneratedFountain.id]?.depleted,
+    );
     adaptation.signals.ratsSpawned = livingRats(enemies).length;
     return {
       ...state,
@@ -1348,15 +1578,47 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
                   action.chosenExitId,
                   action.exitDirection,
                   action.enteredFrom,
+                  state,
                 ),
               ].slice(-5)
             : state.dungeonProgress.recentDecisionRecords,
         completedDecisionCount:
           (state.dungeonProgress.completedDecisionCount ?? 0) +
           (state.dungeonProgress.currentRoom && action.generatedRoom ? 1 : 0),
+        recovery: action.generatedRoom
+          ? {
+              cooldownRemaining:
+                action.generatedRoom.details.recoveryDecision?.cooldownAfter ??
+                state.dungeonProgress.recovery?.cooldownRemaining ??
+                0,
+              roomsSinceLastGeneratedSpawn: action.generatedRoom.details.recoveryDecision?.spawned
+                ? 0
+                : (state.dungeonProgress.recovery?.roomsSinceLastGeneratedSpawn ?? 0) + 1,
+              roomsSinceLastUse: completedGeneratedFountainUsed
+                ? 0
+                : (state.dungeonProgress.recovery?.roomsSinceLastUse ?? 0) + 1,
+              previousSkipped: Boolean(
+                completedGeneratedFountain && !completedGeneratedFountainUsed,
+              ),
+            }
+          : state.dungeonProgress.recovery,
       },
       adaptation,
       enemies,
+      interaction:
+        state.interaction.status === 'channeling'
+          ? {
+              ...createIdleInteractionState(),
+              status: 'cancelled',
+              cancellationReason: 'room-transition',
+            }
+          : createIdleInteractionState(),
+      interactables:
+        action.destinationRoom || action.generatedRoom?.roomSnapshot
+          ? createInteractableRuntimeStates(
+              action.destinationRoom ?? action.generatedRoom!.roomSnapshot,
+            )
+          : {},
       lastMove: null,
       blockedMove: null,
       lastAttack: null,
@@ -1405,6 +1667,8 @@ export interface RestorableGameplayRun {
   invulnerabilityRemainingMs: number;
   pendingRune: GridPosition | null;
   attackCooldownRemainingMs: number;
+  interaction?: InteractionChannelState;
+  interactables?: InteractableRuntimeStates;
 }
 
 export function restoreGameplayState(
@@ -1498,6 +1762,14 @@ export function restoreGameplayState(
     dungeonProgress: snapshot.dungeonProgress,
     adaptation: snapshot.adaptation,
     enemies,
+    interaction:
+      snapshot.interaction?.status === 'channeling'
+        ? {
+            ...snapshot.interaction,
+            deadline: now + Math.max(0, snapshot.interaction.remainingMs),
+          }
+        : (snapshot.interaction ?? createIdleInteractionState()),
+    interactables: snapshot.interactables ?? {},
     announcement: snapshot.status === 'defeated' ? 'You were defeated.' : '',
   };
 }

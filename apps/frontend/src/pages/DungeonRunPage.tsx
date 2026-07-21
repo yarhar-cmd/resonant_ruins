@@ -76,6 +76,8 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
               gameplay={run.gameplay}
               room={run.currentRoom}
               isInvulnerable={isInvulnerable}
+              effectsSetting={run.visualEffects}
+              reducedMotion={run.reducedMotion}
             />
           </Suspense>
         ) : null
@@ -93,6 +95,15 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
         maximumHealth={run.gameplay.maximumHealth}
         isInvulnerable={isInvulnerable}
         isDefeated={run.defeated}
+        isHealing={
+          run.gameplay.interaction.status === 'completed' &&
+          run.gameplay.interaction.result === 'restored-one-health'
+        }
+        fullHealthFeedback={
+          run.gameplay.interaction.status === 'cancelled' &&
+          run.gameplay.interaction.cancellationReason === 'unavailable' &&
+          run.gameplay.currentHealth === run.gameplay.maximumHealth
+        }
         dungeonRoomsCleared={
           run.inGeneratedDungeon ? run.gameplay.runStats.dungeonRoomsCleared : undefined
         }
@@ -140,6 +151,10 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
             onShieldChange={run.controls.setPointerShielding}
             enemies={run.gameplay.enemies}
             exitsSealed={enemiesRemaining > 0}
+            availableInteraction={run.availableInteraction}
+            interaction={run.gameplay.interaction}
+            interactables={run.gameplay.interactables}
+            onInteract={run.controls.interact}
           />
           {run.gameplay.currentHealth === 1 && !run.defeated && (
             <div className="low-health-vignette" aria-hidden="true" />

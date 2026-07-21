@@ -63,6 +63,7 @@ export function createRectangularRoom(input: {
   hazards?: TileCoordinate[];
   exits?: RoomExit[];
   enemySpawns?: RoomDefinition['enemySpawns'];
+  features?: RoomDefinition['features'];
 }): RoomDefinition {
   const doorway = { x: input.width - 1, y: Math.floor(input.height / 2) };
   const exit: RoomExit = {
@@ -87,6 +88,7 @@ export function createRectangularRoom(input: {
     spawnPoints: { west: { x: 1, y: Math.floor(input.height / 2) } },
     hazards: input.hazards ?? [],
     enemySpawns: input.enemySpawns ?? [],
+    features: input.features ?? [],
   };
 }
 

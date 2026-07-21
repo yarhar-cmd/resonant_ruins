@@ -14,7 +14,13 @@ import type {
 } from '../../types/player';
 import type { AvoidedDamageEvent, DamageEvent, GameplayStatus } from '../../utils/gameplayState';
 import type { RoomDefinition, TileCoordinate } from '../../types/rooms';
+import type { RestorationFountainFeature } from '../../types/topology';
 import type { EnemyRoomState } from '../../types/enemies';
+import type {
+  InteractableDefinition,
+  InteractableRuntimeStates,
+  InteractionChannelState,
+} from '../../types/interactions';
 import { RAT_COMBAT_CONFIG } from '../../config/combat';
 import { positionsMatch } from '../../utils/playerActions';
 import {
@@ -49,6 +55,10 @@ export function DungeonGrid({
   onShieldChange,
   enemies,
   exitsSealed = false,
+  availableInteraction,
+  interaction,
+  interactables,
+  onInteract,
 }: {
   bounds: RoomBounds;
   hazards: readonly { row: number; column: number }[];
@@ -69,6 +79,10 @@ export function DungeonGrid({
   onShieldChange: (isShielding: boolean) => void;
   enemies?: EnemyRoomState;
   exitsSealed?: boolean;
+  availableInteraction?: InteractableDefinition | null;
+  interaction?: InteractionChannelState;
+  interactables?: InteractableRuntimeStates;
+  onInteract?: () => boolean;
 }) {
   const visibleAttack = useTemporaryFeedback(lastAttack, 180);
   const visibleBlockedMove = useTemporaryFeedback(blockedMove, 160);
@@ -161,6 +175,17 @@ export function DungeonGrid({
             const rat = enemies?.rats.find(
               (candidate) => coordinateKey(candidate.position) === coordinateKey(coordinate),
             );
+            const feature = room?.features?.find(
+              (candidate) => coordinateKey(candidate.tile) === coordinateKey(coordinate),
+            );
+            const fountain =
+              feature?.kind === 'restoration-fountain' && 'variant' in feature
+                ? (feature as RestorationFountainFeature)
+                : null;
+            const torch = feature?.kind === 'ruin-torch' ? feature : null;
+            const fountainDepleted = fountain
+              ? Boolean(interactables?.[fountain.id]?.depleted)
+              : false;
             const isWall = Boolean(wallLookup?.has(coordinateKey(coordinate)));
             const isInternalWall = Boolean(internalWallLookup?.has(coordinateKey(coordinate)));
             const isFloor = Boolean(floorLookup?.has(coordinateKey(coordinate)));
@@ -198,9 +223,13 @@ export function DungeonGrid({
                     ? isInternalWall
                       ? 'internal-wall'
                       : 'wall'
-                    : isFloor
-                      ? 'floor'
-                      : 'void'
+                    : fountain
+                      ? fountainDepleted
+                        ? 'fountain-depleted'
+                        : 'fountain'
+                      : isFloor
+                        ? 'floor'
+                        : 'void'
               : legacyKind;
             const className = [
               'tile',
@@ -292,6 +321,27 @@ export function DungeonGrid({
                     </span>
                   </span>
                 )}
+                {fountain && (
+                  <span
+                    className={`fountain fountain--${fountain.variant} ${
+                      fountainDepleted ? 'fountain--depleted' : 'fountain--active'
+                    }`}
+                    data-feature-id={fountain.id}
+                    data-fountain-state={fountainDepleted ? 'depleted' : 'unused'}
+                    data-fountain-variant={fountain.variant}
+                  >
+                    <span className="fountain__backplate" />
+                    <span className="fountain__basin fountain__basin--upper" />
+                    <span className="fountain__water" />
+                    <span className="fountain__basin fountain__basin--lower" />
+                  </span>
+                )}
+                {torch && (
+                  <span className="ruin-torch" data-decoration-id={torch.id}>
+                    <span className="ruin-torch__bracket" />
+                    <span className="ruin-torch__flame" />
+                  </span>
+                )}
               </span>
             );
           })}
@@ -299,7 +349,8 @@ export function DungeonGrid({
       </div>
       <p id="resonant-ruins-grid-instructions" className="grid-hint">
         Resonant Ruins controls: move with WASD or arrow keys, attack with Space, and hold either
-        Shift key to shield. Red rune floor markings are walkable hazards that deal damage.
+        Shift key to shield, and press E when facing an available interactable. Red rune floor
+        markings are walkable hazards that deal damage.
       </p>
       <p className="game-announcement" aria-live="polite" aria-atomic="true">
         {announcement}
@@ -340,6 +391,18 @@ export function DungeonGrid({
           </button>
         </div>
         <div className="action-controls">
+          {availableInteraction && onInteract && (
+            <button
+              type="button"
+              className="interact-control"
+              onClick={onInteract}
+              aria-label={availableInteraction.accessibleLabel}
+              disabled={controlsDisabled || interaction?.status === 'channeling'}
+            >
+              <span>{availableInteraction.accessibleLabel}</span>
+              <small>Key E</small>
+            </button>
+          )}
           <button
             type="button"
             onClick={onAttack}
@@ -367,6 +430,22 @@ export function DungeonGrid({
           </button>
         </div>
       </div>
+      {(availableInteraction || interaction?.status === 'channeling') && (
+        <div className="interaction-prompt" role="status" aria-live="polite">
+          <span>
+            {interaction?.status === 'channeling'
+              ? 'Restoring health…'
+              : availableInteraction?.prompt}
+          </span>
+          {interaction?.status === 'channeling' && (
+            <progress
+              max={700}
+              value={700 - interaction.remainingMs}
+              aria-label="Restoration progress"
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,11 @@
 import type { RoomDefinition, TileCoordinate } from '../types/rooms';
 import type { TopologyMetrics } from '../types/topology';
-import { coordinateKey, coordinatesMatch, getWallLookup } from './roomGeometry';
+import {
+  coordinateKey,
+  coordinatesMatch,
+  getBlockingFeatureLookup,
+  getWallLookup,
+} from './roomGeometry';
 
 export const cardinalNeighbors = ({ x, y }: TileCoordinate): TileCoordinate[] => [
   { x: x + 1, y },
@@ -17,6 +22,8 @@ export function shortestPath(
 ): TileCoordinate[] | null {
   const floor = new Set(room.floorTiles.map(coordinateKey));
   const walls = getWallLookup(room);
+  const features = getBlockingFeatureLookup(room);
+  const occupied = new Set([...blocked, ...features]);
   const queue = [start];
   const visited = new Set([coordinateKey(start)]);
   const previous = new Map<string, TileCoordinate>();
@@ -34,7 +41,7 @@ export function shortestPath(
     }
     for (const next of cardinalNeighbors(current)) {
       const key = coordinateKey(next);
-      if (visited.has(key) || blocked.has(key) || walls.has(key) || !floor.has(key)) continue;
+      if (visited.has(key) || occupied.has(key) || walls.has(key) || !floor.has(key)) continue;
       visited.add(key);
       previous.set(key, current);
       queue.push(next);
@@ -46,7 +53,8 @@ export function shortestPath(
 function connectedRegions(room: RoomDefinition): TileCoordinate[][] {
   const floor = new Map(room.floorTiles.map((tile) => [coordinateKey(tile), tile]));
   const walls = getWallLookup(room);
-  const unseen = new Set([...floor.keys()].filter((key) => !walls.has(key)));
+  const features = getBlockingFeatureLookup(room);
+  const unseen = new Set([...floor.keys()].filter((key) => !walls.has(key) && !features.has(key)));
   const regions: TileCoordinate[][] = [];
   while (unseen.size) {
     const first = unseen.values().next().value as string;
@@ -71,6 +79,7 @@ export function findArticulationPoints(room: RoomDefinition): TileCoordinate[] {
   const floor = new Map(room.floorTiles.map((tile) => [coordinateKey(tile), tile]));
   const walls = getWallLookup(room);
   for (const key of walls) floor.delete(key);
+  for (const key of getBlockingFeatureLookup(room)) floor.delete(key);
   const discovery = new Map<string, number>();
   const low = new Map<string, number>();
   const parent = new Map<string, string | null>();

@@ -61,6 +61,37 @@ export const evaluationRooms: readonly RoomDefinition[] = [
     height: 13,
     exitEnabled: true,
     hazards: [{ x: 7, y: 6 }],
+    features: [
+      {
+        id: `${EVALUATION_ROOM_3_ID}-restoration-fountain`,
+        kind: 'restoration-fountain',
+        tile: { x: 10, y: 1 },
+        blocking: true,
+        source: 'authored',
+        placementStyle: 'safe',
+        variant: 'wall-integrated',
+        orientation: 'south',
+        interactionTiles: [
+          { x: 10, y: 2 },
+          { x: 9, y: 1 },
+          { x: 11, y: 1 },
+        ],
+      },
+      {
+        id: `${EVALUATION_ROOM_3_ID}-torch-west`,
+        kind: 'ruin-torch',
+        tile: { x: 8, y: 0 },
+        blocking: false,
+        source: 'authored',
+      },
+      {
+        id: `${EVALUATION_ROOM_3_ID}-torch-east`,
+        kind: 'ruin-torch',
+        tile: { x: 12, y: 0 },
+        blocking: false,
+        source: 'authored',
+      },
+    ],
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_4_ID,

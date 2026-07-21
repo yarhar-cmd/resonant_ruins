@@ -35,7 +35,26 @@ export interface DecorativeRoomFeature {
   blocking: false;
 }
 
-export type RoomFeature = BlockingRoomFeature | DecorativeRoomFeature;
+export type FountainPlacementStyle = 'safe' | 'risky';
+export type FountainVisualVariant = 'freestanding' | 'wall-integrated';
+export type FountainOrientation = 'north' | 'south' | 'east' | 'west';
+
+export interface RestorationFountainFeature extends BlockingRoomFeature {
+  kind: 'restoration-fountain';
+  source: 'authored' | 'generated';
+  placementStyle: FountainPlacementStyle;
+  variant: FountainVisualVariant;
+  orientation?: FountainOrientation;
+  interactionTiles: TileCoordinate[];
+}
+
+export interface RuinTorchFeature extends DecorativeRoomFeature {
+  kind: 'ruin-torch';
+  source: 'authored' | 'generated';
+}
+
+export type RoomFeature =
+  RestorationFountainFeature | RuinTorchFeature | BlockingRoomFeature | DecorativeRoomFeature;
 
 export interface TopologyMetrics {
   floorArea: number;

@@ -43,10 +43,18 @@ function renderControls() {
   const onTurn = vi.fn();
   const onAttack = vi.fn();
   const onShieldChange = vi.fn();
+  const onInteract = vi.fn();
   const hook = renderHook(() =>
-    useCharacterControls({ enabled: true, onMove, onTurn, onAttack, onShieldChange }),
+    useCharacterControls({
+      enabled: true,
+      onMove,
+      onTurn,
+      onAttack,
+      onShieldChange,
+      onInteract,
+    }),
   );
-  return { ...hook, onMove, onTurn, onAttack, onShieldChange };
+  return { ...hook, onMove, onTurn, onAttack, onShieldChange, onInteract };
 }
 
 function useShieldStateHarness() {
@@ -83,6 +91,34 @@ describe('Resonant Ruins character controls', () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(onMove).toHaveBeenCalledWith(direction, 'press');
+  });
+
+  it('uses a fresh physical KeyE press once and ignores held repeats', () => {
+    const { onInteract } = renderControls();
+    const press = dispatchKeyboardEvent('keydown', { code: 'KeyE', modifierShift: false });
+    dispatchKeyboardEvent('keydown', { code: 'KeyE', modifierShift: false, repeat: true });
+    expect(press.defaultPrevented).toBe(true);
+    expect(onInteract).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves KeyE and Enter alone when unrelated interactive UI has focus', () => {
+    const button = document.createElement('button');
+    document.body.append(button);
+    const { onInteract } = renderControls();
+    const e = dispatchKeyboardEvent('keydown', {
+      code: 'KeyE',
+      modifierShift: false,
+      target: button,
+    });
+    const enter = dispatchKeyboardEvent('keydown', {
+      code: 'Enter',
+      modifierShift: false,
+      target: button,
+    });
+    expect(e.defaultPrevented).toBe(false);
+    expect(enter.defaultPrevented).toBe(false);
+    expect(onInteract).not.toHaveBeenCalled();
+    button.remove();
   });
 
   it('moves immediately, repeats every 200ms, and gives the latest held direction priority', () => {
