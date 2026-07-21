@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PrimaryButton, SecondaryButton } from '../components/common/Buttons';
 import { Panel } from '../components/common/Panel';
 import { ConfirmationDialog } from '../components/mirrorvault/ConfirmationDialog';
+import { ResearchDataPanel } from '../components/mirrorvault/ResearchDataPanel';
 import { getPlayableCharacterId } from '../data/characterAvailability';
 import { useAdventure } from '../hooks/useAdventure';
 import { createActiveRunRecord } from '../services/activeRunStorage';
@@ -215,14 +216,7 @@ export function ResearchPage() {
         </Panel>
       )}
 
-      <Panel className="research-data-overview" eyebrow="Research data">
-        <h2>Stored locally</h2>
-        <p>
-          {storage.data.sessions.length} session{storage.data.sessions.length === 1 ? '' : 's'}{' '}
-          currently stored in this browser.
-        </p>
-        <p>Session identifiers are pseudonymous record keys, not verified anonymous identities.</p>
-      </Panel>
+      <ResearchDataPanel data={storage.data} onChanged={refresh} />
 
       <ConfirmationDialog
         open={endConfirmation}

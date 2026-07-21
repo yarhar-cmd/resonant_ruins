@@ -2560,6 +2560,71 @@
   background: var(--ink-900);
 }
 
+.research-data-panel,
+.research-session-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.research-data-heading,
+.research-session-record,
+.research-condition-summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.research-pilot-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.research-pilot-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+.research-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.6rem;
+}
+
+.research-summary-grid div,
+.research-session-record {
+  padding: 0.8rem;
+  border: 1px solid var(--line-soft);
+  background: var(--ink-950);
+}
+
+.research-summary-grid dt {
+  color: var(--parchment-muted);
+  font: 0.65rem var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.research-summary-grid dd {
+  margin: 0.35rem 0 0;
+  color: var(--parchment);
+}
+
+.research-summary-note {
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .research-data-heading,
+  .research-session-record,
+  .research-condition-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 720px) {
   .research-session-options {
     grid-template-columns: 1fr;
