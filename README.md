@@ -11,7 +11,8 @@ This repository is intentionally a functional prototype. Story scenes and adapta
 - [Phased feature roadmap](docs/ROADMAP.md)
 - [Recommended architecture](docs/ARCHITECTURE.md)
 - [Prioritized checkbox backlog](docs/BACKLOG.md)
-- [Enemy Framework v1](docs/ENEMY_FRAMEWORK.md)
+- [Enemy Framework v0.2](docs/ENEMY_FRAMEWORK.md)
+- [Balance changelog](docs/BALANCE_CHANGELOG.md)
 - [Earlier future-backend notes](docs/future-backend-plan.md)
 
 ## Technology
@@ -131,14 +132,17 @@ while Restart Run immediately reuses the current preset and settings. Authored r
 Chambers. Completing all five unlocks Chamber 1's persistent generated-dungeon shortcut.
 
 New runs use a fixed five-Chamber order. Chambers 4 and 5 contain ordered authored Rat spawns, with
-the first one, two, or three enabled by experience preset. The reducer owns deterministic Rat BFS,
-telegraphed melee attacks, directional shield resolution, two-hit sword damage, corpse timing, and
-enemy-sealed exits. See [Enemy Framework v1](docs/ENEMY_FRAMEWORK.md) for constants and rules.
+the first one, two, or three enabled by experience preset. Rats begin unaware, alert by path
+distance, chase with deterministic BFS/reservations, lock a tile for a readable telegraph, lunge
+visually, and recover after every hit, miss, or block. Hold Shift to raise a directional shield;
+raising it or turning it correctly during the final 125 ms before impact produces a perfect block
+and longer Rat recovery. See [Enemy Framework v0.2](docs/ENEMY_FRAMEWORK.md) for constants and rules.
 
 Generated rooms are derived from a run seed, room number, chosen exit, and generator version. The
 generator supports rectangles and L-shapes, one to three exits, red-rune hazards, deterministic
 validation/retries, and a known-safe fallback. The active-run record stores both the seed inputs and
-the exact validated current-room snapshot so refreshes do not change the room.
+the exact validated current-room snapshot so refreshes do not change the room. New rooms use
+`generator-2`; saved rooms retain the generator version that produced them.
 
 ## Frontend and backend communication
 
@@ -172,8 +176,10 @@ current room and tile, facing, stable statistics, Awakening analytics, authorita
 and remaining invulnerability, pending-rune, and attack-cooldown durations. Temporary held input,
 fade, visual feedback, and focus state remain excluded. Active-run Pause-menu navigation to Settings
 or Main Menu preserves the record; Game Over Main Menu intentionally clears it. Restart replaces it.
-The v5 active-run schema also keeps exact Rat state and remaining enemy deadlines for the current
-room only. It keeps exact visited tiles only for the current room, five detailed recent
+The v6 active-run schema also keeps exact Rat facing, awareness, combat state, locked target,
+outcome, recovery kind, and remaining enemy deadlines for the current room only. Physically held
+keyboard/pointer input is intentionally cleared on pause or refresh so the shield resumes lowered.
+It keeps exact visited tiles only for the current room, five detailed recent
 room snapshots, and a fixed-size numeric summary for older rooms. The completed archive keeps five
 recent defeats per character plus fixed-size best statistics. Clear site data in browser settings to
 reset everything.
@@ -199,6 +205,23 @@ A real adventure model should be called from a backend service, never directly f
 
 Environment variables belong in app-specific `.env` files and are documented in each `.env.example`. Variables beginning with `VITE_` are visible to browser code and must never contain secrets.
 
+## Vercel preview diagnostics
+
+Normal production builds exclude both the full local Debug Tools and the read-only Playtest
+Diagnostics. To enable the safe diagnostics panel for pull-request previews, open the Vercel
+dashboard and use this exact path:
+
+1. Open **Project Settings**.
+2. Open **Environment Variables**.
+3. Add `VITE_ENABLE_PLAYTEST_DIAGNOSTICS=true`.
+4. Select **Preview** only; do not select **Production**.
+5. Redeploy the pull-request preview.
+
+The Vite build includes the panel only when Vercel also supplies `VERCEL_ENV=preview` and the public
+feature flag is exactly `true`. Hostnames, query strings, local development, malformed values, and
+production builds cannot enable it. This variable is public build configuration and must not contain
+secrets.
+
 ## Quality commands
 
 ```powershell
@@ -210,6 +233,9 @@ npm run build
 npm run verify:production-safety
 npm run format
 ```
+
+To verify the separately built preview artifact, run
+`node scripts/verify-production-bundle.mjs --mode=preview --dir=apps/frontend/dist-preview`.
 
 The end-to-end suite uses the installed Chrome channel as its Chromium runtime. To use Playwright's
 bundled Chromium instead, remove `channel: 'chrome'` from `playwright.config.ts` and install it with

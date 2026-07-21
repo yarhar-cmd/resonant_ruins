@@ -97,7 +97,7 @@ describe('Resonant Ruins dungeon routing, run layout, and pause flow', () => {
       experiencePreset: 'dungeon-veteran',
       firstTimeComplete: true,
     });
-    expect(activeRecord()).toMatchObject({ version: 5, experiencePreset: 'dungeon-veteran' });
+    expect(activeRecord()).toMatchObject({ version: 6, experiencePreset: 'dungeon-veteran' });
   });
 
   it('redirects /dungeon to a valid run and /dungeon/run to setup when no run exists', () => {
@@ -249,6 +249,8 @@ describe('Resonant Ruins dungeon routing, run layout, and pause flow', () => {
   it('opens the development Debug drawer closed-by-default and overlays without narrative', () => {
     persistRun();
     renderApp('/dungeon/run');
+    expect(screen.getByRole('button', { name: 'Debug' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'PLAYTEST DIAGNOSTICS' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Debug Tools' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Debug' }));
     expect(screen.getByRole('dialog', { name: 'Debug Tools' })).toHaveClass('debug-drawer');
