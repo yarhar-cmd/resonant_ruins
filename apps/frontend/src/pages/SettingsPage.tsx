@@ -60,6 +60,26 @@ export function SettingsPage() {
       <div className="settings-list">
         <label>
           <span>
+            <strong>Visual Effects</strong>
+            <small>Controls decorative torch, Fountain, particle, and room ambience motion.</small>
+          </span>
+          <select
+            aria-label="Visual Effects"
+            value={settings.visualEffects}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                visualEffects: event.target.value as typeof settings.visualEffects,
+              })
+            }
+          >
+            <option value="full">Full</option>
+            <option value="reduced">Reduced</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+        <label>
+          <span>
             <strong>Experience preset</strong>
             <small>Shapes how strongly generated rooms reinforce or test your play style.</small>
           </span>
@@ -88,7 +108,7 @@ export function SettingsPage() {
         <label>
           <span>
             <strong>Reduce motion</strong>
-            <small>Disables decorative transitions and pulses.</small>
+            <small>Also constrains motion for accessibility, independent of effect detail.</small>
           </span>
           <input
             type="checkbox"

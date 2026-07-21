@@ -15,6 +15,9 @@ function archive(input: {
   time: number;
   rooms: number;
   enemies: number;
+  gameVersion?: string;
+  generatorVersions?: ('generator-1' | 'generator-2' | 'generator-3')[];
+  mixedGeneratorProvenance?: boolean;
 }) {
   archiveCompletedRun(
     createCompletedRunRecord({
@@ -25,6 +28,9 @@ function archive(input: {
       timeSurvivedMs: input.time,
       dungeonRoomsCleared: input.rooms,
       enemiesDefeated: input.enemies,
+      gameVersion: input.gameVersion,
+      generatorVersions: input.generatorVersions,
+      mixedGeneratorProvenance: input.mixedGeneratorProvenance,
     }),
   );
 }
@@ -106,5 +112,63 @@ describe('Resonant Ruins Runs page', () => {
     expect(screen.getByText(/Your defeated runs will appear here\./)).toBeVisible();
     expect(screen.getByText(/run history was unreadable/i)).toBeVisible();
     expect(localStorage.getItem('mirrorvault:active-run:v1')).toBe('preserved-active');
+  });
+
+  it('displays and filters versioned mixed generator provenance', () => {
+    archive({
+      id: 'mixed-run',
+      characterId: 'seeker',
+      endedAt: '2026-05-01T00:00:00.000Z',
+      time: 50_000,
+      rooms: 5,
+      enemies: 2,
+      gameVersion: 'mvp-0.3',
+      generatorVersions: ['generator-1', 'generator-2'],
+      mixedGeneratorProvenance: true,
+    });
+    archive({
+      id: 'generator-3-run',
+      characterId: 'warden',
+      endedAt: '2026-06-01T00:00:00.000Z',
+      time: 60_000,
+      rooms: 6,
+      enemies: 3,
+      gameVersion: 'mvp-0.3',
+      generatorVersions: ['generator-3'],
+    });
+
+    render(<HistoryPage />);
+    expect(screen.getByText(/generator-1 \+ generator-2.*mixed provenance/)).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Generator'), { target: { value: 'generator-3' } });
+    expect(screen.getByRole('heading', { name: 'Warden' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Seeker' })).not.toBeInTheDocument();
+  });
+
+  it('confirms destructive History clearing while preserving bests and unrelated local data', () => {
+    archive({
+      id: 'clear-me',
+      characterId: 'warden',
+      endedAt: '2026-06-01T00:00:00.000Z',
+      time: 60_000,
+      rooms: 6,
+      enemies: 3,
+    });
+    localStorage.setItem('mirrorvault:active-run:v1', 'active-preserved');
+    localStorage.setItem('mirrorvault:player-profile:v1', 'profile-preserved');
+    localStorage.setItem('mirrorvault:settings', 'settings-preserved');
+    render(<HistoryPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Run History' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Clear Run History?' });
+    expect(dialog).toHaveTextContent('Best records');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.getByRole('heading', { name: 'Warden' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Run History' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear recent runs' }));
+    expect(screen.getByText(/Recent Run History cleared/)).toBeVisible();
+    expect(screen.getByText(/No completed runs yet/)).toBeVisible();
+    expect(screen.getByText('01:00')).toBeVisible();
+    expect(localStorage.getItem('mirrorvault:active-run:v1')).toBe('active-preserved');
+    expect(localStorage.getItem('mirrorvault:player-profile:v1')).toBe('profile-preserved');
+    expect(localStorage.getItem('mirrorvault:settings')).toBe('settings-preserved');
   });
 });

@@ -13,6 +13,7 @@ function validRoom(): RoomDefinition {
     experiencePreset: 'seasoned-adventurer',
     effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
     mode: 'reinforce',
+    generatorVersion: 'generator-2',
   }).roomSnapshot;
 }
 

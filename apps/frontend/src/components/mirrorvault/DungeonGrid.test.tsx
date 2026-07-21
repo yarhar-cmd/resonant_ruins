@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AttackAction, PlayerState } from '../../types/player';
 import type { RoomDefinition } from '../../types/rooms';
@@ -11,6 +11,8 @@ import {
 } from '../../utils/roomGeometry';
 import { DungeonGrid } from './DungeonGrid';
 import { createRoomEnemyState } from '../../utils/enemySystem';
+import { NEUTRAL_ADAPTIVE_PROFILE } from '../../services/playerProfileStorage';
+import { generateArchetypeRoomV3 } from '../../utils/generatedRoomGeneratorV3';
 
 const bounds = { rows: 5, columns: 8 } as const;
 const basePlayer: PlayerState = {
@@ -432,6 +434,32 @@ describe('Resonant Ruins dungeon grid', () => {
     );
   });
 
+  it('renders generator-3 void and internal structures as distinct solid tile layers', () => {
+    const request = {
+      runSeed: 'grid-topology',
+      dungeonRoomNumber: 10,
+      chosenExitId: 'grid-topology-exit',
+      entranceDirection: 'west' as const,
+      experiencePreset: 'dungeon-veteran' as const,
+      effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
+      mode: 'reinforce' as const,
+      generatorVersion: 'generator-3' as const,
+      adaptationVersion: 'rules-2' as const,
+      gameVersion: 'mvp-0.3' as const,
+    };
+    const lRoom = generateArchetypeRoomV3(request, 'true-l-ruin').roomSnapshot;
+    const { container, rerender } = render(dataDrivenGrid(lRoom));
+
+    expect(container.querySelectorAll('[data-tile-kind="void"]')).not.toHaveLength(0);
+    expect(container.querySelectorAll('[data-tile-kind="wall"]')).not.toHaveLength(0);
+
+    const ringRoom = generateArchetypeRoomV3(request, 'ring-route').roomSnapshot;
+    rerender(dataDrivenGrid(ringRoom));
+    expect(container.querySelectorAll('[data-tile-kind="internal-wall"]')).toHaveLength(
+      ringRoom.internalWallTiles?.length ?? 0,
+    );
+  });
+
   it('uses one shared responsive tile scale while room track counts change', () => {
     const smallRoom = evaluationRooms[0]!;
     const largeRoom = evaluationRooms[3]!;
@@ -461,5 +489,54 @@ describe('Resonant Ruins dungeon grid', () => {
     rerender(dataDrivenGrid(evaluationRooms[2]!));
     expect(container.querySelector('.tile--hazard')).not.toHaveAttribute('style');
     expect(container.querySelector('.tile--hazard')).toHaveClass('tile');
+  });
+
+  it('renders authored Fountain state and exposes the valid pointer Interact button', () => {
+    const room = evaluationRooms[2]!;
+    const fountainId = 'evaluation-room-03-restoration-fountain';
+    const onInteract = vi.fn(() => true);
+    const { container, rerender } = render(
+      <DungeonGrid
+        bounds={roomBounds(room)}
+        hazards={(room.hazards ?? []).map(coordinateToGridPosition)}
+        room={room}
+        player={{
+          ...basePlayer,
+          position: { row: 2, column: 10 },
+          facing: 'up',
+        }}
+        status="active"
+        isInvulnerable={false}
+        blockedMove={null}
+        lastAttack={null}
+        lastDamage={null}
+        lastAvoidedDamage={null}
+        announcement=""
+        controlsDisabled={false}
+        onMove={vi.fn()}
+        onAttack={() => true}
+        onShieldChange={vi.fn()}
+        availableInteraction={{
+          id: fountainId,
+          type: 'restoration-fountain',
+          tile: { x: 10, y: 1 },
+          range: 1,
+          requiredFacing: 'up',
+          available: true,
+          accessibleLabel: 'Restore Health',
+          prompt: 'E — Restore Health',
+          channelDurationMs: 700,
+        }}
+        interactables={{
+          [fountainId]: { depleted: false, encounteredAt: null, usedAt: null },
+        }}
+        onInteract={onInteract}
+      />,
+    );
+    expect(container.querySelector('[data-fountain-state="unused"]')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Health' }));
+    expect(onInteract).toHaveBeenCalledTimes(1);
+    rerender(dataDrivenGrid(room));
+    expect(container.querySelector('.ruin-torch')).not.toBeNull();
   });
 });

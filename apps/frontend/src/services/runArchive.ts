@@ -1,12 +1,13 @@
 import { isExperiencePreset, type StoredExperiencePreset } from '../types/adaptation';
+import type { AdaptationVersion, GeneratorVersion } from '../config/version';
 
 export const RUN_ARCHIVE_KEY = 'mirrorvault:run-archive:v1';
-export const RUN_ARCHIVE_VERSION = 2 as const;
+export const RUN_ARCHIVE_VERSION = 3 as const;
 export const RUN_HISTORY_LIMIT = 5;
 export type CharacterId = 'warden' | 'seeker' | 'ember';
 
 export interface CompletedRunRecord {
-  version: 2;
+  version: 3;
   id: string;
   characterId: CharacterId;
   experiencePreset: StoredExperiencePreset;
@@ -16,6 +17,10 @@ export interface CompletedRunRecord {
   /** Migration compatibility alias. */
   roomsCleared?: number;
   enemiesDefeated: number;
+  gameVersion: string;
+  generatorVersions: GeneratorVersion[];
+  adaptationVersions: AdaptationVersion[];
+  mixedGeneratorProvenance: boolean;
 }
 export interface CharacterBestStats {
   bestTimeSurvivedMs: number;
@@ -29,7 +34,7 @@ export interface CharacterBestStats {
 export type PresetBestStats = Record<StoredExperiencePreset, CharacterBestStats> &
   Partial<CharacterBestStats>;
 export interface RunArchiveData {
-  version: 2;
+  version: 3;
   histories: Record<CharacterId, CompletedRunRecord[]>;
   bestStats: Record<CharacterId, PresetBestStats>;
 }
@@ -38,6 +43,11 @@ export interface ArchiveCompletedRunResult {
   data: RunArchiveData;
   saved: boolean;
   duplicate: boolean;
+  issue: RunArchiveIssue | null;
+}
+export interface ClearRunHistoryResult {
+  data: RunArchiveData;
+  cleared: boolean;
   issue: RunArchiveIssue | null;
 }
 
@@ -54,6 +64,8 @@ const presetIds = RUN_ARCHIVE_PRESET_IDS;
 export interface RunArchiveFilters {
   characterId: CharacterId | 'all';
   experiencePreset: StoredExperiencePreset | 'all';
+  gameVersion?: string | 'all';
+  generatorVersion?: GeneratorVersion | 'unknown' | 'all';
 }
 
 export interface FilteredRunArchiveView {
@@ -123,7 +135,7 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
     return null;
   if (value.version === 1 && isCount(value.roomsCleared)) {
     return {
-      version: 2,
+      version: 3,
       id: value.id,
       characterId: value.characterId,
       experiencePreset: 'unknown',
@@ -131,16 +143,34 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
       timeSurvivedMs: value.timeSurvivedMs,
       dungeonRoomsCleared: value.roomsCleared,
       enemiesDefeated: value.enemiesDefeated,
+      gameVersion: 'unknown',
+      generatorVersions: [],
+      adaptationVersions: [],
+      mixedGeneratorProvenance: false,
     };
   }
   if (
-    value.version !== 2 ||
+    (value.version !== 2 && value.version !== 3) ||
     !isStoredPreset(value.experiencePreset) ||
     !isCount(value.dungeonRoomsCleared)
   )
     return null;
+  const generatorVersions =
+    value.version === 3 &&
+    Array.isArray(value.generatorVersions) &&
+    value.generatorVersions.every(
+      (item) => item === 'generator-1' || item === 'generator-2' || item === 'generator-3',
+    )
+      ? (value.generatorVersions as GeneratorVersion[])
+      : [];
+  const adaptationVersions =
+    value.version === 3 &&
+    Array.isArray(value.adaptationVersions) &&
+    value.adaptationVersions.every((item) => item === 'rules-1' || item === 'rules-2')
+      ? (value.adaptationVersions as AdaptationVersion[])
+      : [];
   return {
-    version: 2,
+    version: 3,
     id: value.id,
     characterId: value.characterId,
     experiencePreset: value.experiencePreset,
@@ -148,6 +178,14 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
     timeSurvivedMs: value.timeSurvivedMs,
     dungeonRoomsCleared: value.dungeonRoomsCleared,
     enemiesDefeated: value.enemiesDefeated,
+    gameVersion:
+      value.version === 3 && typeof value.gameVersion === 'string' ? value.gameVersion : 'unknown',
+    generatorVersions,
+    adaptationVersions,
+    mixedGeneratorProvenance:
+      value.version === 3 && typeof value.mixedGeneratorProvenance === 'boolean'
+        ? value.mixedGeneratorProvenance
+        : generatorVersions.length > 1,
   };
 }
 function parseBest(value: unknown): CharacterBestStats | null {
@@ -212,7 +250,12 @@ function migrateVersionOne(value: Record<string, unknown>): RunArchiveData | nul
 export function parseRunArchive(value: unknown): RunArchiveData | null {
   if (!isObject(value)) return null;
   if (value.version === 1) return migrateVersionOne(value);
-  if (value.version !== 2 || !isObject(value.histories) || !isObject(value.bestStats)) return null;
+  if (
+    (value.version !== 2 && value.version !== 3) ||
+    !isObject(value.histories) ||
+    !isObject(value.bestStats)
+  )
+    return null;
   const archive = createEmptyRunArchive();
   for (const characterId of characterIds) {
     const rawHistory = value.histories[characterId];
@@ -260,10 +303,14 @@ export function createCompletedRunRecord(record: {
   dungeonRoomsCleared?: number;
   roomsCleared?: number;
   enemiesDefeated: number;
+  gameVersion?: string;
+  generatorVersions?: GeneratorVersion[];
+  adaptationVersions?: AdaptationVersion[];
+  mixedGeneratorProvenance?: boolean;
 }): CompletedRunRecord {
   const count = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0);
   return {
-    version: 2,
+    version: 3,
     id: record.id,
     characterId: record.characterId,
     experiencePreset: record.experiencePreset ?? 'unknown',
@@ -271,6 +318,11 @@ export function createCompletedRunRecord(record: {
     timeSurvivedMs: count(record.timeSurvivedMs),
     dungeonRoomsCleared: count(record.dungeonRoomsCleared ?? record.roomsCleared ?? 0),
     enemiesDefeated: count(record.enemiesDefeated),
+    gameVersion: record.gameVersion ?? 'unknown',
+    generatorVersions: [...new Set(record.generatorVersions ?? [])],
+    adaptationVersions: [...new Set(record.adaptationVersions ?? [])],
+    mixedGeneratorProvenance:
+      record.mixedGeneratorProvenance ?? new Set(record.generatorVersions ?? []).size > 1,
   };
 }
 export function archiveCompletedRun(
@@ -305,6 +357,21 @@ export function archiveCompletedRun(
   }
 }
 
+export function clearRecentRunHistory(storage?: Storage): ClearRunHistoryResult {
+  const loaded = loadRunArchive(storage);
+  if (loaded.issue) return { data: loaded.data, cleared: false, issue: loaded.issue };
+  const data: RunArchiveData = {
+    ...loaded.data,
+    histories: { warden: [], seeker: [], ember: [] },
+  };
+  try {
+    resolveStorage(storage).setItem(RUN_ARCHIVE_KEY, JSON.stringify(data));
+    return { data, cleared: true, issue: null };
+  } catch {
+    return { data: loaded.data, cleared: false, issue: 'write-failed' };
+  }
+}
+
 export function getFilteredRunArchiveView(
   archive: RunArchiveData,
   filters: RunArchiveFilters,
@@ -319,7 +386,15 @@ export function getFilteredRunArchiveView(
     .flatMap((characterId) => archive.histories[characterId])
     .filter(
       (run) =>
-        filters.experiencePreset === 'all' || run.experiencePreset === filters.experiencePreset,
+        (filters.experiencePreset === 'all' || run.experiencePreset === filters.experiencePreset) &&
+        (!filters.gameVersion ||
+          filters.gameVersion === 'all' ||
+          run.gameVersion === filters.gameVersion) &&
+        (!filters.generatorVersion ||
+          filters.generatorVersion === 'all' ||
+          (filters.generatorVersion === 'unknown'
+            ? run.generatorVersions.length === 0
+            : run.generatorVersions.includes(filters.generatorVersion))),
     )
     .sort((left, right) => Date.parse(right.endedAt) - Date.parse(left.endedAt));
   const best = emptyBest();

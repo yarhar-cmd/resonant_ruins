@@ -9,6 +9,8 @@ export function StatusPanel({
   isDefeated,
   dungeonRoomsCleared,
   enemiesRemaining,
+  isHealing = false,
+  fullHealthFeedback = false,
 }: {
   room?: number;
   roomLabel?: string;
@@ -20,6 +22,8 @@ export function StatusPanel({
   isDefeated: boolean;
   dungeonRoomsCleared?: number;
   enemiesRemaining?: number;
+  isHealing?: boolean;
+  fullHealthFeedback?: boolean;
 }) {
   const healthStatus = isDefeated ? ' You were defeated.' : isInvulnerable ? ' Invulnerable.' : '';
 
@@ -30,7 +34,7 @@ export function StatusPanel({
         <strong>{roomLabel ?? `${String(room ?? 1).padStart(2, '0')} / 06`}</strong>
       </div>
       <div
-        className="health"
+        className={`health ${isHealing ? 'health--healing' : ''} ${fullHealthFeedback ? 'health--full-feedback' : ''}`}
         data-status-field="health"
         aria-label={`${currentHealth} of ${maximumHealth} health remaining.${healthStatus}`}
       >
@@ -45,6 +49,9 @@ export function StatusPanel({
             </span>
           ))}
         </strong>
+        <small className="health__text">
+          {currentHealth} / {maximumHealth}
+        </small>
         {isInvulnerable && !isDefeated && (
           <small className="health__condition">◇ Invulnerable</small>
         )}

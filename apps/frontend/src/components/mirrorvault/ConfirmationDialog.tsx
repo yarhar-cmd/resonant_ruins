@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef } from 'react';
-import { PrimaryButton } from '../common/Buttons';
 
 export function ConfirmationDialog({
   open,
@@ -8,6 +7,7 @@ export function ConfirmationDialog({
   confirmLabel,
   onConfirm,
   onCancel,
+  destructive = false,
 }: {
   open: boolean;
   title: string;
@@ -15,11 +15,19 @@ export function ConfirmationDialog({
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  destructive?: boolean;
 }) {
   const titleId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (open) cancelRef.current?.focus();
+    if (open) {
+      restoreFocusRef.current = document.activeElement as HTMLElement | null;
+      cancelRef.current?.focus();
+      return;
+    }
+    restoreFocusRef.current?.focus();
   }, [open]);
   if (!open) return null;
   return (
@@ -28,11 +36,34 @@ export function ConfirmationDialog({
       onMouseDown={(event) => event.target === event.currentTarget && onCancel()}
     >
       <section
+        ref={dialogRef}
         className="confirmation-dialog"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        onKeyDown={(event) => event.key === 'Escape' && onCancel()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            onCancel();
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          const focusable = Array.from(
+            dialogRef.current?.querySelectorAll<HTMLElement>(
+              'button,[href],input,select,textarea',
+            ) ?? [],
+          ).filter((element) => !element.hasAttribute('disabled'));
+          if (!focusable.length) return;
+          const first = focusable[0]!;
+          const last = focusable[focusable.length - 1]!;
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}
       >
         <h2 id={titleId}>{title}</h2>
         <div>{children}</div>
@@ -45,7 +76,13 @@ export function ConfirmationDialog({
           >
             Cancel
           </button>
-          <PrimaryButton onClick={onConfirm}>{confirmLabel}</PrimaryButton>
+          <button
+            type="button"
+            className={`button ${destructive ? 'button--danger' : 'button--primary'}`}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
         </div>
       </section>
     </div>

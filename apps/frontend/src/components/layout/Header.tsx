@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { MirrorvaultLogo } from './MirrorvaultLogo';
+import { TOPOLOGY_LAB_ENABLED } from '../../config/environment';
 
 const links = [
   ['/', 'Home'],
@@ -20,6 +21,7 @@ export function Header() {
             {label}
           </NavLink>
         ))}
+        {TOPOLOGY_LAB_ENABLED && <NavLink to="/topology-lab">Topology Lab</NavLink>}
       </nav>
       <span className="local-badge">LOCAL ONLY</span>
     </header>

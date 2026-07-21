@@ -50,4 +50,5 @@ export interface UserSettings {
   sound: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
+  visualEffects: 'full' | 'reduced' | 'off';
 }

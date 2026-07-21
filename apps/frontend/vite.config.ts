@@ -1,10 +1,14 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import { shouldIncludePlaytestDiagnostics } from './src/config/buildEnvironment';
+import {
+  shouldIncludePlaytestDiagnostics,
+  shouldIncludeTopologyLab,
+} from './src/config/buildEnvironment';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const environment = loadEnv(mode, '.', '');
   const includePlaytestDiagnostics = shouldIncludePlaytestDiagnostics(environment);
+  const includeTopologyLab = shouldIncludeTopologyLab(environment, command === 'serve');
 
   return {
     plugins: [react()],
@@ -12,6 +16,7 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_PLAYTEST_DIAGNOSTICS_INCLUDED': JSON.stringify(
         String(includePlaytestDiagnostics),
       ),
+      'import.meta.env.VITE_TOPOLOGY_LAB_INCLUDED': JSON.stringify(String(includeTopologyLab)),
     },
     server: {
       port: 5173,

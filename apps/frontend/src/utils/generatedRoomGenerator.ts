@@ -1,5 +1,4 @@
 import type { ExitDirection, RoomDefinition, RoomExit, TileCoordinate } from '../types/rooms';
-import { VERSION_INFO } from '../config/version';
 import {
   GENERATED_ROOM_SAVE_SCHEMA_VERSION,
   type GeneratedRoomSave,
@@ -11,6 +10,9 @@ import { createGeneratedRoomParameters } from './generatedRoomParameters';
 import { validateGeneratedRoom } from './generatedRoomValidator';
 import { createSeededRandom, randomInteger, shuffleSeeded, weightedChoice } from './seededRandom';
 import { selectGeneratedRatSpawns } from './enemySystem';
+import { deriveRoomSeedV3, generateDungeonRoomV3 } from './generatedRoomGeneratorV3';
+
+const GENERATOR_2_VERSION = 'generator-2' as const;
 
 const opposite: Record<ExitDirection, ExitDirection> = {
   north: 'south',
@@ -23,10 +25,10 @@ export function oppositeExitDirection(direction: ExitDirection): ExitDirection {
   return opposite[direction];
 }
 
-export function deriveRoomSeed(
+export function deriveRoomSeedV2(
   request: Pick<GenerationRequest, 'runSeed' | 'dungeonRoomNumber' | 'chosenExitId'>,
 ): string {
-  return `${request.runSeed}:${request.dungeonRoomNumber}:${request.chosenExitId}:${VERSION_INFO.generatorVersion}`;
+  return `${request.runSeed}:${request.dungeonRoomNumber}:${request.chosenExitId}:${GENERATOR_2_VERSION}`;
 }
 
 function boundaryTile(
@@ -97,7 +99,7 @@ function manhattan(left: TileCoordinate, right: TileCoordinate): number {
 }
 
 function generateCandidate(request: GenerationRequest, retry: number): GeneratedRoomSave {
-  const roomSeed = deriveRoomSeed(request);
+  const roomSeed = deriveRoomSeedV2(request);
   const random = createSeededRandom(`${roomSeed}:retry:${retry}`);
   const { parameters, reasons } = createGeneratedRoomParameters(
     request.effectiveProfile,
@@ -208,7 +210,9 @@ function generateCandidate(request: GenerationRequest, retry: number): Generated
   const validation = validateGeneratedRoom(roomSnapshot);
   return {
     schemaVersion: GENERATED_ROOM_SAVE_SCHEMA_VERSION,
-    generatorVersion: VERSION_INFO.generatorVersion,
+    generatorVersion: GENERATOR_2_VERSION,
+    gameVersion: 'mvp-0.2',
+    adaptationVersion: 'rules-1',
     runSeed: request.runSeed,
     roomSeed,
     dungeonRoomNumber: request.dungeonRoomNumber,
@@ -216,7 +220,7 @@ function generateCandidate(request: GenerationRequest, retry: number): Generated
     roomSnapshot,
     details: {
       roomSeed,
-      generatorVersion: VERSION_INFO.generatorVersion,
+      generatorVersion: GENERATOR_2_VERSION,
       shape,
       entranceDirection: request.entranceDirection,
       hazardPattern,
@@ -230,7 +234,7 @@ function generateCandidate(request: GenerationRequest, retry: number): Generated
 }
 
 function createFallback(request: GenerationRequest, errors: string[]): GeneratedRoomSave {
-  const roomSeed = deriveRoomSeed(request);
+  const roomSeed = deriveRoomSeedV2(request);
   const width = 11;
   const height = 9;
   const entranceTile = boundaryTile(
@@ -285,7 +289,9 @@ function createFallback(request: GenerationRequest, errors: string[]): Generated
   roomSnapshot.enemySpawns = enemySelection.spawns;
   return {
     schemaVersion: GENERATED_ROOM_SAVE_SCHEMA_VERSION,
-    generatorVersion: VERSION_INFO.generatorVersion,
+    generatorVersion: GENERATOR_2_VERSION,
+    gameVersion: 'mvp-0.2',
+    adaptationVersion: 'rules-1',
     runSeed: request.runSeed,
     roomSeed,
     dungeonRoomNumber: request.dungeonRoomNumber,
@@ -293,7 +299,7 @@ function createFallback(request: GenerationRequest, errors: string[]): Generated
     roomSnapshot,
     details: {
       roomSeed,
-      generatorVersion: VERSION_INFO.generatorVersion,
+      generatorVersion: GENERATOR_2_VERSION,
       shape: 'rectangle',
       entranceDirection: request.entranceDirection,
       hazardPattern: 'scattered',
@@ -306,7 +312,7 @@ function createFallback(request: GenerationRequest, errors: string[]): Generated
   };
 }
 
-export function generateDungeonRoom(
+export function generateDungeonRoomV2(
   request: GenerationRequest,
   validator: typeof validateGeneratedRoom = validateGeneratedRoom,
 ): GeneratedRoomSave {
@@ -328,4 +334,21 @@ export function generateDungeonRoom(
     });
   }
   return fallback;
+}
+
+export function deriveRoomSeed(request: GenerationRequest): string {
+  return (request.generatorVersion ?? 'generator-3') === 'generator-3'
+    ? deriveRoomSeedV3(request)
+    : deriveRoomSeedV2(request);
+}
+
+export function generateDungeonRoom(
+  request: GenerationRequest,
+  validator?: typeof validateGeneratedRoom,
+): GeneratedRoomSave {
+  const generatorVersion = request.generatorVersion ?? 'generator-3';
+  if (generatorVersion === 'generator-3') {
+    return generateDungeonRoomV3(request, validator);
+  }
+  return generateDungeonRoomV2(request, validator);
 }

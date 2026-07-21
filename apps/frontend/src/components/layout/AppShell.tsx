@@ -12,7 +12,7 @@ export function AppShell() {
 
   return (
     <div
-      className={`app-shell ${settings.highContrast ? 'is-high-contrast' : ''} ${settings.reducedMotion ? 'reduce-motion' : ''}`}
+      className={`app-shell effects-${settings.visualEffects} ${settings.highContrast ? 'is-high-contrast' : ''} ${settings.reducedMotion ? 'reduce-motion' : ''}`}
     >
       <a className="skip-link" href="#main-content">
         Skip to content

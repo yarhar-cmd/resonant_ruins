@@ -46,7 +46,12 @@ describe('Resonant Ruins isolated storage recovery', () => {
   });
 
   it('recovers a safe preset and relocks shortcuts when only the profile is corrupt', async () => {
-    const settingsRaw = JSON.stringify({ sound: true, reducedMotion: false, highContrast: false });
+    const settingsRaw = JSON.stringify({
+      sound: true,
+      reducedMotion: false,
+      highContrast: false,
+      visualEffects: 'full',
+    });
     localStorage.setItem(SETTINGS_KEY, settingsRaw);
     localStorage.setItem(
       PLAYER_PROFILE_KEY,

@@ -34,5 +34,6 @@ export function createFreshRun({
     roomOrder,
     currentRoomId: firstRoom.id,
     spawn: coordinateToGridPosition(findSafeSpawn(firstRoom, 'west')),
+    room: firstRoom,
   });
 }

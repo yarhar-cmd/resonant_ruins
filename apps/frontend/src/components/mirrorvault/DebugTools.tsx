@@ -10,6 +10,7 @@ import type { RoomDefinition } from '../../types/rooms';
 import { coordinateKey, gridPositionToCoordinate } from '../../utils/roomGeometry';
 import { playerLegalEscapeTiles } from '../../utils/enemySystem';
 import { AwakeningEditor } from './AwakeningEditor';
+import { formatAsciiRoom } from '../../utils/playtestDiagnostics';
 
 const traits: AdaptiveTrait[] = ['pace', 'caution', 'aggression', 'hazardTolerance', 'exploration'];
 
@@ -199,8 +200,11 @@ export function DebugTools({
           <p>
             Adaptation strength:{' '}
             {Math.round(
-              getAdaptationStrength(Math.max(1, gameplay.dungeonProgress?.dungeonRoomNumber ?? 1)) *
-                100,
+              (gameplay.dungeonProgress?.provenance?.adaptationVersion === 'rules-2'
+                ? 1
+                : getAdaptationStrength(
+                    Math.max(1, gameplay.dungeonProgress?.dungeonRoomNumber ?? 1),
+                  )) * 100,
             )}
             %
           </p>
@@ -208,60 +212,132 @@ export function DebugTools({
         <section aria-labelledby="debug-generation-title">
           <h3 id="debug-generation-title">Generated room</h3>
           {generated ? (
-            <dl>
-              <div>
-                <dt>Number / seed</dt>
-                <dd>
-                  {generated.dungeonRoomNumber} / {generated.roomSeed}
-                </dd>
-              </div>
-              <div>
-                <dt>Generator</dt>
-                <dd>{generated.generatorVersion}</dd>
-              </div>
-              <div>
-                <dt>Shape / dimensions</dt>
-                <dd>
-                  {generated.details.shape} / {generated.roomSnapshot.width}×
-                  {generated.roomSnapshot.height}
-                </dd>
-              </div>
-              <div>
-                <dt>Entrance</dt>
-                <dd>{generated.details.entranceDirection}</dd>
-              </div>
-              <div>
-                <dt>Exits</dt>
-                <dd>
-                  {generated.roomSnapshot.exits
-                    .map((exit) => `${exit.direction} (${exit.tile.x},${exit.tile.y})`)
-                    .join(', ')}
-                </dd>
-              </div>
-              <div>
-                <dt>Hazards / pattern</dt>
-                <dd>
-                  {generated.roomSnapshot.hazards?.length ?? 0} / {generated.details.hazardPattern}
-                </dd>
-              </div>
-              <div>
-                <dt>Mode / cooldown</dt>
-                <dd>
-                  {generated.details.mode} / {gameplay.dungeonProgress?.pokeCooldown ?? 0}
-                </dd>
-              </div>
-              <div>
-                <dt>Validation / retries</dt>
-                <dd>
-                  {generated.details.validationErrors.length ? 'failed' : 'valid'} /{' '}
-                  {generated.details.retryCount}
-                </dd>
-              </div>
-              <div>
-                <dt>Reasons</dt>
-                <dd>{generated.details.reasons.join('; ') || 'Baseline weights'}</dd>
-              </div>
-            </dl>
+            <>
+              <dl>
+                <div>
+                  <dt>Number / seed</dt>
+                  <dd>
+                    {generated.dungeonRoomNumber} / {generated.roomSeed}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Generator</dt>
+                  <dd>{generated.generatorVersion}</dd>
+                </div>
+                <div>
+                  <dt>Shape / dimensions</dt>
+                  <dd>
+                    {generated.details.shape} / {generated.roomSnapshot.width}×
+                    {generated.roomSnapshot.height}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Entrance</dt>
+                  <dd>{generated.details.entranceDirection}</dd>
+                </div>
+                <div>
+                  <dt>Exits</dt>
+                  <dd>
+                    {generated.roomSnapshot.exits
+                      .map((exit) => `${exit.direction} (${exit.tile.x},${exit.tile.y})`)
+                      .join(', ')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Hazards / pattern</dt>
+                  <dd>
+                    {generated.roomSnapshot.hazards?.length ?? 0} /{' '}
+                    {generated.details.hazardPattern}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Mode / cooldown</dt>
+                  <dd>
+                    {generated.details.mode} / {gameplay.dungeonProgress?.pokeCooldown ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Validation / retries</dt>
+                  <dd>
+                    {generated.details.validationErrors.length ? 'failed' : 'valid'} /{' '}
+                    {generated.details.retryCount}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Reasons</dt>
+                  <dd>{generated.details.reasons.join('; ') || 'Baseline weights'}</dd>
+                </div>
+                <div>
+                  <dt>Archetype / boundary</dt>
+                  <dd>
+                    {generated.details.archetype ?? 'legacy'} /{' '}
+                    {generated.details.boundaryFamily ?? 'legacy'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Candidates valid / requested / rejected</dt>
+                  <dd>
+                    {generated.details.validCandidateCount ?? 0} /{' '}
+                    {generated.details.requestedCandidateCount ?? 0} /{' '}
+                    {generated.details.rejectedCandidateCount ?? 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Selection rank / score</dt>
+                  <dd>
+                    {generated.details.selectedCandidateRank ?? 'none'} /{' '}
+                    {generated.details.selectedCandidateScore ?? 'none'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Reduced diversity / fallback</dt>
+                  <dd>
+                    {String(generated.details.reducedDiversity ?? false)} /{' '}
+                    {String(generated.details.fallbackUsed ?? false)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Exit directions</dt>
+                  <dd>{generated.roomSnapshot.exits.map((exit) => exit.direction).join(', ')}</dd>
+                </div>
+                <div>
+                  <dt>Generator provenance</dt>
+                  <dd>
+                    {gameplay.dungeonProgress?.provenance?.startingGeneratorVersion ?? 'unknown'} →{' '}
+                    {gameplay.dungeonProgress?.provenance?.activeGeneratorVersion ?? 'unknown'} ·
+                    mixed {String(gameplay.dungeonProgress?.provenance?.mixed ?? false)}
+                  </dd>
+                </div>
+                {generated.roomSnapshot.topology && (
+                  <>
+                    <div>
+                      <dt>Floor / internal walls</dt>
+                      <dd>
+                        {generated.roomSnapshot.topology.floorArea} /{' '}
+                        {generated.roomSnapshot.topology.internalWallCount}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Loops / articulation points</dt>
+                      <dd>
+                        {generated.roomSnapshot.topology.loopCount} /{' '}
+                        {generated.roomSnapshot.topology.articulationPointCount}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Safe route / distance</dt>
+                      <dd>
+                        {String(generated.roomSnapshot.topology.safeRouteExists)} /{' '}
+                        {generated.roomSnapshot.topology.safePathDistance ?? 'none'}
+                      </dd>
+                    </div>
+                  </>
+                )}
+              </dl>
+              <pre aria-label="ASCII room representation">
+                {formatAsciiRoom(generated.roomSnapshot, gameplay)}
+              </pre>
+            </>
           ) : (
             <p>Complete the Awakening Chambers or use the unlocked shortcut.</p>
           )}

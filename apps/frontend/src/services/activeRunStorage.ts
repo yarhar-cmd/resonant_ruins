@@ -1,4 +1,3 @@
-import { VERSION_INFO } from '../config/version';
 import { getRoomDefinition } from '../data/rooms';
 import { PLACEHOLDER_DUNGEON_ROOM_ID } from '../data/rooms/placeholderDungeonRoom';
 import type {
@@ -16,6 +15,7 @@ import {
   type StoredRatEnemy,
 } from '../types/enemies';
 import type { CardinalDirection } from '../types/player';
+import type { InteractableRuntimeStates, InteractionChannelState } from '../types/interactions';
 import type {
   EvaluationExitChoice,
   EvaluationProgress,
@@ -32,6 +32,7 @@ import {
 import type { GameplayState, RestorableGameplayRun, RunPauseState } from '../utils/gameplayState';
 import { getTimeSurvived } from '../utils/gameplayState';
 import { validateGeneratedRoom } from '../utils/generatedRoomValidator';
+import { validateGeneratedRoomV3 } from '../utils/generatedRoomValidatorV3';
 import {
   coordinateKey,
   coordinateToGridPosition,
@@ -43,15 +44,21 @@ import {
 } from '../utils/roomGeometry';
 import { isValidEvaluationRoomOrder } from '../utils/roomProgression';
 import { directionBetween } from '../utils/enemySystem';
+import {
+  createIdleInteractionState,
+  createInteractableRuntimeStates,
+  directionBetweenAdjacent,
+  getRestorationFountains,
+} from '../utils/interactions';
 import type { CharacterId } from './runArchive';
 import { parseAdaptiveProfile } from './playerProfileStorage';
 
 export const ACTIVE_RUN_KEY = 'mirrorvault:active-run:v1';
-export const ACTIVE_RUN_VERSION = 6 as const;
+export const ACTIVE_RUN_VERSION = 8 as const;
 export type ActiveRunStorageIssue = 'invalid' | 'unavailable' | 'write-failed';
 
 export interface ActiveRunRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   runId: string;
   characterId: CharacterId;
   status: 'active' | 'defeated';
@@ -74,6 +81,8 @@ export interface ActiveRunRecord {
     attackCooldownRemainingMs: number;
   };
   enemies?: StoredEnemyRoomState;
+  interaction?: InteractionChannelState;
+  interactables?: InteractableRuntimeStates;
   /** Load-only metadata; omitted again after the repaired record is saved. */
   positionRepaired?: boolean;
 }
@@ -129,6 +138,70 @@ function parseTimers(value: unknown): ActiveRunRecord['timers'] | null {
     pendingRune: value.pendingRune as TileCoordinate | null,
     attackCooldownRemainingMs: value.attackCooldownRemainingMs,
   };
+}
+
+function parseInteraction(value: unknown): InteractionChannelState | null {
+  if (!isObject(value)) return null;
+  if (
+    value.status !== 'idle' &&
+    value.status !== 'channeling' &&
+    value.status !== 'completed' &&
+    value.status !== 'cancelled'
+  )
+    return null;
+  if (
+    (value.targetId !== null && typeof value.targetId !== 'string') ||
+    (value.type !== null && value.type !== 'restoration-fountain') ||
+    (value.startedAt !== null && !isCount(value.startedAt)) ||
+    value.deadline !== null ||
+    !isCount(value.remainingMs) ||
+    (value.cancellationReason !== null &&
+      ![
+        'movement',
+        'turned-away',
+        'attack',
+        'shield',
+        'damage',
+        'combat-alert',
+        'defeat',
+        'room-transition',
+        'unavailable',
+        'restart',
+      ].includes(String(value.cancellationReason))) ||
+    (value.result !== null && value.result !== 'restored-one-health')
+  )
+    return null;
+  return value as unknown as InteractionChannelState;
+}
+
+function parseInteractables(
+  value: unknown,
+  room: RoomDefinition,
+): InteractableRuntimeStates | null {
+  if (!isObject(value)) return null;
+  const validIds = new Set(
+    (room.features ?? [])
+      .filter((feature) => feature.kind === 'restoration-fountain')
+      .map((feature) => feature.id),
+  );
+  const result: InteractableRuntimeStates = {};
+  for (const [id, raw] of Object.entries(value)) {
+    if (
+      !validIds.has(id) ||
+      !isObject(raw) ||
+      typeof raw.depleted !== 'boolean' ||
+      (raw.encounteredAt !== null && !isCount(raw.encounteredAt)) ||
+      (raw.usedAt !== null && !isCount(raw.usedAt))
+    )
+      return null;
+    result[id] = {
+      depleted: raw.depleted,
+      encounteredAt: raw.encounteredAt as number | null,
+      usedAt: raw.usedAt as number | null,
+    };
+  }
+  for (const id of validIds) result[id] ??= { depleted: false, encounteredAt: null, usedAt: null };
+  return result;
 }
 
 function parseExitChoice(value: unknown): EvaluationExitChoice | null {
@@ -325,11 +398,15 @@ function parseRoomSnapshot(value: unknown): RoomDefinition | null {
     value.phase !== 'dungeon' ||
     !isCount(value.width) ||
     !isCount(value.height) ||
-    (value.shape !== 'rectangle' && value.shape !== 'l-shape') ||
+    (value.shape !== 'rectangle' && value.shape !== 'l-shape' && value.shape !== 'irregular') ||
     !Array.isArray(value.floorTiles) ||
     !value.floorTiles.every(isCoordinate) ||
-    !Array.isArray(value.wallTiles) ||
-    !value.wallTiles.every(isCoordinate) ||
+    (value.wallTiles !== undefined &&
+      (!Array.isArray(value.wallTiles) || !value.wallTiles.every(isCoordinate))) ||
+    (value.outerWallTiles !== undefined &&
+      (!Array.isArray(value.outerWallTiles) || !value.outerWallTiles.every(isCoordinate))) ||
+    (value.internalWallTiles !== undefined &&
+      (!Array.isArray(value.internalWallTiles) || !value.internalWallTiles.every(isCoordinate))) ||
     !Array.isArray(value.hazards) ||
     !value.hazards.every(isCoordinate) ||
     !Array.isArray(value.exits) ||
@@ -367,14 +444,20 @@ function parseRoomSnapshot(value: unknown): RoomDefinition | null {
     return null;
   const room = value as unknown as RoomDefinition;
   try {
-    return validateGeneratedRoom(room).valid ? room : null;
+    return (room.featureSchemaVersion === 1
+      ? validateGeneratedRoomV3(room)
+      : validateGeneratedRoom(room)
+    ).valid
+      ? room
+      : null;
   } catch {
     return null;
   }
 }
 function parseGeneratorVersion(value: unknown): GeneratedRoomSave['generatorVersion'] | null {
   if (value === 1 || value === 'generator-1') return 'generator-1';
-  return value === VERSION_INFO.generatorVersion ? VERSION_INFO.generatorVersion : null;
+  if (value === 'generator-2') return 'generator-2';
+  return value === 'generator-3' ? 'generator-3' : null;
 }
 function parseGeneratedSave(value: unknown): GeneratedRoomSave | null {
   const generatorVersion = isObject(value) ? parseGeneratorVersion(value.generatorVersion) : null;
@@ -384,7 +467,7 @@ function parseGeneratedSave(value: unknown): GeneratedRoomSave | null {
       : null;
   if (
     !isObject(value) ||
-    value.schemaVersion !== 1 ||
+    (value.schemaVersion !== 1 && value.schemaVersion !== 2) ||
     generatorVersion === null ||
     typeof value.runSeed !== 'string' ||
     !value.runSeed ||
@@ -429,7 +512,7 @@ function parseGeneratedSave(value: unknown): GeneratedRoomSave | null {
   const roomSnapshot = parseRoomSnapshot(value.roomSnapshot);
   if (
     !roomSnapshot ||
-    roomSnapshot.shape !== value.details.shape ||
+    (generatorVersion !== 'generator-3' && roomSnapshot.shape !== value.details.shape) ||
     roomSnapshot.entrance?.direction !== value.details.entranceDirection
   )
     return null;
@@ -440,7 +523,11 @@ function parseGeneratedSave(value: unknown): GeneratedRoomSave | null {
     details: { ...(value.details as unknown as GeneratedRoomSave['details']), generatorVersion },
   };
 }
-function parseDungeonProgress(value: unknown, runSeed?: string): DungeonProgress | null {
+function parseDungeonProgress(
+  value: unknown,
+  runSeed?: string,
+  recordVersion: ActiveRunRecord['version'] = ACTIVE_RUN_VERSION,
+): DungeonProgress | null {
   if (
     !isObject(value) ||
     typeof value.runSeed !== 'string' ||
@@ -467,6 +554,75 @@ function parseDungeonProgress(value: unknown, runSeed?: string): DungeonProgress
     chosenExitIds: [...value.chosenExitIds].slice(-5) as string[],
     pokeCooldown: value.pokeCooldown,
     previousMode: value.previousMode as DungeonProgress['previousMode'],
+    provenance: parseRunProvenance(value.provenance, currentRoom?.generatorVersion),
+    lastChosenExitId: typeof value.lastChosenExitId === 'string' ? value.lastChosenExitId : null,
+    lastChosenExitDirection: isExitDirection(value.lastChosenExitDirection)
+      ? value.lastChosenExitDirection
+      : null,
+    previousEntranceDirection: isExitDirection(value.previousEntranceDirection)
+      ? value.previousEntranceDirection
+      : null,
+    nextEntranceDirection: isExitDirection(value.nextEntranceDirection)
+      ? value.nextEntranceDirection
+      : null,
+    recentDecisionRecords: Array.isArray(value.recentDecisionRecords)
+      ? (
+          value.recentDecisionRecords as NonNullable<DungeonProgress['recentDecisionRecords']>
+        ).slice(-5)
+      : [],
+    completedDecisionCount: isCount(value.completedDecisionCount)
+      ? Number(value.completedDecisionCount)
+      : 0,
+    ...(isObject(value.recovery)
+      ? {
+          recovery:
+            isCount(value.recovery.cooldownRemaining) &&
+            isCount(value.recovery.roomsSinceLastGeneratedSpawn) &&
+            isCount(value.recovery.roomsSinceLastUse) &&
+            typeof value.recovery.previousSkipped === 'boolean'
+              ? {
+                  cooldownRemaining: value.recovery.cooldownRemaining,
+                  roomsSinceLastGeneratedSpawn: value.recovery.roomsSinceLastGeneratedSpawn,
+                  roomsSinceLastUse: value.recovery.roomsSinceLastUse,
+                  previousSkipped: value.recovery.previousSkipped,
+                }
+              : undefined,
+        }
+      : recordVersion < 8
+        ? {
+            recovery: {
+              cooldownRemaining: 0,
+              roomsSinceLastGeneratedSpawn: 3,
+              roomsSinceLastUse: 3,
+              previousSkipped: false,
+            },
+          }
+        : {}),
+  };
+}
+
+function parseRunProvenance(
+  value: unknown,
+  currentGenerator?: GeneratedRoomSave['generatorVersion'],
+): NonNullable<DungeonProgress['provenance']> {
+  if (
+    isObject(value) &&
+    parseGeneratorVersion(value.startingGeneratorVersion) &&
+    parseGeneratorVersion(value.activeGeneratorVersion) &&
+    (value.adaptationVersion === 'rules-1' || value.adaptationVersion === 'rules-2') &&
+    typeof value.mixed === 'boolean' &&
+    Array.isArray(value.transitions)
+  ) {
+    return value as unknown as NonNullable<DungeonProgress['provenance']>;
+  }
+  const generator = currentGenerator ?? 'generator-2';
+  return {
+    gameVersion: generator === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
+    adaptationVersion: generator === 'generator-3' ? 'rules-2' : 'rules-1',
+    startingGeneratorVersion: generator,
+    activeGeneratorVersion: generator,
+    mixed: false,
+    transitions: [],
   };
 }
 
@@ -653,7 +809,7 @@ function parseStoredEnemies(
     value.rats.length > 16 ||
     typeof value.aiFrozen !== 'boolean' ||
     !isCount(value.lastBlockRemainingMs) ||
-    (recordVersion === 6 && !isCount(value.awarenessGraceRemainingMs))
+    (recordVersion >= 6 && !isCount(value.awarenessGraceRemainingMs))
   )
     return null;
   const countPlan = parseEnemyCountPlan(value.countPlan);
@@ -673,10 +829,10 @@ function parseStoredEnemies(
     .map((rat) => coordinateKey(rat.position));
   if (new Set(livingPositions).size !== livingPositions.length) return null;
   const combatMetrics =
-    recordVersion === 6 ? parseCombatMetrics(value.combatMetrics) : createCombatMetrics();
+    recordVersion >= 6 ? parseCombatMetrics(value.combatMetrics) : createCombatMetrics();
   if (!combatMetrics) return null;
   if (
-    recordVersion === 6 &&
+    recordVersion >= 6 &&
     value.lastBlockKind !== null &&
     value.lastBlockKind !== 'regular' &&
     value.lastBlockKind !== 'perfect'
@@ -689,12 +845,12 @@ function parseStoredEnemies(
     countPlan,
     lastBlockRemainingMs: value.lastBlockRemainingMs,
     lastBlockKind:
-      recordVersion === 6
+      recordVersion >= 6
         ? (value.lastBlockKind as StoredEnemyRoomState['lastBlockKind'])
         : value.lastBlockRemainingMs > 0
           ? 'regular'
           : null,
-    awarenessGraceRemainingMs: recordVersion === 6 ? Number(value.awarenessGraceRemainingMs) : 0,
+    awarenessGraceRemainingMs: recordVersion >= 6 ? Number(value.awarenessGraceRemainingMs) : 0,
     combatMetrics,
   };
 }
@@ -713,7 +869,9 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
       value.version !== 3 &&
       value.version !== 4 &&
       value.version !== 5 &&
-      value.version !== 6) ||
+      value.version !== 6 &&
+      value.version !== 7 &&
+      value.version !== 8) ||
     typeof value.runId !== 'string' ||
     !value.runId ||
     !isCharacterId(value.characterId) ||
@@ -738,7 +896,7 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
     if (!room || !isRestorablePosition(room, playerPosition)) return null;
     const runSeed = `${value.runId}:migrated`;
     return {
-      version: 6,
+      version: 8,
       runId: value.runId,
       characterId: value.characterId,
       status: value.status,
@@ -759,6 +917,13 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
         chosenExitIds: [],
         pokeCooldown: 0,
         previousMode: null,
+        provenance: parseRunProvenance(null),
+        lastChosenExitId: null,
+        lastChosenExitDirection: null,
+        previousEntranceDirection: null,
+        nextEntranceDirection: null,
+        recentDecisionRecords: [],
+        completedDecisionCount: 0,
       },
       adaptation: createAdaptiveRunState(),
       pauseState: { isPaused: false, totalPausedMs: 0 },
@@ -768,11 +933,13 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
         attackCooldownRemainingMs: 0,
       },
       enemies: emptyStoredEnemies(progress.currentRoomId),
+      interaction: undefined,
+      interactables: {},
     };
   }
   if (!isCount(value.dungeonRoomsCleared) || !isExperiencePreset(value.experiencePreset))
     return null;
-  const dungeonProgress = parseDungeonProgress(value.dungeonProgress);
+  const dungeonProgress = parseDungeonProgress(value.dungeonProgress, undefined, value.version);
   const adaptation =
     value.version >= 4
       ? parseCurrentAdaptation(value.adaptation)
@@ -814,8 +981,25 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
   if (!pauseState || !timers) return null;
   if (value.status === 'defeated' && pauseState.isPaused) return null;
   if (timers.pendingRune && !isRestorablePosition(room, timers.pendingRune)) return null;
+  const hasInteractionState = value.version >= 8 && value.interaction !== undefined;
+  const hasInteractableState = value.version >= 8 && value.interactables !== undefined;
+  const interaction = hasInteractionState ? parseInteraction(value.interaction) : undefined;
+  const interactables = hasInteractableState
+    ? parseInteractables(value.interactables, room)
+    : value.version >= 8
+      ? undefined
+      : createInteractableRuntimeStates(room);
+  if ((hasInteractionState && !interaction) || (hasInteractableState && !interactables))
+    return null;
+  if (
+    interaction?.status === 'channeling' &&
+    (!interaction.targetId ||
+      !interactables?.[interaction.targetId] ||
+      interaction.remainingMs <= 0)
+  )
+    return null;
   return {
-    version: 6,
+    version: 8,
     runId: value.runId,
     characterId: value.characterId,
     status: value.status,
@@ -833,6 +1017,8 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
     pauseState,
     timers,
     enemies,
+    ...(interaction ? { interaction } : {}),
+    ...(interactables ? { interactables } : {}),
     ...(positionRepaired ? { positionRepaired: true } : {}),
   };
 }
@@ -892,7 +1078,7 @@ export function createActiveRunRecord(
     now,
   );
   return {
-    version: 6,
+    version: 8,
     runId: gameplay.runStats.runId,
     characterId,
     status: gameplay.status,
@@ -920,6 +1106,15 @@ export function createActiveRunRecord(
         now,
       ),
     },
+    interaction: {
+      ...gameplay.interaction,
+      deadline: null,
+      remainingMs:
+        gameplay.interaction.status === 'channeling'
+          ? remainingDuration(gameplay.interaction.deadline, gameplay.pause, now)
+          : gameplay.interaction.remainingMs,
+    },
+    interactables: gameplay.interactables,
     enemies: {
       roomId: gameplay.enemies.roomId,
       aiFrozen: gameplay.enemies.aiFrozen,
@@ -977,6 +1172,19 @@ export function toRestorableGameplayRun(record: ActiveRunRecord): RestorableGame
     chosenExitIds: [],
     pokeCooldown: 0,
     previousMode: null,
+    provenance: parseRunProvenance(null),
+    lastChosenExitId: null,
+    lastChosenExitDirection: null,
+    previousEntranceDirection: null,
+    nextEntranceDirection: null,
+    recentDecisionRecords: [],
+    completedDecisionCount: 0,
+    recovery: {
+      cooldownRemaining: 0,
+      roomsSinceLastGeneratedSpawn: 3,
+      roomsSinceLastUse: 3,
+      previousSkipped: false,
+    },
   };
   const room = dungeon.currentRoom?.roomSnapshot ?? getRoomDefinition(progress.currentRoomId)!;
   const enteredFrom =
@@ -992,6 +1200,35 @@ export function toRestorableGameplayRun(record: ActiveRunRecord): RestorableGame
       : findSafeSpawn(room, enteredFrom, record.playerPosition, (tile) =>
           livingPositions.has(coordinateKey(tile)),
         );
+  const storedInteraction = record.interaction;
+  const storedInteractables = record.interactables ?? createInteractableRuntimeStates(room);
+  const targetFountain = storedInteraction?.targetId
+    ? getRestorationFountains(room).find((feature) => feature.id === storedInteraction.targetId)
+    : undefined;
+  const validChannel =
+    storedInteraction?.status !== 'channeling' ||
+    Boolean(
+      targetFountain &&
+      storedInteraction.remainingMs > 0 &&
+      record.currentHealth < record.maximumHealth &&
+      !storedInteractables[targetFountain.id]?.depleted &&
+      targetFountain.interactionTiles.some(
+        (tile) => coordinateKey(tile) === coordinateKey(position),
+      ) &&
+      directionBetweenAdjacent(position, targetFountain.tile) === record.facing &&
+      !enemies.rats.some(
+        (rat) => rat.health > 0 && rat.state !== 'corpse' && rat.awareness === 'alerted',
+      ),
+    );
+  const interaction = validChannel
+    ? storedInteraction
+    : {
+        ...createIdleInteractionState(),
+        targetId: storedInteraction?.targetId ?? null,
+        type: storedInteraction?.type ?? null,
+        status: 'cancelled' as const,
+        cancellationReason: 'unavailable' as const,
+      };
   return {
     status: record.status,
     runId: record.runId,
@@ -1011,6 +1248,8 @@ export function toRestorableGameplayRun(record: ActiveRunRecord): RestorableGame
       ? coordinateToGridPosition(record.timers.pendingRune)
       : null,
     attackCooldownRemainingMs: record.timers?.attackCooldownRemainingMs ?? 0,
+    interaction,
+    interactables: storedInteractables,
   };
 }
 

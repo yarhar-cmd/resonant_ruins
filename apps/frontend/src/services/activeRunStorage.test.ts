@@ -63,6 +63,20 @@ function record(overrides: Partial<ActiveRunRecord> = {}): ActiveRunRecord {
       chosenExitIds: [],
       pokeCooldown: 0,
       previousMode: null,
+      provenance: {
+        gameVersion: 'mvp-0.3',
+        adaptationVersion: 'rules-2',
+        startingGeneratorVersion: 'generator-3',
+        activeGeneratorVersion: 'generator-3',
+        mixed: false,
+        transitions: [],
+      },
+      lastChosenExitId: null,
+      lastChosenExitDirection: null,
+      previousEntranceDirection: null,
+      nextEntranceDirection: null,
+      recentDecisionRecords: [],
+      completedDecisionCount: 0,
     },
     adaptation: createAdaptiveRunState(),
     pauseState: { isPaused: false, totalPausedMs: 0 },
@@ -125,7 +139,7 @@ function storedRat(overrides: Partial<StoredRatEnemy> = {}): StoredRatEnemy {
   };
 }
 
-describe('Resonant Ruins active-run storage v6', () => {
+describe('Resonant Ruins active-run storage v8', () => {
   beforeEach(() => localStorage.clear());
   it('round-trips preset, run seed, profile signals, Chamber analytics, and exact position', () => {
     const active = record();
@@ -149,7 +163,7 @@ describe('Resonant Ruins active-run storage v6', () => {
   });
   it('repairs an invalid current position to a safe spawn without discarding the run', () => {
     const repaired = parseActiveRunRecord({ ...record(), playerPosition: { x: 0, y: 0 } });
-    expect(repaired).toMatchObject({ version: 6, positionRepaired: true });
+    expect(repaired).toMatchObject({ version: ACTIVE_RUN_VERSION, positionRepaired: true });
     expect(repaired?.playerPosition).not.toEqual({ x: 0, y: 0 });
   });
   it('round-trips a paused run and its remaining gameplay timers', () => {
@@ -311,7 +325,7 @@ describe('Resonant Ruins active-run storage v6', () => {
       },
     });
     expect(migrated).toMatchObject({
-      version: 6,
+      version: ACTIVE_RUN_VERSION,
       enemies: {
         awarenessGraceRemainingMs: 0,
         rats: [
@@ -331,7 +345,7 @@ describe('Resonant Ruins active-run storage v6', () => {
     delete legacy.pauseState;
     delete legacy.timers;
     expect(parseActiveRunRecord(legacy)).toMatchObject({
-      version: 6,
+      version: ACTIVE_RUN_VERSION,
       pauseState: { isPaused: false, totalPausedMs: 0 },
       timers: {
         invulnerabilityRemainingMs: 0,
@@ -353,7 +367,7 @@ describe('Resonant Ruins active-run storage v6', () => {
       },
     });
     expect(migrated).toMatchObject({
-      version: 6,
+      version: ACTIVE_RUN_VERSION,
       adaptation: {
         completedSummary: { roomCount: 1, totalRoomTimeMs: 4_000, movementSteps: 10 },
         signals: { movementSteps: 3, roomTimesMs: [] },
@@ -384,13 +398,16 @@ describe('Resonant Ruins active-run storage v6', () => {
       experiencePreset: 'seasoned-adventurer',
       effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
       mode: 'reinforce',
+      generatorVersion: 'generator-2',
     });
     const spawn = generated.roomSnapshot.spawnPoints?.west;
     expect(spawn).toBeDefined();
     if (!spawn) throw new Error('Generated fixture has no west spawn.');
     const base = record();
+    const legacyDungeonProgress = { ...base.dungeonProgress, provenance: undefined };
     const migrated = parseActiveRunRecord({
       ...base,
+      version: 6,
       playerPosition: spawn,
       evaluationProgress: {
         ...base.evaluationProgress,
@@ -399,7 +416,7 @@ describe('Resonant Ruins active-run storage v6', () => {
         evaluationComplete: true,
       },
       dungeonProgress: {
-        ...base.dungeonProgress,
+        ...legacyDungeonProgress,
         dungeonRoomNumber: 1,
         enteredFrom: 'west',
         currentRoom: {
@@ -414,11 +431,150 @@ describe('Resonant Ruins active-run storage v6', () => {
       generatorVersion: 'generator-1',
       details: { generatorVersion: 'generator-1' },
     });
+    expect(migrated?.dungeonProgress?.provenance).toMatchObject({
+      startingGeneratorVersion: 'generator-1',
+      activeGeneratorVersion: 'generator-1',
+      mixed: false,
+    });
+  });
+  it('round-trips chosen direction and mixed generator provenance', () => {
+    const active = record({
+      dungeonProgress: {
+        ...record().dungeonProgress!,
+        lastChosenExitId: 'north-exit',
+        lastChosenExitDirection: 'north',
+        previousEntranceDirection: 'west',
+        nextEntranceDirection: 'south',
+        provenance: {
+          gameVersion: 'mvp-0.2',
+          adaptationVersion: 'rules-1',
+          startingGeneratorVersion: 'generator-1',
+          activeGeneratorVersion: 'generator-2',
+          mixed: true,
+          transitions: [
+            {
+              roomNumber: 2,
+              from: 'generator-1',
+              to: 'generator-2',
+              reason: 'generator-1-continuation',
+            },
+          ],
+        },
+      },
+    });
+    saveActiveRun(active);
+    expect(loadActiveRun().record?.dungeonProgress).toMatchObject(active.dungeonProgress!);
+  });
+  it('preserves chosen direction with generator-2 and generator-3 room snapshots', () => {
+    for (const generatorVersion of ['generator-2', 'generator-3'] as const) {
+      const generated = generateDungeonRoom({
+        runSeed: `direction-${generatorVersion}`,
+        dungeonRoomNumber: 1,
+        chosenExitId: 'north-exit',
+        entranceDirection: 'south',
+        experiencePreset: 'seasoned-adventurer',
+        effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
+        mode: 'reinforce',
+        generatorVersion,
+        adaptationVersion: generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1',
+      });
+      const spawn = generated.roomSnapshot.spawnPoints?.south;
+      expect(spawn).toBeDefined();
+      const base = record();
+      const active = record({
+        playerPosition: spawn!,
+        evaluationProgress: {
+          ...base.evaluationProgress,
+          currentRoomIndex: 5,
+          currentRoomId: generated.roomSnapshot.id,
+          evaluationComplete: true,
+        },
+        dungeonProgress: {
+          ...base.dungeonProgress!,
+          dungeonRoomNumber: 1,
+          currentRoom: generated,
+          enteredFrom: 'south',
+          lastChosenExitId: 'north-exit',
+          lastChosenExitDirection: 'north',
+          nextEntranceDirection: 'south',
+          provenance: {
+            gameVersion: generatorVersion === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
+            adaptationVersion: generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1',
+            startingGeneratorVersion: generatorVersion,
+            activeGeneratorVersion: generatorVersion,
+            mixed: false,
+            transitions: [],
+          },
+        },
+        enemies: { ...base.enemies!, roomId: generated.roomSnapshot.id },
+      });
+      saveActiveRun(active);
+      const restored = loadActiveRun().record;
+      expect(restored?.dungeonProgress).toMatchObject({
+        lastChosenExitId: 'north-exit',
+        lastChosenExitDirection: 'north',
+        nextEntranceDirection: 'south',
+      });
+      expect(restored?.dungeonProgress?.currentRoom?.generatorVersion).toBe(generatorVersion);
+    }
   });
   it('reports corrupt JSON and can clear an active run', () => {
     localStorage.setItem('mirrorvault:active-run:v1', '{');
     expect(loadActiveRun()).toEqual({ record: null, issue: 'invalid' });
     expect(clearActiveRun()).toBeNull();
     expect(loadActiveRun()).toEqual({ record: null, issue: null });
+  });
+
+  it('migrates schema-v7 saves with safe recovery and interaction defaults', () => {
+    const legacy = { ...record(), version: 7 as const };
+    const migrated = parseActiveRunRecord(legacy);
+    expect(migrated).toMatchObject({
+      version: 8,
+      dungeonProgress: {
+        recovery: {
+          cooldownRemaining: 0,
+          roomsSinceLastGeneratedSpawn: 3,
+          roomsSinceLastUse: 3,
+          previousSkipped: false,
+        },
+      },
+    });
+  });
+
+  it('round-trips a Fountain channel by remaining duration and restores one deadline', () => {
+    const channel = record({
+      playerPosition: { x: 10, y: 2 },
+      facing: 'up',
+      evaluationProgress: {
+        ...record().evaluationProgress,
+        currentRoomIndex: 2,
+        currentRoomId: 'evaluation-room-03',
+      },
+      enemies: { ...record().enemies!, roomId: 'evaluation-room-03' },
+      interaction: {
+        targetId: 'evaluation-room-03-restoration-fountain',
+        type: 'restoration-fountain',
+        startedAt: 12_000,
+        deadline: null,
+        remainingMs: 350,
+        status: 'channeling',
+        cancellationReason: null,
+        result: null,
+      },
+      interactables: {
+        'evaluation-room-03-restoration-fountain': {
+          depleted: false,
+          encounteredAt: 12_000,
+          usedAt: null,
+        },
+      },
+    });
+    expect(parseActiveRunRecord(channel)).toEqual(channel);
+    const restored = restoreGameplayState(toRestorableGameplayRun(channel), 6, 100_000);
+    expect(restored.interaction).toMatchObject({
+      status: 'channeling',
+      deadline: 100_350,
+      remainingMs: 350,
+    });
   });
 });

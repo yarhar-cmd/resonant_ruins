@@ -9,6 +9,7 @@ export const defaultSettings: UserSettings = {
   sound: false,
   reducedMotion: false,
   highContrast: false,
+  visualEffects: 'full',
 };
 
 export function loadSettings(): UserSettings {
@@ -29,10 +30,23 @@ export function loadSettingsResult(storage: Storage = localStorage): {
       Array.isArray(parsed) ||
       typeof (parsed as UserSettings).sound !== 'boolean' ||
       typeof (parsed as UserSettings).reducedMotion !== 'boolean' ||
-      typeof (parsed as UserSettings).highContrast !== 'boolean'
+      typeof (parsed as UserSettings).highContrast !== 'boolean' ||
+      ((parsed as UserSettings).visualEffects !== undefined &&
+        (parsed as UserSettings).visualEffects !== 'full' &&
+        (parsed as UserSettings).visualEffects !== 'reduced' &&
+        (parsed as UserSettings).visualEffects !== 'off')
     )
       return { settings: defaultSettings, issue: 'invalid' };
-    return { settings: parsed as UserSettings, issue: null };
+    const legacy = parsed as Omit<UserSettings, 'visualEffects'> & {
+      visualEffects?: UserSettings['visualEffects'];
+    };
+    return {
+      settings: {
+        ...legacy,
+        visualEffects: legacy.visualEffects ?? (legacy.reducedMotion ? 'reduced' : 'full'),
+      },
+      issue: null,
+    };
   } catch (error) {
     return {
       settings: defaultSettings,

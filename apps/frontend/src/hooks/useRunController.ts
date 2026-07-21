@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ACTIVE_RUN_POSITION_REPAIRED_WARNING,
@@ -23,7 +23,11 @@ import { getStorageDiagnostics } from '../services/storageDiagnostics';
 import type { AdaptiveProfile, PlayerProfileRecord } from '../types/adaptation';
 import type { GridPosition } from '../types/player';
 import type { RoomDefinition, RoomExit } from '../types/rooms';
-import { getEffectiveProfile, updateLongTermProfile } from '../utils/adaptiveProfile';
+import {
+  getEffectiveProfileV1,
+  getEffectiveProfileV2,
+  updateLongTermProfile,
+} from '../utils/adaptiveProfile';
 import { generateDungeonRoom, oppositeExitDirection } from '../utils/generatedRoomGenerator';
 import { chooseGeneratedRoomMode } from '../utils/generatedRoomParameters';
 import {
@@ -50,11 +54,23 @@ import { useInvulnerabilityTimer } from './useInvulnerabilityTimer';
 import { useEnemyClock } from './useEnemyClock';
 import { useRoomTransition } from './useRoomTransition';
 import { createRoomEnemyState, livingRats } from '../utils/enemySystem';
+import { getAvailableInteraction, getFacingRestorationFountain } from '../utils/interactions';
 
 function rememberRoom(cache: Map<string, RoomDefinition>, room: RoomDefinition) {
   cache.delete(room.id);
   cache.set(room.id, room);
   while (cache.size > 3) cache.delete(cache.keys().next().value!);
+}
+
+function countTrailingDamagedRooms(
+  snapshots: readonly { signals: { damageTaken: number } }[],
+): number {
+  let count = 0;
+  for (let index = snapshots.length - 1; index >= 0; index -= 1) {
+    if (snapshots[index]!.signals.damageTaken <= 0) break;
+    count += 1;
+  }
+  return count;
 }
 
 export function useRunController(initialRecord: ActiveRunRecord) {
@@ -121,6 +137,25 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   });
   const renderedRoom = roomSnapshotsRef.current.get(roomTransition.renderedRoomId) ?? currentRoom;
   const livingEnemyCount = livingRats(gameplay.enemies).length;
+  const availableInteraction = useMemo(
+    () =>
+      getAvailableInteraction({
+        room: currentRoom,
+        player: gameplay.player,
+        currentHealth: gameplay.currentHealth,
+        maximumHealth: gameplay.maximumHealth,
+        enemies: gameplay.enemies,
+        runtime: gameplay.interactables,
+      }),
+    [
+      currentRoom,
+      gameplay.currentHealth,
+      gameplay.enemies,
+      gameplay.interactables,
+      gameplay.maximumHealth,
+      gameplay.player,
+    ],
+  );
 
   useEnemyClock({
     enabled: Boolean(
@@ -133,6 +168,29 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     room: currentRoom,
     onTick: (timestamp, room) => dispatchGameplay({ type: 'enemy-tick', timestamp, room }),
   });
+
+  useEffect(() => {
+    if (
+      gameplay.interaction.status !== 'channeling' ||
+      gameplay.pause.isPaused ||
+      gameplay.status !== 'active' ||
+      roomTransition.isTransitioning ||
+      debugInterfaceOpen
+    )
+      return;
+    const tick = () =>
+      dispatchGameplay({ type: 'interaction-tick', timestamp: Date.now(), room: currentRoom });
+    tick();
+    const timer = window.setInterval(tick, 50);
+    return () => window.clearInterval(timer);
+  }, [
+    currentRoom,
+    gameplay.interaction.status,
+    gameplay.pause.isPaused,
+    gameplay.status,
+    roomTransition.isTransitioning,
+    debugInterfaceOpen,
+  ]);
 
   useEffect(() => {
     if (!playerProfile) {
@@ -178,12 +236,24 @@ export function useRunController(initialRecord: ActiveRunRecord) {
         timeSurvivedMs: timeSurvived,
         dungeonRoomsCleared,
         enemiesDefeated,
+        gameVersion: gameplay.dungeonProgress?.provenance?.gameVersion ?? 'unknown',
+        generatorVersions: gameplay.dungeonProgress?.provenance
+          ? [
+              gameplay.dungeonProgress.provenance.startingGeneratorVersion,
+              gameplay.dungeonProgress.provenance.activeGeneratorVersion,
+            ]
+          : [],
+        adaptationVersions: gameplay.dungeonProgress?.provenance
+          ? [gameplay.dungeonProgress.provenance.adaptationVersion]
+          : [],
+        mixedGeneratorProvenance: gameplay.dungeonProgress?.provenance?.mixed ?? false,
       }),
     );
     if (result.issue === 'invalid') setStorageWarning(RUN_STORAGE_INVALID_WARNING);
     if (result.issue === 'unavailable' || result.issue === 'write-failed')
       setStorageWarning(RUN_STORAGE_WARNING);
   }, [
+    gameplay.dungeonProgress,
     gameplay.experiencePreset,
     gameplay.pause.totalPausedMs,
     gameplay.runStats,
@@ -245,7 +315,13 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       previousMode: dungeon.previousMode,
       pokeCooldown: dungeon.pokeCooldown,
     });
-    const effectiveProfile = getEffectiveProfile(longTermProfile, profile, dungeonRoomNumber);
+    const pinnedGenerator = dungeon.provenance?.activeGeneratorVersion ?? 'generator-2';
+    const generatorVersion = pinnedGenerator === 'generator-1' ? 'generator-2' : pinnedGenerator;
+    const adaptationVersion = generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1';
+    const effectiveProfile =
+      adaptationVersion === 'rules-2'
+        ? getEffectiveProfileV2(longTermProfile, profile)
+        : getEffectiveProfileV1(longTermProfile, profile, dungeonRoomNumber);
     const entranceDirection = oppositeExitDirection(exit.direction);
     const generatedRoom = generateDungeonRoom({
       runSeed: dungeon.runSeed,
@@ -255,6 +331,25 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       experiencePreset: gameplay.experiencePreset!,
       effectiveProfile,
       mode: scheduled.mode,
+      generatorVersion,
+      adaptationVersion,
+      gameVersion: generatorVersion === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
+      recovery:
+        generatorVersion === 'generator-3'
+          ? {
+              currentHealth: gameplay.currentHealth,
+              maximumHealth: gameplay.maximumHealth,
+              recentGeneratedDamage: gameplay.adaptation.generatedRoomSignals
+                .slice(-3)
+                .map((snapshot) => snapshot.signals.damageTaken),
+              damageStreak: countTrailingDamagedRooms(gameplay.adaptation.generatedRoomSignals),
+              roomsSinceLastGeneratedSpawn: dungeon.recovery?.roomsSinceLastGeneratedSpawn ?? 3,
+              roomsSinceLastUse: dungeon.recovery?.roomsSinceLastUse ?? 3,
+              previousSkipped: dungeon.recovery?.previousSkipped ?? false,
+              recentCombatPressure: gameplay.enemies.combatMetrics.playerDamageTaken,
+              cooldownRemaining: dungeon.recovery?.cooldownRemaining ?? 0,
+            }
+          : undefined,
     });
     rememberRoom(roomSnapshotsRef.current, generatedRoom.roomSnapshot);
     return { generatedRoom, entranceDirection, scheduled, effectiveProfile };
@@ -338,6 +433,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
           now,
           generatedRoom.details.enemyCountPlan ?? null,
         ),
+        destinationRoom: generatedRoom.roomSnapshot,
       };
     } else {
       const next = getNextRoom(progress.roomOrder, progress.currentRoomIndex);
@@ -356,6 +452,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
         evaluationComplete: false,
         exitDirection: exit.direction,
         enemies: createRoomEnemyState(destination, gameplay.experiencePreset!, now),
+        destinationRoom: destination,
       };
     }
 
@@ -437,6 +534,31 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     },
     onShieldChange: (isShielding) =>
       dispatchGameplay({ type: 'shield', isShielding, timestamp: Date.now() }),
+    onInteract: () => {
+      if (!availableInteraction) {
+        const facingFountain = getFacingRestorationFountain(currentRoom, gameplay.player);
+        if (
+          facingFountain &&
+          gameplay.currentHealth >= gameplay.maximumHealth &&
+          !gameplay.interactables[facingFountain.id]?.depleted
+        ) {
+          dispatchGameplay({
+            type: 'interaction-unavailable-feedback',
+            timestamp: Date.now(),
+            targetId: facingFountain.id,
+          });
+          return true;
+        }
+        return false;
+      }
+      dispatchGameplay({
+        type: 'start-interaction',
+        timestamp: Date.now(),
+        room: currentRoom,
+        targetId: availableInteraction.id,
+      });
+      return true;
+    },
   });
 
   const restartRun = useCallback(() => {
@@ -469,6 +591,10 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       roomOrder: next.evaluationProgress!.roomOrder,
       currentRoomId: next.evaluationProgress!.currentRoomId,
       spawn: next.player.position,
+      room: getEvaluationRoom(
+        next.evaluationProgress!.currentRoomId,
+        playerProfile?.shortcutUnlocked,
+      )!,
     });
     persistGameplayState(next, now);
   }, [character.health, gameplay.experiencePreset, navigate, persistGameplayState, playerProfile]);
@@ -549,6 +675,9 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     resultsVisible,
     roomTransition,
     controls,
+    availableInteraction,
+    visualEffects: settings.visualEffects,
+    reducedMotion: settings.reducedMotion,
     gameRegionRef,
     storageWarning,
     clearStorageWarning: () => setStorageWarning(''),

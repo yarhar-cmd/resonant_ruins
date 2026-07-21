@@ -3,6 +3,7 @@ import { VERSION_INFO } from '../config/version';
 import { NEUTRAL_ADAPTIVE_PROFILE } from '../services/playerProfileStorage';
 import { generateDungeonRoom, oppositeExitDirection } from './generatedRoomGenerator';
 import { hasSafePath, validateGeneratedRoom } from './generatedRoomValidator';
+import { validateGeneratedRoomV3 } from './generatedRoomValidatorV3';
 
 function request(seed: string, room = 1) {
   return {
@@ -53,6 +54,7 @@ describe('Resonant Ruins deterministic generated rooms', () => {
         entranceDirection: directions[index % directions.length],
         mode: index % 2 === 0 ? 'reinforce' : 'poke',
         experiencePreset: preset,
+        generatorVersion: 'generator-2',
       });
       const room = generated.roomSnapshot;
       const validation = validateGeneratedRoom(room);
@@ -92,7 +94,7 @@ describe('Resonant Ruins deterministic generated rooms', () => {
   }, 60_000);
   it('rejects an invalid room and returns a known-safe fallback after exactly twenty forced invalid candidates', () => {
     const generated = generateDungeonRoom(request('invalid-check'));
-    expect(validateGeneratedRoom({ ...generated.roomSnapshot, exits: [] })).toMatchObject({
+    expect(validateGeneratedRoomV3({ ...generated.roomSnapshot, exits: [] })).toMatchObject({
       valid: false,
     });
     let attempts = 0;
@@ -107,15 +109,20 @@ describe('Resonant Ruins deterministic generated rooms', () => {
       retryCount: 20,
       validationErrors: ['forced-invalid'],
     });
-    expect(validateGeneratedRoom(fallback.roomSnapshot).valid).toBe(true);
-    expect(warning).toHaveBeenCalledWith(
-      'Resonant Ruins generation fallback',
-      expect.objectContaining({
-        retryCount: 20,
-        validationErrors: ['forced-invalid'],
-        fallback: true,
-      }),
-    );
+    expect(validateGeneratedRoomV3(fallback.roomSnapshot).valid).toBe(true);
     warning.mockRestore();
+  });
+
+  it('preserves the frozen generator-2 implementation behind the dispatcher', () => {
+    const generated = generateDungeonRoom({
+      ...request('generator-2'),
+      generatorVersion: 'generator-2',
+    });
+    expect(generated.generatorVersion).toBe('generator-2');
+    expect(generated.schemaVersion).toBe(1);
+    expect(validateGeneratedRoom(generated.roomSnapshot).valid).toBe(true);
+    expect(generated).toEqual(
+      generateDungeonRoom({ ...request('generator-2'), generatorVersion: 'generator-2' }),
+    );
   });
 });

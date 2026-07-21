@@ -116,4 +116,21 @@ describe('Resonant Ruins Settings profile controls', () => {
       shortcutUnlocked: false,
     });
   });
+  it('stores all three Visual Effects modes without changing essential accessibility settings', () => {
+    renderSettings();
+    const select = screen.getByLabelText('Visual Effects');
+    fireEvent.change(select, { target: { value: 'reduced' } });
+    expect(JSON.parse(localStorage.getItem('mirrorvault:settings')!)).toMatchObject({
+      visualEffects: 'reduced',
+      reducedMotion: false,
+    });
+    fireEvent.change(select, { target: { value: 'off' } });
+    expect(JSON.parse(localStorage.getItem('mirrorvault:settings')!)).toMatchObject({
+      visualEffects: 'off',
+    });
+    fireEvent.change(select, { target: { value: 'full' } });
+    expect(JSON.parse(localStorage.getItem('mirrorvault:settings')!)).toMatchObject({
+      visualEffects: 'full',
+    });
+  });
 });

@@ -17,7 +17,12 @@ const movementKeys: Record<string, CardinalDirection> = {
 };
 
 const shiftKeyCodes = new Set<ShiftKeyCode>(['ShiftLeft', 'ShiftRight']);
-const gameplayKeys = new Set<string>([...Object.keys(movementKeys), ...shiftKeyCodes, 'Space']);
+const gameplayKeys = new Set<string>([
+  ...Object.keys(movementKeys),
+  ...shiftKeyCodes,
+  'Space',
+  'KeyE',
+]);
 
 const interactiveSelector = [
   'a[href]',
@@ -50,12 +55,14 @@ interface CharacterControlsOptions {
   onTurn: (direction: CardinalDirection, trigger: MoveTrigger) => void;
   onAttack: () => boolean | void;
   onShieldChange: (isShielding: boolean) => void;
+  onInteract?: () => boolean | void;
 }
 
 export interface CharacterControls {
   move: (direction: CardinalDirection) => void;
   attack: () => boolean;
   setPointerShielding: (isShielding: boolean) => void;
+  interact: () => boolean;
 }
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -86,12 +93,14 @@ export function useCharacterControls({
   onTurn,
   onAttack,
   onShieldChange,
+  onInteract,
 }: CharacterControlsOptions): CharacterControls {
   const enabledRef = useRef(enabled);
   const onMoveRef = useRef(onMove);
   const onTurnRef = useRef(onTurn);
   const onAttackRef = useRef(onAttack);
   const onShieldChangeRef = useRef(onShieldChange);
+  const onInteractRef = useRef(onInteract);
   const heldDirectionsRef = useRef(new Map<string, HeldDirection>());
   const heldShiftKeysRef = useRef<Set<ShiftKeyCode>>(new Set());
   const pointerShieldingRef = useRef(false);
@@ -104,6 +113,7 @@ export function useCharacterControls({
   onTurnRef.current = onTurn;
   onAttackRef.current = onAttack;
   onShieldChangeRef.current = onShieldChange;
+  onInteractRef.current = onInteract;
 
   const processDirection = useCallback((direction: CardinalDirection, trigger: MoveTrigger) => {
     if (isShieldingRef.current) onTurnRef.current(direction, trigger);
@@ -196,6 +206,11 @@ export function useCharacterControls({
     [synchronizeShieldState],
   );
 
+  const interact = useCallback(() => {
+    if (!enabledRef.current || isShieldingRef.current || !onInteractRef.current) return false;
+    return onInteractRef.current() !== false;
+  }, []);
+
   useEffect(() => {
     if (!enabled) {
       heldDirectionsRef.current.clear();
@@ -235,6 +250,7 @@ export function useCharacterControls({
       }
 
       if (event.code === 'Space' && !event.repeat) attack();
+      if (event.code === 'KeyE' && !event.repeat) interact();
     }
 
     function handleKeyUp(event: KeyboardEvent) {
@@ -277,6 +293,7 @@ export function useCharacterControls({
     };
   }, [
     attack,
+    interact,
     clearHeldControls,
     reconcileKeyboardShiftState,
     processDirection,
@@ -285,5 +302,5 @@ export function useCharacterControls({
     synchronizeShieldState,
   ]);
 
-  return { move, attack, setPointerShielding };
+  return { move, attack, setPointerShielding, interact };
 }
