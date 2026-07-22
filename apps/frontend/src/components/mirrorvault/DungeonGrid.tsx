@@ -193,10 +193,6 @@ export function DungeonGrid({
             const isWall = Boolean(wallLookup?.has(coordinateKey(coordinate)));
             const isInternalWall = Boolean(internalWallLookup?.has(coordinateKey(coordinate)));
             const isFloor = Boolean(floorLookup?.has(coordinateKey(coordinate)));
-            const isAttackTarget =
-              status === 'active' && visibleAttack?.target
-                ? positionsMatch(position, visibleAttack.target)
-                : false;
             const isBumping = visibleBlockedMove
               ? status === 'active' &&
                 isPlayer &&
@@ -244,7 +240,6 @@ export function DungeonGrid({
               `tile--${kind}`,
               isPlayer ? 'tile--player' : '',
               isHazard ? 'tile--hazard' : '',
-              isAttackTarget ? 'tile--attack-target' : '',
             ]
               .filter(Boolean)
               .join(' ');
@@ -298,8 +293,26 @@ export function DungeonGrid({
                             ? 'player-token__shield--active'
                             : 'player-token__shield--carried'
                         }`}
+                        data-shield-pose={`${player.facing}-${
+                          player.isShielding && status === 'active' ? 'active' : 'idle'
+                        }`}
                         aria-hidden="true"
-                      />
+                      >
+                        <span className="player-token__shield-face" />
+                        {player.isShielding && status === 'active' && (
+                          <span className="player-token__shield-guard" />
+                        )}
+                      </span>
+                    )}
+                    {visibleAttack && status === 'active' && (
+                      <span
+                        className={`attack-slash attack-slash--${visibleAttack.facing}`}
+                        data-attack-origin={`${visibleAttack.source.column},${visibleAttack.source.row}`}
+                        data-attack-target={`${visibleAttack.attemptedTarget.column},${visibleAttack.attemptedTarget.row}`}
+                        aria-hidden="true"
+                      >
+                        <span className="attack-slash__arc" />
+                      </span>
                     )}
                     {isInvulnerable && status === 'active' && (
                       <span className="player-token__invulnerable" aria-hidden="true">
@@ -311,14 +324,6 @@ export function DungeonGrid({
                         ×
                       </span>
                     )}
-                  </span>
-                )}
-                {isAttackTarget && visibleAttack && (
-                  <span
-                    className={`attack-slash attack-slash--${visibleAttack.facing}`}
-                    aria-hidden="true"
-                  >
-                    <span className="attack-slash__arc" />
                   </span>
                 )}
                 {rat && (

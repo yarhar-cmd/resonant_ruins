@@ -13,9 +13,13 @@ architecture or changing tile geometry.
 ## Core rules
 
 - Floor remains readable against heavier outer walls, solid internal structures, and flat void.
-- Entrances and exits use shape, labels, and cardinal direction in addition to color.
+- Entrances and exits use shape, labels, and cardinal direction in addition to color. Door art
+  remains upright in screen space: closed doors are visibly barred, open doors reveal a dark arch,
+  and completed entrances read as cave-in rubble.
 - The Warden, shield, sword, Rats, Runes, Fountain, and Cache retain distinct silhouettes at tile
-  scale.
+  scale. The shield has explicit idle/active poses for every facing direction, active protection is
+  a compact sage arc around its rim, sword sweeps begin at the weapon hand, and Runes use an angular
+  multi-stroke sigil rather than a generic X.
 - Torches are decorative CSS elements and never participate in collision, pathfinding, awareness,
   generation, or selection.
 - Player pages favor one clear action and progressive disclosure. Dense Preview/local tools live

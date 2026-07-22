@@ -97,7 +97,11 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.player-token--shielding')).not.toBeNull();
     expect(container.querySelector('.player-token__facing')).toBeNull();
     expect(container.querySelector('.player-token__sword')).not.toBeNull();
-    expect(container.querySelector('.player-token__shield--active')).not.toBeNull();
+    expect(container.querySelector('.player-token__shield--active')).toHaveAttribute(
+      'data-shield-pose',
+      'right-active',
+    );
+    expect(container.querySelector('.player-token__shield-guard')).not.toBeNull();
     expect(container.querySelector('.player-token--facing-right')).not.toBeNull();
     expect(container.querySelector('.tile--shield-protected')).toBeNull();
     expect(container.querySelector('.shield-tile-marker')).toBeNull();
@@ -130,6 +134,11 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.player-token__facing')).toBeNull();
     expect(container.querySelector('.player-token__sword')).not.toBeNull();
     expect(container.querySelector('.player-token--facing-down')).not.toBeNull();
+    expect(container.querySelector('.player-token__shield--active')).toHaveAttribute(
+      'data-shield-pose',
+      'down-active',
+    );
+    expect(container.querySelector('.player-token__shield-guard')).not.toBeNull();
     expect(container.querySelector('.tile--shield-protected')).toBeNull();
   });
 
@@ -147,10 +156,44 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.tile--shield-protected')).toBeNull();
   });
 
+  it.each(['up', 'right', 'down', 'left'] as const)(
+    'exposes distinct idle and active %s shield poses',
+    (facing) => {
+      const { container, unmount } = renderGrid({
+        ...basePlayer,
+        facing,
+        isShielding: false,
+        shieldDirection: null,
+      });
+      expect(container.querySelector('.player-token__shield')).toHaveAttribute(
+        'data-shield-pose',
+        `${facing}-idle`,
+      );
+      expect(container.querySelector('.player-token__shield-guard')).toBeNull();
+      unmount();
+
+      const active = renderGrid({
+        ...basePlayer,
+        facing,
+        isShielding: true,
+        shieldDirection: facing,
+      });
+      expect(active.container.querySelector('.player-token__shield')).toHaveAttribute(
+        'data-shield-pose',
+        `${facing}-active`,
+      );
+      expect(active.container.querySelector('.player-token__shield-guard')).not.toBeNull();
+    },
+  );
+
   it('keeps the carried heater shield visible without showing active-block styling', () => {
     const { container } = renderGrid(basePlayer);
-    expect(container.querySelector('.player-token__shield--carried')).not.toBeNull();
+    expect(container.querySelector('.player-token__shield--carried')).toHaveAttribute(
+      'data-shield-pose',
+      'right-idle',
+    );
     expect(container.querySelector('.player-token__shield--active')).toBeNull();
+    expect(container.querySelector('.player-token__shield-guard')).toBeNull();
     expect(container.querySelector('.player-token__sword')).not.toBeNull();
     expect(container.querySelector('.player-token__facing')).toBeNull();
   });
@@ -241,7 +284,7 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.rat-token__warning')).toBeNull();
   });
 
-  it('renders an in-room slash briefly and never renders an out-of-room target', () => {
+  it('anchors the brief slash to the sword hand without creating an out-of-room tile', () => {
     const attack: AttackAction = {
       id: 'attack-1',
       source: { row: 2, column: 2 },
@@ -253,11 +296,15 @@ describe('Resonant Ruins dungeon grid', () => {
       blockedReason: null,
     };
     const { container, rerender } = renderGrid(basePlayer, attack);
-    expect(container.querySelectorAll('.tile--attack-target')).toHaveLength(1);
-    expect(container.querySelector('.attack-slash--right .attack-slash__arc')).not.toBeNull();
+    const playerTile = container.querySelector('.tile--player');
+    const slash = playerTile?.querySelector('.attack-slash--right');
+    expect(container.querySelector('.tile--attack-target')).toBeNull();
+    expect(slash?.querySelector('.attack-slash__arc')).not.toBeNull();
+    expect(slash).toHaveAttribute('data-attack-origin', '2,2');
+    expect(slash).toHaveAttribute('data-attack-target', '3,2');
 
     act(() => vi.advanceTimersByTime(180));
-    expect(container.querySelector('.tile--attack-target')).toBeNull();
+    expect(container.querySelector('.attack-slash')).toBeNull();
 
     rerender(
       <DungeonGrid
@@ -286,7 +333,11 @@ describe('Resonant Ruins dungeon grid', () => {
       />,
     );
 
+    const edgeSlash = container.querySelector('.tile--player .attack-slash--up');
     expect(container.querySelector('.tile--attack-target')).toBeNull();
+    expect(edgeSlash).toHaveAttribute('data-attack-origin', '2,0');
+    expect(edgeSlash).toHaveAttribute('data-attack-target', '2,-1');
+    expect(container.querySelectorAll('.tile')).toHaveLength(bounds.rows * bounds.columns);
   });
 
   it('renders blocked-movement feedback briefly', () => {
@@ -443,6 +494,29 @@ describe('Resonant Ruins dungeon grid', () => {
       'data-maximum-rows',
       '15',
     );
+  });
+
+  it('switches the same upright doorway from closed to open without removing cave-in rubble', () => {
+    const closedRoom = createRectangularRoom({
+      id: 'door-state-room',
+      phase: 'dungeon',
+      width: 9,
+      height: 7,
+      exitEnabled: false,
+    });
+    const { container, rerender } = render(dataDrivenGrid(closedRoom));
+    expect(container.querySelector('.tile--exit-closed')).not.toBeNull();
+    expect(container.querySelector('.tile--exit-open')).toBeNull();
+    expect(container.querySelector('.tile--collapsed-entrance')).not.toBeNull();
+
+    const openRoom: RoomDefinition = {
+      ...closedRoom,
+      exits: closedRoom.exits.map((exit) => ({ ...exit, enabled: true })),
+    };
+    rerender(dataDrivenGrid(openRoom));
+    expect(container.querySelector('.tile--exit-closed')).toBeNull();
+    expect(container.querySelector('.tile--exit-open')).not.toBeNull();
+    expect(container.querySelector('.tile--collapsed-entrance')).not.toBeNull();
   });
 
   it('renders generator-3 void and internal structures as distinct solid tile layers', () => {

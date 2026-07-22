@@ -426,37 +426,28 @@ button:disabled {
   background:
     linear-gradient(
       90deg,
-      transparent 31%,
-      rgba(36, 22, 14, 0.55) 32% 36%,
-      transparent 37% 64%,
-      rgba(36, 22, 14, 0.55) 65% 69%,
-      transparent 70%
+      #67482f 0 14%,
+      #2f2218 15% 21%,
+      #040806 22% 76%,
+      #3b2a1d 77% 84%,
+      #67482f 85% 100%
     ),
-    linear-gradient(180deg, rgba(224, 183, 103, 0.12), transparent 27%), #67482f;
+    linear-gradient(180deg, rgba(224, 183, 103, 0.12), transparent 27%);
   box-shadow:
-    inset 0 0 0 2px rgba(25, 17, 11, 0.42),
+    inset 0 0 0 2px rgba(25, 17, 11, 0.52),
     0 0 0.42rem rgba(211, 169, 76, 0.16);
 }
 
 .tile--exit-open::after {
   content: '';
   position: absolute;
-  inset: auto 30% 34% auto;
+  inset: auto 17% 34% auto;
   width: 8%;
   aspect-ratio: 1;
   border: 1px solid #3c2b1d;
   border-radius: 50%;
   background: var(--brass-bright);
   box-shadow: 0 0 0.22rem rgba(239, 200, 108, 0.46);
-}
-
-.tile--exit-open[data-exit-direction='east']::before,
-.tile--exit-open[data-exit-direction='west']::before {
-  transform: rotate(90deg) scaleY(0.9);
-}
-
-.tile--exit-open[data-exit-direction='south']::before {
-  transform: rotate(180deg);
 }
 
 .tile--exit-sealed,
@@ -495,15 +486,33 @@ button:disabled {
 
 .tile--hazard::after {
   content: '';
-  inset: 20%;
+  inset: 18%;
   border: 0;
-  border-radius: 16%;
-  background:
-    linear-gradient(45deg, transparent 0 39%, #ed7863 40% 47%, transparent 48% 100%),
-    linear-gradient(-45deg, transparent 0 39%, #ed7863 40% 47%, transparent 48% 100%);
+  border-radius: 0;
+  background: #ed7863;
+  clip-path: polygon(
+    44% 0,
+    58% 0,
+    58% 24%,
+    86% 8%,
+    94% 21%,
+    60% 41%,
+    87% 58%,
+    79% 71%,
+    58% 57%,
+    58% 100%,
+    44% 100%,
+    44% 65%,
+    16% 89%,
+    7% 76%,
+    41% 50%,
+    15% 34%,
+    23% 21%,
+    44% 35%
+  );
   transform: none;
-  box-shadow: 0 0 0.42rem rgba(199, 85, 62, 0.44);
-  animation: rune-danger-pulse 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 0.24rem rgba(199, 85, 62, 0.58));
+  animation: rune-danger-pulse 2.4s ease-in-out infinite alternate;
 }
 
 .tile--hazard::before {
@@ -591,9 +600,22 @@ button:disabled {
 }
 
 .player-token__shield {
-  width: 86%;
-  height: 100%;
-  border-color: #e0e5e3;
+  position: absolute;
+  z-index: 6;
+  width: 48%;
+  height: 76%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transition:
+    inset 90ms ease-out,
+    filter 90ms ease-out;
+}
+
+.player-token__shield-face {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #e0e5e3;
   border-radius: 45% 45% 18% 18%;
   clip-path: polygon(5% 0, 95% 0, 90% 68%, 50% 100%, 10% 68%);
   background:
@@ -602,9 +624,6 @@ button:disabled {
   box-shadow:
     inset 0 0 0 1px rgba(48, 58, 55, 0.68),
     0 0.12rem 0.22rem rgba(0, 0, 0, 0.72);
-  transition:
-    transform 90ms ease-out,
-    filter 90ms ease-out;
 }
 
 .player-token__shield--carried {
@@ -612,47 +631,101 @@ button:disabled {
   filter: brightness(0.86);
 }
 
-.player-token--facing-right .player-token__shield {
-  top: 12%;
-  right: -62%;
-  transform: rotate(-90deg);
+.player-token--facing-right .player-token__shield--carried {
+  top: 25%;
+  left: -12%;
 }
 
-.player-token--facing-left .player-token__shield {
-  top: 12%;
-  left: -62%;
-  transform: rotate(90deg);
+.player-token--facing-left .player-token__shield--carried {
+  top: 25%;
+  right: -12%;
 }
 
-.player-token--facing-up .player-token__shield {
-  top: -68%;
-  left: 14%;
-  transform: rotate(180deg);
+.player-token--facing-up .player-token__shield--carried {
+  right: -10%;
+  bottom: 4%;
 }
 
-.player-token--facing-down .player-token__shield {
-  bottom: -68%;
-  left: 14%;
+.player-token--facing-down .player-token__shield--carried {
+  left: -10%;
+  top: 4%;
 }
 
 .player-token--facing-right .player-token__shield--active {
-  right: -74%;
-  transform: rotate(-90deg) scale(1.08);
+  top: 12%;
+  right: -34%;
 }
 
 .player-token--facing-left .player-token__shield--active {
-  left: -74%;
-  transform: rotate(90deg) scale(1.08);
+  top: 12%;
+  left: -34%;
 }
 
 .player-token--facing-up .player-token__shield--active {
-  top: -80%;
-  transform: rotate(180deg) scale(1.08);
+  top: -31%;
+  left: 26%;
 }
 
 .player-token--facing-down .player-token__shield--active {
-  bottom: -80%;
-  transform: scale(1.08);
+  bottom: -31%;
+  left: 26%;
+}
+
+.player-token__shield-guard {
+  position: absolute;
+  inset: -11%;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 0.18rem rgba(143, 174, 145, 0.72));
+  pointer-events: none;
+}
+
+.player-token--facing-right .player-token__shield-guard {
+  border-top-color: #8fae91;
+  border-right-color: #8fae91;
+  border-bottom-color: #8fae91;
+  transform: translateX(8%);
+}
+
+.player-token--facing-left .player-token__shield-guard {
+  border-top-color: #8fae91;
+  border-bottom-color: #8fae91;
+  border-left-color: #8fae91;
+  transform: translateX(-8%);
+}
+
+.player-token--facing-up .player-token__shield-guard {
+  border-top-color: #8fae91;
+  border-right-color: #8fae91;
+  border-left-color: #8fae91;
+  transform: translateY(-8%);
+}
+
+.player-token--facing-down .player-token__shield-guard {
+  border-right-color: #8fae91;
+  border-bottom-color: #8fae91;
+  border-left-color: #8fae91;
+  transform: translateY(8%);
+}
+
+.player-token--shield-block .player-token__shield,
+.player-token--perfect-block .player-token__shield {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.player-token--shield-block .player-token__shield-face {
+  border-color: #eef3f1;
+  background:
+    linear-gradient(90deg, transparent 45%, rgba(255, 255, 255, 0.68) 47% 52%, transparent 54%),
+    linear-gradient(135deg, #d5dcda, #66706d);
+  box-shadow: 0 0 0.55rem rgba(213, 220, 218, 0.78);
+}
+
+.player-token--perfect-block .player-token__shield-guard {
+  border-width: 3px;
+  filter: drop-shadow(0 0 0.3rem rgba(211, 229, 213, 0.92));
 }
 
 .player-token__sword {
@@ -705,38 +778,47 @@ button:disabled {
   filter: grayscale(1) brightness(0.5);
 }
 
-.tile--attack-target {
-  outline: 0;
-}
-
 .attack-slash {
-  inset: 5%;
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 50%;
+  width: 145%;
+  height: 86%;
+  margin-top: -43%;
   display: block;
   color: transparent;
-  transform: none;
+  transform-origin: 0 50%;
   text-shadow: none;
+  pointer-events: none;
+  animation: none;
 }
 
 .attack-slash__arc {
   position: absolute;
-  inset: 10% 6% 8% 18%;
+  inset: 8% 4% 8% 3%;
   border-top: 3px solid #f4f6f3;
   border-right: 2px solid rgba(213, 220, 218, 0.74);
   border-radius: 50%;
   filter: drop-shadow(0 0 0.24rem rgba(229, 234, 232, 0.68));
-  transform: rotate(18deg);
+  transform-origin: 0 50%;
+  animation: sword-arc-sweep 180ms ease-out both;
 }
 
-.attack-slash--left .attack-slash__arc {
-  transform: rotate(198deg);
+.attack-slash--right {
+  transform: rotate(0deg);
 }
 
-.attack-slash--up .attack-slash__arc {
-  transform: rotate(-72deg);
+.attack-slash--left {
+  transform: rotate(180deg);
 }
 
-.attack-slash--down .attack-slash__arc {
-  transform: rotate(108deg);
+.attack-slash--up {
+  transform: rotate(-90deg);
+}
+
+.attack-slash--down {
+  transform: rotate(90deg);
 }
 
 .rat-token {
@@ -886,6 +968,12 @@ button:disabled {
 
 .effects-reduced .attack-slash,
 .effects-off .attack-slash {
+  animation: none;
+}
+
+.effects-reduced .attack-slash__arc,
+.effects-off .attack-slash__arc,
+.reduce-motion .attack-slash__arc {
   animation: none;
 }
 
@@ -1271,6 +1359,17 @@ button:disabled {
   to {
     opacity: 1;
     filter: brightness(1.12);
+  }
+}
+
+@keyframes sword-arc-sweep {
+  from {
+    opacity: 0.18;
+    transform: rotate(-18deg) scale(0.58);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(12deg) scale(1);
   }
 }
 

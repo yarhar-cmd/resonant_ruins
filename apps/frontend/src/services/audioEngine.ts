@@ -4,7 +4,9 @@ import {
   FOOTSTEP_VOLUME_RANGE,
   type AudioCategory,
 } from '../config/audio';
+import { AUDIO_SAMPLE_PATHS, selectAudioSample } from '../config/audioSamples';
 import type { AudioEvent, AudioEventName, AudioSettings } from '../types/audio';
+import { AudioSampleLibrary } from './audioSampleLibrary';
 
 export type AudioAvailability = 'idle' | 'ready' | 'blocked' | 'unavailable';
 
@@ -125,9 +127,7 @@ export class AudioEngine {
       return false;
     }
 
-    if (event.name === 'exit.activate') {
-      this.resetTransientEffects();
-    }
+    if (event.name === 'exit.activate') this.resetTransientEffects();
 
     let voice: AudioVoice | null = null;
     try {
@@ -218,182 +218,6 @@ export function selectFootstepVolume(randomValue: number): number {
   );
 }
 
-interface SoundLayer {
-  kind: 'tone' | 'noise';
-  frequency: number;
-  duration: number;
-  gain: number;
-  wave?: OscillatorType;
-  filter?: BiquadFilterType;
-  q?: number;
-  endFrequency?: number;
-  attack?: number;
-}
-
-type SoundProfile = readonly SoundLayer[];
-
-const SOUND_PROFILES: Record<AudioEventName, SoundProfile> = {
-  'player.step': [
-    { kind: 'noise', frequency: 330, duration: 0.075, gain: 0.058, filter: 'lowpass', q: 0.45 },
-  ],
-  'player.wall-bump': [
-    { kind: 'noise', frequency: 105, duration: 0.14, gain: 0.085, filter: 'lowpass', q: 0.6 },
-    { kind: 'tone', frequency: 82, endFrequency: 62, duration: 0.12, gain: 0.035, wave: 'sine' },
-  ],
-  'player.attack-swing': [
-    { kind: 'noise', frequency: 1_700, duration: 0.12, gain: 0.095, filter: 'highpass', q: 0.65 },
-    {
-      kind: 'tone',
-      frequency: 520,
-      endFrequency: 310,
-      duration: 0.09,
-      gain: 0.025,
-      wave: 'triangle',
-    },
-  ],
-  'player.attack-hit': [
-    { kind: 'noise', frequency: 185, duration: 0.12, gain: 0.11, filter: 'lowpass', q: 0.55 },
-    { kind: 'tone', frequency: 96, endFrequency: 72, duration: 0.09, gain: 0.035, wave: 'sine' },
-  ],
-  'player.damage': [
-    { kind: 'tone', frequency: 92, endFrequency: 58, duration: 0.18, gain: 0.14, wave: 'sawtooth' },
-  ],
-  'shield.raise': [
-    { kind: 'tone', frequency: 390, duration: 0.09, gain: 0.055, wave: 'triangle' },
-    { kind: 'tone', frequency: 860, duration: 0.065, gain: 0.022, wave: 'sine' },
-  ],
-  'shield.block': [
-    { kind: 'noise', frequency: 160, duration: 0.16, gain: 0.12, filter: 'lowpass', q: 0.55 },
-    { kind: 'tone', frequency: 88, endFrequency: 68, duration: 0.14, gain: 0.045, wave: 'sine' },
-  ],
-  'shield.perfect-block': [
-    { kind: 'noise', frequency: 115, duration: 0.3, gain: 0.16, filter: 'lowpass', q: 0.65 },
-    { kind: 'tone', frequency: 74, endFrequency: 48, duration: 0.28, gain: 0.085, wave: 'sine' },
-    {
-      kind: 'tone',
-      frequency: 460,
-      endFrequency: 320,
-      duration: 0.18,
-      gain: 0.05,
-      wave: 'triangle',
-    },
-  ],
-  'rat.alert': [
-    {
-      kind: 'tone',
-      frequency: 980,
-      endFrequency: 1_160,
-      duration: 0.11,
-      gain: 0.045,
-      wave: 'triangle',
-    },
-  ],
-  'rat.telegraph': [
-    {
-      kind: 'tone',
-      frequency: 1_250,
-      endFrequency: 1_470,
-      duration: 0.14,
-      gain: 0.058,
-      wave: 'triangle',
-    },
-  ],
-  'rat.attack': [
-    {
-      kind: 'tone',
-      frequency: 980,
-      endFrequency: 720,
-      duration: 0.1,
-      gain: 0.062,
-      wave: 'triangle',
-    },
-  ],
-  'rat.damage': [
-    {
-      kind: 'tone',
-      frequency: 760,
-      endFrequency: 920,
-      duration: 0.08,
-      gain: 0.052,
-      wave: 'triangle',
-    },
-  ],
-  'rat.defeat': [
-    {
-      kind: 'tone',
-      frequency: 520,
-      endFrequency: 260,
-      duration: 0.2,
-      gain: 0.058,
-      wave: 'triangle',
-    },
-  ],
-  'rune.trigger': [
-    { kind: 'noise', frequency: 1_450, duration: 0.2, gain: 0.085, filter: 'bandpass', q: 1.1 },
-    {
-      kind: 'tone',
-      frequency: 230,
-      endFrequency: 110,
-      duration: 0.22,
-      gain: 0.052,
-      wave: 'sawtooth',
-    },
-  ],
-  'fountain.channel': [
-    { kind: 'noise', frequency: 1_250, duration: 0.22, gain: 0.04, filter: 'bandpass', q: 0.75 },
-    { kind: 'tone', frequency: 390, endFrequency: 470, duration: 0.22, gain: 0.024, wave: 'sine' },
-  ],
-  'fountain.heal': [
-    { kind: 'noise', frequency: 1_650, duration: 0.38, gain: 0.045, filter: 'bandpass', q: 0.8 },
-    { kind: 'tone', frequency: 520, endFrequency: 720, duration: 0.34, gain: 0.062, wave: 'sine' },
-    { kind: 'tone', frequency: 780, endFrequency: 970, duration: 0.28, gain: 0.028, wave: 'sine' },
-  ],
-  'cache.open': [
-    { kind: 'noise', frequency: 145, duration: 0.2, gain: 0.08, filter: 'lowpass', q: 0.55 },
-    {
-      kind: 'tone',
-      frequency: 290,
-      endFrequency: 220,
-      duration: 0.16,
-      gain: 0.038,
-      wave: 'triangle',
-    },
-  ],
-  'resonance.collect': [
-    { kind: 'tone', frequency: 760, endFrequency: 1_020, duration: 0.36, gain: 0.07, wave: 'sine' },
-    {
-      kind: 'tone',
-      frequency: 1_140,
-      endFrequency: 1_350,
-      duration: 0.28,
-      gain: 0.025,
-      wave: 'sine',
-    },
-  ],
-  'exit.activate': [
-    { kind: 'noise', frequency: 105, duration: 0.42, gain: 0.09, filter: 'lowpass', q: 0.65 },
-    {
-      kind: 'tone',
-      frequency: 118,
-      endFrequency: 72,
-      duration: 0.34,
-      gain: 0.038,
-      wave: 'sawtooth',
-    },
-  ],
-  'room.transition': [
-    { kind: 'noise', frequency: 130, duration: 0.38, gain: 0.07, filter: 'lowpass', q: 0.6 },
-    { kind: 'noise', frequency: 720, duration: 0.18, gain: 0.024, filter: 'bandpass', q: 0.8 },
-  ],
-  'run.defeat': [
-    { kind: 'tone', frequency: 72, endFrequency: 44, duration: 0.48, gain: 0.13, wave: 'triangle' },
-  ],
-  'ui.confirm': [{ kind: 'tone', frequency: 560, duration: 0.055, gain: 0.032, wave: 'sine' }],
-  'ui.cancel': [
-    { kind: 'tone', frequency: 280, endFrequency: 240, duration: 0.055, gain: 0.028, wave: 'sine' },
-  ],
-};
-
 class WebAudioVoice implements AudioVoice {
   constructor(private readonly source: AudioScheduledSourceNode) {}
 
@@ -406,6 +230,9 @@ class WebAudioBackend implements AudioBackend {
   private readonly master: GainNode;
   private readonly effects: GainNode;
   private readonly ambience: GainNode;
+  private readonly samples: AudioSampleLibrary;
+  private readonly samplePreload: Promise<void>;
+  private readonly variantCounters = new Map<AudioEventName, number>();
   private ambienceSources: AudioScheduledSourceNode[] = [];
   private transientSources = new Set<AudioScheduledSourceNode>();
 
@@ -416,14 +243,19 @@ class WebAudioBackend implements AudioBackend {
     this.effects.connect(this.master);
     this.ambience.connect(this.master);
     this.master.connect(context.destination);
+    this.samples = new AudioSampleLibrary((data) => context.decodeAudioData(data.slice(0)), {
+      warn: import.meta.env.DEV ? (message) => console.warn(message) : undefined,
+    });
+    this.samplePreload = this.samples.preload(AUDIO_SAMPLE_PATHS);
   }
 
   state(): AudioContextState {
     return this.context.state;
   }
 
-  resume(): Promise<void> {
-    return this.context.resume();
+  async resume(): Promise<void> {
+    await this.context.resume();
+    void this.samplePreload;
   }
 
   setSettings(settings: AudioSettings): void {
@@ -434,31 +266,22 @@ class WebAudioBackend implements AudioBackend {
   }
 
   play(event: AudioEvent, pitch: number): AudioVoice | null {
-    const profile = SOUND_PROFILES[event.name];
+    const variantIndex = this.variantCounters.get(event.name) ?? 0;
+    this.variantCounters.set(event.name, variantIndex + 1);
+    const sample = selectAudioSample(event.name, variantIndex);
+    const buffer = this.samples.get(sample.path);
+    if (!buffer) return null;
+
     const intensity = Math.min(1, Math.max(0.25, event.intensity ?? 1));
-    let primary: { voice: AudioVoice; duration: number } | null = null;
-
-    for (const layer of profile) {
-      const voiceGain = this.context.createGain();
-      voiceGain.connect(this.effects);
-      const at = this.context.currentTime;
-      const attack = Math.min(layer.attack ?? 0.006, layer.duration * 0.24);
-      voiceGain.gain.setValueAtTime(0.0001, at);
-      voiceGain.gain.exponentialRampToValueAtTime(
-        Math.max(0.0001, layer.gain * intensity),
-        at + attack,
-      );
-      voiceGain.gain.exponentialRampToValueAtTime(0.0001, at + layer.duration);
-
-      const voice =
-        layer.kind === 'noise'
-          ? this.playNoise(layer, voiceGain, pitch)
-          : this.playTone(layer, voiceGain, pitch);
-      if (!primary || layer.duration > primary.duration)
-        primary = { voice, duration: layer.duration };
-    }
-
-    return primary?.voice ?? null;
+    const source = this.context.createBufferSource();
+    const voiceGain = this.context.createGain();
+    source.buffer = buffer;
+    source.playbackRate.value = pitch * sample.playbackRate;
+    voiceGain.gain.value = sample.gain * intensity;
+    source.connect(voiceGain);
+    voiceGain.connect(this.effects);
+    source.start();
+    return this.track(source);
   }
 
   stopEffects(): void {
@@ -530,37 +353,6 @@ class WebAudioBackend implements AudioBackend {
     this.stopEffects();
     this.stopAmbience();
     if (this.context.state !== 'closed') await this.context.close();
-  }
-
-  private playTone(profile: SoundLayer, destination: AudioNode, pitch: number): AudioVoice {
-    const oscillator = this.context.createOscillator();
-    oscillator.type = profile.wave ?? 'triangle';
-    oscillator.frequency.setValueAtTime(profile.frequency * pitch, this.context.currentTime);
-    if (profile.endFrequency) {
-      oscillator.frequency.exponentialRampToValueAtTime(
-        profile.endFrequency * pitch,
-        this.context.currentTime + profile.duration,
-      );
-    }
-    oscillator.connect(destination);
-    oscillator.start();
-    oscillator.stop(this.context.currentTime + profile.duration);
-    return this.track(oscillator);
-  }
-
-  private playNoise(profile: SoundLayer, destination: AudioNode, pitch: number): AudioVoice {
-    const source = this.context.createBufferSource();
-    source.buffer = createNoiseBuffer(this.context, Math.max(0.08, profile.duration), Math.random);
-    source.playbackRate.value = pitch;
-    const filter = this.context.createBiquadFilter();
-    filter.type = profile.filter ?? 'bandpass';
-    filter.frequency.value = profile.frequency;
-    filter.Q.value = profile.q ?? 0.75;
-    source.connect(filter);
-    filter.connect(destination);
-    source.start();
-    source.stop(this.context.currentTime + profile.duration);
-    return this.track(source);
   }
 
   private track(source: AudioScheduledSourceNode): AudioVoice {

@@ -75,7 +75,7 @@ class FakeBackend implements AudioBackend {
   }
 }
 
-describe('Resonant Ruins procedural audio engine', () => {
+describe('Resonant Ruins centralized sample audio engine', () => {
   it('creates and resumes its backend lazily, then starts only one logical ambience layer', async () => {
     const backend = new FakeBackend();
     const factory = vi.fn(() => backend);
@@ -151,6 +151,24 @@ describe('Resonant Ruins procedural audio engine', () => {
     expect(backend.plays[1]?.event.intensity).toBeCloseTo(1.08);
     backend.plays[0]?.voice.end();
     expect(engine.emit({ name: 'player.step' })).toBe(true);
+  });
+
+  it('keeps repeated Rat cues within the existing category voice limit', async () => {
+    let now = 1_000;
+    const backend = new FakeBackend();
+    const engine = new AudioEngine(DEFAULT_AUDIO_SETTINGS, {
+      backendFactory: () => backend,
+      now: () => now,
+    });
+    await engine.activate();
+
+    expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-1' })).toBe(true);
+    now += 200;
+    expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-2' })).toBe(true);
+    now += 200;
+    expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-3' })).toBe(false);
+    backend.plays[0]?.voice.end();
+    expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-3' })).toBe(true);
   });
 
   it('suppresses effects and ambience while hidden, restores ambience when visible, and cleans up', async () => {

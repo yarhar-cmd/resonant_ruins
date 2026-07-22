@@ -1030,8 +1030,14 @@ test('Visual Effects choice persists and leaves essential gameplay feedback enab
   await page.goto('/dungeon/run');
   await expect(page.locator('[data-enemy-state="telegraphing"]')).toBeVisible();
   await page.keyboard.down('ShiftLeft');
-  await expect(page.locator('.player-token__shield--active')).toBeVisible();
+  const shield = page.locator('.player-token__shield--active');
+  await expect(shield).toBeVisible();
+  await expect(shield).toHaveAttribute('data-shield-pose', 'right-active');
+  await expect(page.locator('.player-token__shield-guard')).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(shield).toHaveAttribute('data-shield-pose', 'down-active');
   await page.keyboard.up('ShiftLeft');
+  await expect(page.locator('.player-token__shield-guard')).toHaveCount(0);
 });
 
 test('player navigation and dense tools use responsive progressive disclosure', async ({
@@ -1081,6 +1087,23 @@ test('audio controls persist Master, Effects, Ambience, and mute without console
   await expect(page.getByLabel('Master volume')).toHaveValue('70');
   await expect(page.getByLabel('Effects volume')).toHaveValue('65');
   await expect(page.getByLabel('Ambience volume')).toHaveValue('20');
+});
+
+test('sample audio ships from local OGG paths without a runtime source-site dependency', async ({
+  page,
+}) => {
+  for (const path of [
+    '/audio/rat-alert.ogg',
+    '/audio/sword-swing-01.ogg',
+    '/audio/shield-perfect-block.ogg',
+    '/audio/fountain-water.ogg',
+    '/audio/stone-collapse.ogg',
+  ]) {
+    const response = await page.request.get(path);
+    expect(response.ok()).toBe(true);
+    expect(response.headers()['content-type']).toContain('audio/ogg');
+    expect((await response.body()).byteLength).toBeGreaterThan(1_000);
+  }
 });
 
 test('development audio counters distinguish movement, turns, bumps, attacks, and Rat cues', async ({

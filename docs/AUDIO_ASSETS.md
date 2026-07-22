@@ -1,12 +1,49 @@
-# Audio assets
+# Resonant Ruins audio assets
 
-Resonant Ruins currently uses no recorded or downloaded audio assets. Every sound in the mvp-0.5
-polish pass is synthesized at runtime with the Web Audio API, including dungeon ambience,
-footsteps, combat cues, Rat cues, interactions, transitions, and restrained interface feedback.
+All recorded one-shots shipped by Resonant Ruins are local, compressed OGG files under
+`apps/frontend/public/audio`. They are covered by Creative Commons Zero v1.0 Universal (CC0 1.0),
+which permits copying, modification, commercial use, and redistribution without attribution.
+Attribution is retained here voluntarily for provenance. Source archives and unused files are not
+redistributed.
 
-This keeps the build offline-capable and avoids licensing or attribution requirements. Any future
-non-procedural asset must be reviewed before use and recorded here with its filename, source,
-author, license, required attribution, modifications, and acquisition date.
+Access date for every source below: **2026-07-22**.
+
+| Original filename             | Local filename             | Source page                                                                                            | Creator                                                  | Exact license     | File edits                                               | Redistribution allowed |
+| ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ----------------- | -------------------------------------------------------- | ---------------------- |
+| `footstep00.ogg`              | `footstep-stone-01.ogg`    | [RPG Audio](https://www.kenney.nl/assets/rpg-audio)                                                    | Kenney                                                   | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `footstep01.ogg`              | `footstep-stone-02.ogg`    | [RPG Audio](https://www.kenney.nl/assets/rpg-audio)                                                    | Kenney                                                   | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `footstep02.ogg`              | `footstep-stone-03.ogg`    | [RPG Audio](https://www.kenney.nl/assets/rpg-audio)                                                    | Kenney                                                   | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `footstep03.ogg`              | `footstep-stone-04.ogg`    | [RPG Audio](https://www.kenney.nl/assets/rpg-audio)                                                    | Kenney                                                   | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `doorOpen_1.ogg`              | `door-open.ogg`            | [RPG Audio](https://www.kenney.nl/assets/rpg-audio)                                                    | Kenney                                                   | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `metalClick.ogg`              | `metal-click.ogg`          | [RPG Audio](https://www.kenney.nl/assets/rpg-audio)                                                    | Kenney                                                   | CC0 1.0 Universal | Renamed only; playback rate varies for shield/UI routing | Yes                    |
+| `impactBell_heavy_004.ogg`    | `resonance-chime.ogg`      | [Impact Sounds](https://www.kenney.nl/assets/impact-sounds)                                            | Kenney                                                   | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `qubodupSqueakyRatPain.ogg`   | `rat-alert.ogg`            | [Squeaky Rat](https://opengameart.org/content/squeaky-rat)                                             | Iwan “qubodup” Gabovitch                                 | CC0 1.0 Universal | Renamed only; lower playback rate is used for Rat damage | Yes                    |
+| `qubodupSqueakyRatAttack.ogg` | `rat-telegraph.ogg`        | [Squeaky Rat](https://opengameart.org/content/squeaky-rat)                                             | Iwan “qubodup” Gabovitch                                 | CC0 1.0 Universal | Renamed only; telegraph plays 12% higher at runtime      | Yes                    |
+| `qubodupSqueakyRatDeath.ogg`  | `rat-defeat.ogg`           | [Squeaky Rat](https://opengameart.org/content/squeaky-rat)                                             | Iwan “qubodup” Gabovitch                                 | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `sword.3.ogg`                 | `sword-swing-01.ogg`       | [20 Sword Sound Effects](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes)   | StarNinjas                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `sword.7.ogg`                 | `sword-swing-02.ogg`       | [20 Sword Sound Effects](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes)   | StarNinjas                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `sword_clash.3.ogg`           | `sword-hit.ogg`            | [20 Sword Sound Effects](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes)   | StarNinjas                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `sword_clash.5.ogg`           | `shield-block.ogg`         | [20 Sword Sound Effects](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes)   | StarNinjas                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `sword_clash.6.ogg`           | `shield-perfect-block.ogg` | [20 Sword Sound Effects](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes)   | StarNinjas                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `bfh1_rock_hit_01.ogg`        | `wall-bump-stone.ogg`      | [75 CC0 breaking / falling / hit SFX](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) | rubberduck                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `bfh1_hit_12.ogg`             | `body-impact.ogg`          | [75 CC0 breaking / falling / hit SFX](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) | rubberduck                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `bfh1_rock_breaking_02.ogg`   | `stone-collapse.ogg`       | [75 CC0 breaking / falling / hit SFX](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) | rubberduck                                               | CC0 1.0 Universal | Renamed only; defeat routing plays 18% lower at runtime  | Yes                    |
+| `bfh1_wood_hit_01.ogg`        | `wood-open.ogg`            | [75 CC0 breaking / falling / hit SFX](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) | rubberduck                                               | CC0 1.0 Universal | Renamed only; original OGG retained                      | Yes                    |
+| `splash_09.ogg`               | `fountain-water.ogg`       | [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx)     | rubberduck                                               | CC0 1.0 Universal | Renamed only; Fountain channel plays 8% lower at runtime | Yes                    |
+| `flame.ogg`                   | `rune-burn.ogg`            | [Catching fire](https://opengameart.org/content/catching-fire)                                         | themightyglider, derived from a CC0 recording by qubodup | CC0 1.0 Universal | Source download was `flame_0.ogg`; renamed only          | Yes                    |
+
+## Runtime policy
+
+- `apps/frontend/src/config/audioSamples.ts` is the typed event-to-sample manifest. Every current
+  one-shot event resolves to a local `/audio/*.ogg` path; no source-site URL is used at runtime.
+- The engine begins a controlled fetch/decode preload after lazy audio activation. It never delays
+  movement, combat, room generation, persistence, research, rewards, or model behavior.
+- A missing or undecodable sample produces silence for that event. It cannot crash or block play,
+  and development emits at most one restrained warning for the entire sample set.
+- Muting, volume buses, cooldowns, voice limits, hidden-tab suppression, route-scoped ambience,
+  and cleanup remain centralized in `AudioEngine`.
+- Only the extremely quiet dungeon room tone, low hum, and torch-like crackle remain procedural.
+  There is no music and no runtime audio service or API.
 
 Unknown-license media, copyrighted game or film audio, and runtime calls to external audio services
-are not permitted.
+remain prohibited.
