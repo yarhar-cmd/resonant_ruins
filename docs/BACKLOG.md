@@ -1,5 +1,17 @@
 # Resonant Ruins backlog
 
+## Completed mvp-0.5 presentation polish
+
+- [x] **High - Visual identity** - Refine dungeon materials, entities, lighting, interactions,
+      transitions, and shared interface styling without changing tile geometry or gameplay state.
+- [x] **High - Centralized audio** - Add procedural typed effects, quiet route-scoped ambience,
+      autoplay-safe activation, voice limits, persistent volume controls, and mute.
+- [x] **High - Player-facing decluttering** - Focus navigation, Home, HUD, and Research on their
+      primary flows and collapse researcher/development detail by default.
+- [x] **High - Accessible progressive disclosure** - Group Settings and Labs, preserve routes and
+      build gates, and retain keyboard, skip-link, focus, contrast, reduced-motion, and responsive
+      behavior.
+
 ## Completed mvp-0.5 sidequest: Resonance Caches
 
 - [x] **High - Resonance Cache reward foundation** - Add deterministic post-selection rewards-1,

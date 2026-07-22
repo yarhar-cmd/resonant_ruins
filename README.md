@@ -296,6 +296,13 @@ npm run verify:model-safety
 npm run format
 ```
 
+The current presentation layer is documented in [Visual style](docs/VISUAL_STYLE.md),
+[Audio system](docs/AUDIO_SYSTEM.md), [Audio assets](docs/AUDIO_ASSETS.md),
+[Accessibility](docs/ACCESSIBILITY.md), and the [manual polish checklist](docs/POLISH_CHECKLIST.md).
+Audio is procedurally synthesized in the browser; no external media or runtime audio service is
+used. Normal navigation prioritizes Home, Play, Research, History, and Settings, while Preview/local
+Topology and Model tools are grouped under Labs and remain excluded from Production.
+
 Offline model training uses the ignored `.venv-model` environment and the pinned requirements in
 `tools/model_training/requirements.txt`. See [model training](docs/MODEL_TRAINING.md) before using
 `train:model`, `evaluate:model`, or `inspect:model`; no command uploads data or auto-promotes an

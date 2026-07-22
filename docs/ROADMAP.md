@@ -1,5 +1,21 @@
 # Resonant Ruins feature roadmap
 
+## Completed mvp-0.5 presentation polish
+
+- **Implemented:** Cohesive stone/parchment/torch visual styling, clearer dungeon entities and
+  states, Full/Reduced/Off effects, a centralized procedural Web Audio system and settings,
+  responsive accessibility polish, concise player navigation, and progressive disclosure for
+  Research, Settings, Topology Lab, and Model Lab.
+- **Why:** Makes the existing MVP presentation-ready and easier for normal players to understand
+  without changing its deterministic gameplay or research/model boundaries.
+- **Affected areas:** Shared styling/layout, dungeon presentation, settings/storage, typed audio
+  service/events, player/research/lab page hierarchy, tests, safety scans, and documentation.
+- **Prerequisites:** Completed mvp-0.5 gameplay, research, model laboratory, and reward foundations.
+- **Difficulty/Priority/Backend:** Medium / High / No backend.
+- **Definition of done:** All existing functions and routes remain available; Production still
+  excludes Labs and development adapters; visual/audio controls are accessible and persistent; the
+  full automated and manual verification matrix passes.
+
 ## Completed mvp-0.5 sidequest: Resonance Caches - Reward Foundation
 
 - **Implemented:** `rewards-1` post-selection eligibility, deterministic 35% eligible-room roll,

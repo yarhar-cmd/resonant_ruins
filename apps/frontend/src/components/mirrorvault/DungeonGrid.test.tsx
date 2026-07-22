@@ -79,6 +79,9 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(
       screen.getByRole('application', { name: 'Resonant Ruins playable dungeon grid' }),
     ).toHaveAttribute('aria-describedby', 'resonant-ruins-grid-instructions');
+    const help = screen.getByText('Controls').closest('details')!;
+    expect(help).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText('Controls'));
     expect(screen.getByText(/Resonant Ruins controls/)).toBeVisible();
     expect(screen.getByText('Moved right.')).toHaveAttribute('aria-live', 'polite');
   });
@@ -322,6 +325,7 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelectorAll('.tile--hazard')).toHaveLength(2);
     expect(tiles[1 * bounds.columns + 5]).toHaveClass('tile--hazard', 'tile--player');
     expect(tiles[4 * bounds.columns + 2]).toHaveClass('tile--hazard');
+    fireEvent.click(screen.getByText('Controls'));
     expect(screen.getByText(/Red rune floor markings are walkable hazards/)).toBeVisible();
   });
 

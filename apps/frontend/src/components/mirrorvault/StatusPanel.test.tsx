@@ -53,4 +53,30 @@ describe('Resonant Ruins status panel', () => {
     expect(screen.getByText('× Defeated')).toBeVisible();
     expect(screen.getByLabelText(/You were defeated/)).toBeVisible();
   });
+
+  it('keeps the generated-dungeon HUD limited to health, cleared rooms, time, and Resonance', () => {
+    render(
+      <StatusPanel
+        roomLabel="Dungeon Room 8"
+        mode="Exploring"
+        character="Elian Voss"
+        currentHealth={6}
+        maximumHealth={6}
+        isInvulnerable={false}
+        isDefeated={false}
+        dungeonRoomsCleared={7}
+        enemiesRemaining={3}
+        resonance={2}
+        elapsedTime="01:42"
+      />,
+    );
+    const status = screen.getByRole('complementary', { name: 'Current run status' });
+    expect(status).toHaveTextContent('Health');
+    expect(status).toHaveTextContent('Cleared7');
+    expect(status).toHaveTextContent('Time01:42');
+    expect(status).toHaveTextContent('Resonance');
+    expect(status).not.toHaveTextContent('Elian Voss');
+    expect(status).not.toHaveTextContent('Enemies Remaining');
+    expect(status).not.toHaveTextContent('Exploring');
+  });
 });

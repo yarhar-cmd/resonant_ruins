@@ -1,5 +1,24 @@
 # Resonant Ruins current state
 
+## mvp-0.5 visual, audio, and information-hierarchy polish
+
+The current polish layer strengthens the dark ancient-ruins identity with readable stone floors,
+heavier walls, flat void, warm decorative torches, restrained transitions, and clearer silhouettes
+for the Warden, shield, Rats, Runes, Fountain, Cache, and exits. Full, Reduced, and Off effects modes
+remain distinct, and reduced-motion/high-contrast preferences preserve essential non-color cues.
+
+A centralized procedural Web Audio system now provides conservative Master, Effects, Ambience, and
+Mute controls; quiet dungeon ambience; limited and varied footsteps; gameplay, Rat, interaction,
+transition, and UI cues; lazy autoplay-safe activation; and category voice limiting. It has no
+network or asset dependency and no path to mutate gameplay, research, rewards, generation, or model
+state.
+
+Player-facing information is simplified through a five-item primary navigation, compact Home and
+HUD layouts, a numbered Research flow, grouped Settings, and collapsed technical detail. Local and
+Preview-only Topology and Model tools are grouped under Labs and keep their existing Production
+gates. No route or underlying feature was removed. See [Visual style](VISUAL_STYLE.md),
+[Audio system](AUDIO_SYSTEM.md), and [Accessibility](ACCESSIBILITY.md).
+
 ## mvp-0.5 Resonance Cache reward foundation
 
 The implemented `rewards-1` layer runs after generator-4 candidate construction, active Rules or
