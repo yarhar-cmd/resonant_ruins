@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { shouldIncludePlaytestDiagnostics, shouldIncludeTopologyLab } from './buildEnvironment';
+import {
+  shouldIncludeModelLab,
+  shouldIncludePlaytestDiagnostics,
+  shouldIncludeTopologyLab,
+} from './buildEnvironment';
 
 describe('Resonant Ruins diagnostic build gating', () => {
   it('enables diagnostics only for an exact Vercel Preview and exact true flag', () => {
@@ -38,6 +42,24 @@ describe('Resonant Ruins diagnostic build gating', () => {
         VITE_ENABLE_PLAYTEST_DIAGNOSTICS: 'true',
       }),
     ).toBe(false);
+  });
+});
+
+describe('Resonant Ruins Model Lab build gating', () => {
+  it('is local by default and requires an exact Preview flag in builds', () => {
+    expect(shouldIncludeModelLab({}, true)).toBe(true);
+    expect(shouldIncludeModelLab({}, false)).toBe(false);
+    expect(shouldIncludeModelLab({ VERCEL_ENV: 'preview', VITE_ENABLE_MODEL_LAB: 'true' })).toBe(
+      true,
+    );
+    for (const environment of [undefined, 'development', 'production']) {
+      expect(
+        shouldIncludeModelLab({ VERCEL_ENV: environment, VITE_ENABLE_MODEL_LAB: 'true' }),
+      ).toBe(false);
+    }
+    expect(shouldIncludeModelLab({ VERCEL_ENV: 'preview', VITE_ENABLE_MODEL_LAB: 'TRUE' })).toBe(
+      false,
+    );
   });
 });
 

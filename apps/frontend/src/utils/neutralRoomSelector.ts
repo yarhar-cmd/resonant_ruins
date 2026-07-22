@@ -13,7 +13,7 @@ export interface NeutralSelectorContext {
   recentArchetypes?: readonly RoomArchetype[];
 }
 
-function neutralOrder(
+export function rankNeutralCandidates(
   pool: readonly ValidatedRoomCandidate[],
   context: NeutralSelectorContext,
 ): ValidatedRoomCandidate[] {
@@ -34,7 +34,7 @@ export const NeutralRoomSelector: RoomSelector<NeutralSelectorContext> = {
   selectorVersion: 'neutral-selector-1',
   select(pool, context) {
     if (!pool.length) throw new Error('NeutralRoomSelector requires a non-empty pool.');
-    const ordered = neutralOrder(pool, context);
+    const ordered = rankNeutralCandidates(pool, context);
     const random = createSeededRandom(`${context.selectionSeed}:neutral-selection`);
     const roll = random();
     const varietyWindow = ordered.slice(0, Math.min(ordered.length, 4));

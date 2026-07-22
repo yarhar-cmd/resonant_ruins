@@ -47,6 +47,14 @@ describe('Room feedback dialog', () => {
       }),
     );
   });
+
+  it('does not reveal shadow predictions before feedback is submitted', () => {
+    render(<FeedbackHarness initial={researchFixture().pending} onFinalize={vi.fn()} />);
+    expect(screen.queryByText(/model preferred candidate/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/about right probability/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/selector agreement/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/predicted class/i)).not.toBeInTheDocument();
+  });
 });
 
 function FeedbackHarness({

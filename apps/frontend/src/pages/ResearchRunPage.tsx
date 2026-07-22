@@ -12,6 +12,9 @@ import {
   researchStorageSize,
   updateResearchSessionProfile,
 } from '../services/researchStorage';
+import { MODEL_LAB_ENABLED } from '../config/environment';
+import { getPilotDevelopmentShadowArtifact } from '../model/developmentModelSelection';
+import { createArtifactScoringModel } from '../model/inference';
 
 export function ResearchRunPage() {
   const [initial] = useState(loadResearchActiveRun);
@@ -22,6 +25,10 @@ export function ResearchRunPage() {
     ? research.sessions.find((candidate) => candidate.id === active.researchSessionId)
     : null;
   const run = session?.runs.find((candidate) => candidate.id === active?.researchRunId);
+  const shadowModel = useMemo(() => {
+    const artifact = getPilotDevelopmentShadowArtifact(Boolean(session?.pilot), MODEL_LAB_ENABLED);
+    return artifact ? createArtifactScoringModel(artifact) : null;
+  }, [session?.pilot]);
   const saveRecord = useCallback((gameplay: NonNullable<typeof active>['gameplay']) => {
     const current = loadResearchActiveRun().record;
     return current ? saveResearchActiveRun({ ...current, gameplay }) : ('invalid' as const);
@@ -39,6 +46,7 @@ export function ResearchRunPage() {
         researchSessionProfile: session.sessionProfile,
         researchSession: session,
         researchRun: run,
+        shadowModel,
         pendingResearchFeedback: active.pendingFeedback,
         researchRoomStart: active.roomStart,
         pendingResearchShadow: active.pendingShadow,

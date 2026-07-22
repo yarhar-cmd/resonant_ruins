@@ -822,9 +822,11 @@ export function useRunController(
   });
 
   const restartRun = useCallback(() => {
-    if (runMode === 'research') {
+    if (runMode !== 'normal') {
       options.clearActiveRecord?.();
-      navigate(options.returnPath ?? '/research', { replace: true });
+      navigate(options.returnPath ?? (runMode === 'research' ? '/research' : '/model-lab'), {
+        replace: true,
+      });
       return;
     }
     const preset = gameplay.experiencePreset ?? playerProfile?.experiencePreset;
@@ -916,13 +918,13 @@ export function useRunController(
 
   const returnToMainMenuPreservingRun = useCallback(() => {
     saveNow();
-    navigate(runMode === 'research' ? (options.returnPath ?? '/research') : '/');
+    navigate(runMode !== 'normal' ? (options.returnPath ?? '/research') : '/');
   }, [navigate, options.returnPath, runMode, saveNow]);
 
   const returnToMainMenuAfterDefeat = useCallback(() => {
     if (runMode === 'research') options.clearActiveRecord?.();
-    else clearActiveRun();
-    navigate(runMode === 'research' ? (options.returnPath ?? '/research') : '/');
+    else if (runMode === 'normal') clearActiveRun();
+    navigate(runMode !== 'normal' ? (options.returnPath ?? '/research') : '/');
   }, [navigate, options, runMode]);
 
   function updateResearchFeedback(feedback: RoomFeedback) {
