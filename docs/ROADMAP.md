@@ -1,5 +1,19 @@
 # Resonant Ruins feature roadmap
 
+## mvp-0.4 — Research Mode & Data Foundation
+
+- **Implemented:** generator-4 shared candidate pools, adaptive/neutral selector boundary, exact
+  provenance, and frozen generator-2/generator-3 continuation.
+- **Implemented:** normal/research/sandbox write policies; Pilot/Official sessions; deterministic
+  balanced assignment; session-profile and active-run isolation.
+- **Implemented:** persisted room outcomes, accessible feedback, exactly-once finalization, defeat
+  records, Zod-validated storage, JSON/CSV export, descriptive summaries, and offline analysis.
+- **Implemented:** Preview-only research diagnostics and a disabled no-model shadow interface.
+- **Next evidence milestone:** conduct Pilot sessions, audit data completeness and question timing,
+  then freeze the study protocol before collecting Official data.
+- **Planned, not implemented:** a learned selector. Any later model requires participant/session-
+  grouped evaluation, privacy review, and shadow-mode evidence before selection authority.
+
 ## Completed checkpoint: mvp-0.3 Dungeon Topology & Run Pacing
 
 - [x] Generic KeyE interaction discovery and authoritative pause-aware channel state.

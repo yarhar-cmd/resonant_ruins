@@ -9,10 +9,12 @@ import { PauseMenu } from '../components/mirrorvault/PauseMenu';
 import { RoomStatus } from '../components/mirrorvault/RoomStatus';
 import { StatusPanel } from '../components/mirrorvault/StatusPanel';
 import { StorageWarning } from '../components/mirrorvault/StorageWarning';
+import { RoomFeedbackDialog } from '../components/mirrorvault/RoomFeedbackDialog';
 import { useRunController } from '../hooks/useRunController';
 import { loadActiveRun, type ActiveRunRecord } from '../services/activeRunStorage';
 import { roomBounds } from '../utils/roomGeometry';
 import { PLAYTEST_DIAGNOSTICS_ENABLED } from '../config/environment';
+import type { RunControllerOptions } from '../hooks/useRunController';
 
 const PreviewPlaytestDiagnostics = PLAYTEST_DIAGNOSTICS_ENABLED
   ? lazy(async () => {
@@ -27,8 +29,14 @@ export function DungeonRunPage() {
   return <DungeonRunSession initialRecord={initialRun.record} />;
 }
 
-function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }) {
-  const run = useRunController(initialRecord);
+export function DungeonRunSession({
+  initialRecord,
+  controllerOptions,
+}: {
+  initialRecord: ActiveRunRecord;
+  controllerOptions?: RunControllerOptions;
+}) {
+  const run = useRunController(initialRecord, controllerOptions);
   const [debugOpen, setDebugOpen] = useState(false);
   const pauseButtonRef = useRef<HTMLButtonElement>(null);
   const debugButtonRef = useRef<HTMLButtonElement>(null);
@@ -45,7 +53,14 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
-      if (event.code !== 'Escape' || event.repeat || event.defaultPrevented || paused || defeated)
+      if (
+        event.code !== 'Escape' ||
+        event.repeat ||
+        event.defaultPrevented ||
+        paused ||
+        defeated ||
+        run.pendingResearchFeedback
+      )
         return;
       event.preventDefault();
       if (debugOpen) setDebugOpen(false);
@@ -53,12 +68,16 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
     }
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [debugOpen, defeated, paused, pauseRun]);
+  }, [debugOpen, defeated, paused, pauseRun, run.pendingResearchFeedback]);
 
   const isInvulnerable =
     run.roomTransition.isTransitioning || run.gameplay.invulnerability.expiresAt !== null;
   const controlsDisabled =
-    run.gameplay.status !== 'active' || paused || run.roomTransition.isTransitioning || debugOpen;
+    run.gameplay.status !== 'active' ||
+    paused ||
+    run.roomTransition.isTransitioning ||
+    debugOpen ||
+    Boolean(run.pendingResearchFeedback);
   const enemiesRemaining = run.gameplay.enemies.rats.filter(
     (rat) => rat.health > 0 && rat.state !== 'corpse',
   ).length;
@@ -78,6 +97,7 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
               isInvulnerable={isInvulnerable}
               effectsSetting={run.visualEffects}
               reducedMotion={run.reducedMotion}
+              research={run.researchDiagnostics}
             />
           </Suspense>
         ) : null
@@ -89,7 +109,7 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
       <RoomStatus label={run.roomLabel} />
       <StatusPanel
         roomLabel={run.roomLabel}
-        mode="Exploring"
+        mode={run.runMode === 'research' ? 'Research session' : 'Exploring'}
         character={run.character.name}
         currentHealth={run.gameplay.currentHealth}
         maximumHealth={run.gameplay.maximumHealth}
@@ -129,7 +149,13 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
         >
           <div className="chamber-label">
             <span>{run.roomLabel}</span>
-            <span>{run.inGeneratedDungeon ? 'Dungeon active' : 'Awakening active'}</span>
+            <span>
+              {run.runMode === 'research'
+                ? 'Research run active'
+                : run.inGeneratedDungeon
+                  ? 'Dungeon active'
+                  : 'Awakening active'}
+            </span>
           </div>
           <DungeonGrid
             bounds={roomBounds(run.renderedRoom)}
@@ -180,6 +206,13 @@ function DungeonRunSession({ initialRecord }: { initialRecord: ActiveRunRecord }
         onRestart={run.restartRun}
         onMainMenu={run.returnToMainMenuPreservingRun}
       />
+      {run.pendingResearchFeedback && (
+        <RoomFeedbackDialog
+          pending={run.pendingResearchFeedback}
+          onChange={run.updateResearchFeedback}
+          onFinalize={run.finalizeResearchFeedback}
+        />
+      )}
       {import.meta.env.DEV && run.debug && (
         <DebugDrawer
           open={debugOpen}

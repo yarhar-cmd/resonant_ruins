@@ -15,6 +15,7 @@ import {
   saveActiveRun,
   toRestorableGameplayRun,
   type ActiveRunRecord,
+  type ActiveRunStorageIssue,
 } from '../services/activeRunStorage';
 import { characters } from '../services/mockAdventureService';
 import { createPlayerProfile, savePlayerProfile } from '../services/playerProfileStorage';
@@ -23,6 +24,16 @@ import { getStorageDiagnostics } from '../services/storageDiagnostics';
 import type { AdaptiveProfile, PlayerProfileRecord } from '../types/adaptation';
 import type { GridPosition } from '../types/player';
 import type { RoomDefinition, RoomExit } from '../types/rooms';
+import type {
+  PendingRoomFeedback,
+  ResearchCondition,
+  ResearchRoomStartSnapshot,
+  ResearchRun,
+  ResearchSession,
+  RoomFeedback,
+  RoomResearchRecord,
+} from '../types/research';
+import { getRunExecutionPolicy, type RunMode } from '../types/runMode';
 import {
   getEffectiveProfileV1,
   getEffectiveProfileV2,
@@ -55,6 +66,18 @@ import { useEnemyClock } from './useEnemyClock';
 import { useRoomTransition } from './useRoomTransition';
 import { createRoomEnemyState, livingRats } from '../utils/enemySystem';
 import { getAvailableInteraction, getFacingRestorationFountain } from '../utils/interactions';
+import {
+  buildRoomResearchRecord,
+  createPendingRoomFeedback,
+  createResearchRoomStart,
+} from '../research/roomRecord';
+import { shouldRequestResearchFeedback } from '../research/roomCompletion';
+import {
+  RESEARCH_ACTIVE_RUN_KEY,
+  RESEARCH_SCHEMA_VERSION,
+  FEEDBACK_SCHEMA_VERSION,
+} from '../config/research';
+import { PLAYTEST_DIAGNOSTICS_ENABLED } from '../config/environment';
 
 function rememberRoom(cache: Map<string, RoomDefinition>, room: RoomDefinition) {
   cache.delete(room.id);
@@ -73,8 +96,35 @@ function countTrailingDamagedRooms(
   return count;
 }
 
-export function useRunController(initialRecord: ActiveRunRecord) {
+export interface RunControllerOptions {
+  mode?: RunMode;
+  researchCondition?: ResearchCondition;
+  researchSessionProfile?: AdaptiveProfile;
+  researchSession?: ResearchSession;
+  researchRun?: ResearchRun;
+  pendingResearchFeedback?: PendingRoomFeedback | null;
+  researchRoomStart?: ResearchRoomStartSnapshot | null;
+  onResearchSessionProfileChange?: (profile: AdaptiveProfile) => void;
+  onResearchRoomStart?: (snapshot: ResearchRoomStartSnapshot) => boolean;
+  onResearchPendingChange?: (pending: PendingRoomFeedback | null) => boolean;
+  onFinalizeResearchRecord?: (record: RoomResearchRecord) => boolean;
+  saveActiveRecord?: (record: ActiveRunRecord) => ActiveRunStorageIssue | null;
+  clearActiveRecord?: () => void;
+  returnPath?: string;
+  researchStorageDiagnostics?: {
+    recordCount: number;
+    invalidRecordCount: number;
+    storageSizeBytes: number;
+  };
+}
+
+export function useRunController(
+  initialRecord: ActiveRunRecord,
+  options: RunControllerOptions = {},
+) {
   const navigate = useNavigate();
+  const runMode = options.mode ?? 'normal';
+  const policy = getRunExecutionPolicy(runMode);
   const { settings, playerProfile, setPlayerProfile } = useAdventure();
   const playableCharacterId = getPlayableCharacterId(initialRecord.characterId);
   const character = characters.find((item) => item.id === playableCharacterId) ?? characters[0]!;
@@ -94,10 +144,20 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   const [clockNow, setClockNow] = useState(Date.now);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [debugInterfaceOpen, setDebugInterfaceOpenState] = useState(false);
+  const [pendingResearchFeedback, setPendingResearchFeedback] = useState(
+    options.pendingResearchFeedback ?? null,
+  );
+  const [researchRoomStart, setResearchRoomStart] = useState(options.researchRoomStart ?? null);
+  const [finalizedResearchRecordCount, setFinalizedResearchRecordCount] = useState(0);
+  const [lastFinalizedResearchRecordId, setLastFinalizedResearchRecordId] = useState<string | null>(
+    null,
+  );
   const debugOpenedAtRef = useRef<number | null>(null);
   const actionSequence = useRef(0);
   const gameRegionRef = useRef<HTMLDivElement>(null);
   const archivedRunIdsRef = useRef(new Set<string>());
+  const defeatedResearchRoomIdsRef = useRef(new Set<string>());
+  const researchProfileRef = useRef(options.researchSessionProfile);
   const roomSnapshotsRef = useRef(new Map<string, RoomDefinition>());
   const setDebugInterfaceOpen = useCallback(
     (open: boolean) => {
@@ -157,6 +217,55 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     ],
   );
 
+  useEffect(() => {
+    if (
+      runMode !== 'research' ||
+      !generatedSave ||
+      !options.researchSession ||
+      !researchProfileRef.current ||
+      researchRoomStart?.roomId === generatedSave.roomSnapshot.id
+    )
+      return;
+    const snapshot = createResearchRoomStart({
+      gameplay,
+      generated: generatedSave,
+      sessionProfile: researchProfileRef.current,
+    });
+    if (options.onResearchRoomStart?.(snapshot)) setResearchRoomStart(snapshot);
+  }, [gameplay, generatedSave, options, researchRoomStart?.roomId, runMode]);
+
+  useEffect(() => {
+    if (
+      runMode !== 'research' ||
+      gameplay.status !== 'defeated' ||
+      !generatedSave ||
+      !researchRoomStart ||
+      !options.researchSession ||
+      !options.researchRun ||
+      defeatedResearchRoomIdsRef.current.has(researchRoomStart.roomDecisionId)
+    )
+      return;
+    const record = buildRoomResearchRecord({
+      session: options.researchSession,
+      run: options.researchRun,
+      condition: options.researchRun.condition,
+      gameplay,
+      generated: generatedSave,
+      roomStart: researchRoomStart,
+      profileAfter: gameplay.adaptation.currentRunProfile,
+      status: 'defeated',
+      capturedAt: new Date(
+        (gameplay.runStats.startedAt ?? 0) + (gameplay.runStats.timeSurvived ?? 0),
+      ).toISOString(),
+    });
+    if (options.onFinalizeResearchRecord?.(record)) {
+      defeatedResearchRoomIdsRef.current.add(researchRoomStart.roomDecisionId);
+      setFinalizedResearchRecordCount((count) => count + 1);
+      setLastFinalizedResearchRecordId(record.roomDecisionId);
+      options.onResearchPendingChange?.(null);
+    }
+  }, [gameplay, generatedSave, options, researchRoomStart, runMode]);
+
   useEnemyClock({
     enabled: Boolean(
       gameplay.status === 'active' &&
@@ -193,14 +302,19 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   ]);
 
   useEffect(() => {
-    if (!playerProfile) {
+    if (policy.writePermanentProfile && !playerProfile) {
       const recovered = createPlayerProfile(
         initialRecord.experiencePreset ?? 'seasoned-adventurer',
       );
       setPlayerProfile(recovered);
       savePlayerProfile(recovered);
     }
-  }, [initialRecord.experiencePreset, playerProfile, setPlayerProfile]);
+  }, [
+    initialRecord.experiencePreset,
+    playerProfile,
+    policy.writePermanentProfile,
+    setPlayerProfile,
+  ]);
 
   useEffect(() => {
     if (!storageWarning) return;
@@ -219,6 +333,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     const { runId, startedAt, timeSurvived, dungeonRoomsCleared, enemiesDefeated } =
       gameplay.runStats;
     if (
+      !policy.writeNormalHistory ||
       gameplay.status !== 'defeated' ||
       !runId ||
       startedAt === null ||
@@ -259,6 +374,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     gameplay.runStats,
     gameplay.status,
     playableCharacterId,
+    policy.writeNormalHistory,
   ]);
 
   useInvulnerabilityTimer({
@@ -273,6 +389,8 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   const saveNow = useActiveRunPersistence({
     gameplay,
     characterId: playableCharacterId,
+    enabled: policy.writeNormalActiveRun || policy.writeResearchActiveRun,
+    saveRecord: options.saveActiveRecord,
     onIssue: handleActiveRunIssue,
     onSaved: setLastSavedAt,
   });
@@ -280,7 +398,11 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     (next: GameplayState, now: number) => {
       const record = createActiveRunRecord(next, playableCharacterId, now);
       if (!record) return false;
-      const issue = saveActiveRun(record);
+      const issue = options.saveActiveRecord
+        ? options.saveActiveRecord(record)
+        : policy.writeNormalActiveRun
+          ? saveActiveRun(record)
+          : null;
       if (issue) {
         setStorageWarning(ACTIVE_RUN_STORAGE_WARNING);
         return false;
@@ -288,7 +410,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       setLastSavedAt(now);
       return true;
     },
-    [playableCharacterId],
+    [options, playableCharacterId, policy.writeNormalActiveRun],
   );
 
   function nextActionId(prefix: 'move' | 'attack') {
@@ -297,6 +419,11 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   }
 
   function saveProfile(next: PlayerProfileRecord) {
+    if (!policy.writePermanentProfile) {
+      if (policy.writeResearchSessionProfile)
+        options.onResearchSessionProfileChange?.(next.longTermProfile);
+      return;
+    }
     setPlayerProfile(next);
     if (savePlayerProfile(next)) setStorageWarning(ACTIVE_RUN_STORAGE_WARNING);
   }
@@ -305,7 +432,9 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     exit: RoomExit,
     dungeonRoomNumber: number,
     profile: AdaptiveProfile,
-    longTermProfile = playerProfile?.longTermProfile ?? profile,
+    longTermProfile = (runMode === 'research'
+      ? researchProfileRef.current
+      : playerProfile?.longTermProfile) ?? profile,
   ) {
     const dungeon = gameplay.dungeonProgress!;
     const scheduled = chooseGeneratedRoomMode({
@@ -317,7 +446,10 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     });
     const pinnedGenerator = dungeon.provenance?.activeGeneratorVersion ?? 'generator-2';
     const generatorVersion = pinnedGenerator === 'generator-1' ? 'generator-2' : pinnedGenerator;
-    const adaptationVersion = generatorVersion === 'generator-3' ? 'rules-2' : 'rules-1';
+    const adaptationVersion =
+      generatorVersion === 'generator-3' || generatorVersion === 'generator-4'
+        ? 'rules-2'
+        : 'rules-1';
     const effectiveProfile =
       adaptationVersion === 'rules-2'
         ? getEffectiveProfileV2(longTermProfile, profile)
@@ -333,9 +465,21 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       mode: scheduled.mode,
       generatorVersion,
       adaptationVersion,
-      gameVersion: generatorVersion === 'generator-3' ? 'mvp-0.3' : 'mvp-0.2',
+      gameVersion:
+        generatorVersion === 'generator-4'
+          ? 'mvp-0.4'
+          : generatorVersion === 'generator-3'
+            ? 'mvp-0.3'
+            : 'mvp-0.2',
+      selectorId:
+        runMode === 'research' && options.researchCondition === 'NEUTRAL_PROCEDURAL'
+          ? 'neutral-procedural'
+          : 'rules-adaptive',
+      recentArchetypes: (dungeon.recentDecisionRecords ?? [])
+        .map((record) => record.archetype)
+        .filter((archetype) => archetype !== 'legacy'),
       recovery:
-        generatorVersion === 'generator-3'
+        generatorVersion === 'generator-3' || generatorVersion === 'generator-4'
           ? {
               currentHealth: gameplay.currentHealth,
               maximumHealth: gameplay.maximumHealth,
@@ -355,7 +499,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     return { generatedRoom, entranceDirection, scheduled, effectiveProfile };
   }
 
-  function commitExitTransition(exit: RoomExit) {
+  function commitExitTransition(exit: RoomExit, feedbackFinalized = false) {
     if (
       !progress ||
       !gameplay.dungeonProgress ||
@@ -366,6 +510,48 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       return;
     const now = Date.now();
     const exitedAtMs = getTimeSurvived(gameplay.runStats, now, gameplay.pause);
+    if (
+      shouldRequestResearchFeedback({
+        runMode,
+        roomPhase: currentRoom.phase,
+        feedbackFinalized,
+        pendingFeedback: Boolean(pendingResearchFeedback),
+        livingEnemyCount,
+        hasGeneratedSave: Boolean(generatedSave),
+        hasRoomStart: Boolean(researchRoomStart),
+        hasResearchContext: Boolean(options.researchSession && options.researchRun),
+      }) &&
+      generatedSave &&
+      researchRoomStart &&
+      options.researchSession &&
+      options.researchRun
+    ) {
+      const preview = gameplayReducer(gameplay, {
+        type: 'commit-room-transition',
+        destinationRoomId: currentRoom.id,
+        destinationRoomIndex: progress.currentRoomIndex,
+        destinationSpawn: gameplay.player.position,
+        enteredFrom: progress.enteredFrom ?? 'west',
+        exitedAtMs,
+        exitChoice: null,
+        evaluationComplete: progress.evaluationComplete,
+        exitDirection: exit.direction,
+      });
+      const record = buildRoomResearchRecord({
+        session: options.researchSession,
+        run: options.researchRun,
+        condition: options.researchRun.condition,
+        gameplay,
+        generated: generatedSave,
+        roomStart: researchRoomStart,
+        profileAfter: preview.adaptation.currentRunProfile,
+        status: 'completed',
+        exit,
+      });
+      const pending = createPendingRoomFeedback(record);
+      if (options.onResearchPendingChange?.(pending)) setPendingResearchFeedback(pending);
+      return;
+    }
     const exitChoice =
       currentRoom.phase === 'evaluation'
         ? {
@@ -400,9 +586,13 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       const profileForRoom =
         debugProfileOverride ??
         gameplayReducer(gameplay, profilePreviewAction).adaptation.currentRunProfile;
-      const updatedLongTerm = playerProfile
-        ? updateLongTermProfile(playerProfile.longTermProfile, profileForRoom)
-        : profileForRoom;
+      const profileSource =
+        runMode === 'research' ? researchProfileRef.current : playerProfile?.longTermProfile;
+      const updatedLongTerm = profileSource
+        ? updateLongTermProfile(profileSource, profileForRoom)
+        : playerProfile
+          ? updateLongTermProfile(playerProfile.longTermProfile, profileForRoom)
+          : profileForRoom;
       const { generatedRoom, entranceDirection, scheduled, effectiveProfile } = generateDestination(
         exit,
         nextNumber,
@@ -457,7 +647,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
     }
 
     const nextGameplay = gameplayReducer(gameplay, action);
-    if (completingChambers && playerProfile) {
+    if (policy.writePermanentProfile && completingChambers && playerProfile) {
       saveProfile({
         ...playerProfile,
         shortcutUnlocked: true,
@@ -470,7 +660,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
           updatedAt: new Date().toISOString(),
         },
       });
-    } else if (currentRoom.phase === 'dungeon' && playerProfile) {
+    } else if (policy.writePermanentProfile && currentRoom.phase === 'dungeon' && playerProfile) {
       saveProfile({
         ...playerProfile,
         longTermProfile: updateLongTermProfile(
@@ -482,6 +672,12 @@ export function useRunController(initialRecord: ActiveRunRecord) {
           updatedAt: new Date().toISOString(),
         },
       });
+    } else if (
+      policy.writeResearchSessionProfile &&
+      (currentRoom.phase === 'dungeon' || completingChambers)
+    ) {
+      researchProfileRef.current = nextGameplay.adaptation.currentRunProfile;
+      options.onResearchSessionProfileChange?.(nextGameplay.adaptation.currentRunProfile);
     }
     roomTransition.beginTransition({
       destinationRoomId: action.destinationRoomId,
@@ -498,6 +694,7 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       gameplay.status === 'active' &&
       !gameplay.pause.isPaused &&
       !roomTransition.isTransitioning &&
+      !pendingResearchFeedback &&
       !debugInterfaceOpen,
     ),
     onMove: (direction, trigger) => {
@@ -562,6 +759,11 @@ export function useRunController(initialRecord: ActiveRunRecord) {
   });
 
   const restartRun = useCallback(() => {
+    if (runMode === 'research') {
+      options.clearActiveRecord?.();
+      navigate(options.returnPath ?? '/research', { replace: true });
+      return;
+    }
     const preset = gameplay.experiencePreset ?? playerProfile?.experiencePreset;
     if (!preset) {
       clearActiveRun();
@@ -597,7 +799,15 @@ export function useRunController(initialRecord: ActiveRunRecord) {
       )!,
     });
     persistGameplayState(next, now);
-  }, [character.health, gameplay.experiencePreset, navigate, persistGameplayState, playerProfile]);
+  }, [
+    character.health,
+    gameplay.experiencePreset,
+    navigate,
+    options,
+    persistGameplayState,
+    playerProfile,
+    runMode,
+  ]);
 
   const toggleResults = useCallback(
     () =>
@@ -643,13 +853,44 @@ export function useRunController(initialRecord: ActiveRunRecord) {
 
   const returnToMainMenuPreservingRun = useCallback(() => {
     saveNow();
-    navigate('/');
-  }, [navigate, saveNow]);
+    navigate(runMode === 'research' ? (options.returnPath ?? '/research') : '/');
+  }, [navigate, options.returnPath, runMode, saveNow]);
 
   const returnToMainMenuAfterDefeat = useCallback(() => {
-    clearActiveRun();
-    navigate('/');
-  }, [navigate]);
+    if (runMode === 'research') options.clearActiveRecord?.();
+    else clearActiveRun();
+    navigate(runMode === 'research' ? (options.returnPath ?? '/research') : '/');
+  }, [navigate, options, runMode]);
+
+  function updateResearchFeedback(feedback: RoomFeedback) {
+    if (!pendingResearchFeedback) return false;
+    const pending: PendingRoomFeedback = {
+      ...pendingResearchFeedback,
+      answersUpdatedAt: new Date().toISOString(),
+      record: { ...pendingResearchFeedback.record, feedback },
+    };
+    if (!options.onResearchPendingChange?.(pending)) return false;
+    setPendingResearchFeedback(pending);
+    return true;
+  }
+
+  function finalizeResearchFeedback(feedback: RoomFeedback) {
+    if (!pendingResearchFeedback) return false;
+    const record: RoomResearchRecord = { ...pendingResearchFeedback.record, feedback };
+    if (!options.onFinalizeResearchRecord?.(record)) return false;
+    if (!options.onResearchPendingChange?.(null)) return false;
+    const exit = currentRoom.exits.find(
+      (candidate) => candidate.id === record.outcome.chosenExitId,
+    );
+    if (!exit) return false;
+    researchProfileRef.current = record.profileAfter;
+    setFinalizedResearchRecordCount((count) => count + 1);
+    setLastFinalizedResearchRecordId(record.roomDecisionId);
+    setPendingResearchFeedback(null);
+    setResearchRoomStart(null);
+    commitExitTransition(exit, true);
+    return true;
+  }
 
   const frozenTime = formatSurvivalTime(
     getTimeSurvived(gameplay.runStats, clockNow, gameplay.pause),
@@ -664,6 +905,48 @@ export function useRunController(initialRecord: ActiveRunRecord) {
 
   return {
     gameplay,
+    runMode,
+    runPolicy: policy,
+    researchDiagnostics:
+      PLAYTEST_DIAGNOSTICS_ENABLED &&
+      runMode === 'research' &&
+      options.researchSession &&
+      options.researchRun
+        ? {
+            runMode,
+            pilot: options.researchSession.pilot,
+            sessionId: options.researchSession.id,
+            participantCodePresent: Boolean(options.researchSession.participantCode),
+            condition: options.researchRun.condition,
+            assignmentMethod: options.researchRun.assignment.methodId,
+            selectorId: generatedSave?.details.selectorId ?? 'not-generated',
+            selectorVersion: generatedSave?.details.selectorVersion ?? 'not-generated',
+            profileConsumed: generatedSave?.details.selectorProfileConsumed ?? false,
+            sharedPoolId: generatedSave?.details.sharedPoolId ?? 'not-generated',
+            requestedCandidateCount: generatedSave?.details.requestedCandidateCount ?? 0,
+            validCandidateCount: generatedSave?.details.validCandidateCount ?? 0,
+            rejectedCandidateCount: generatedSave?.details.rejectedCandidateCount ?? 0,
+            pendingFeedbackRoom: pendingResearchFeedback?.record.roomId ?? null,
+            pendingOutcomeStatus: pendingResearchFeedback?.record.outcome.status ?? null,
+            finalizedRecordStatus:
+              pendingResearchFeedback !== null
+                ? ('pending' as const)
+                : lastFinalizedResearchRecordId
+                  ? ('finalized' as const)
+                  : ('none' as const),
+            recordCount:
+              (options.researchStorageDiagnostics?.recordCount ?? 0) + finalizedResearchRecordCount,
+            invalidRecordCount: options.researchStorageDiagnostics?.invalidRecordCount ?? 0,
+            researchSchema: RESEARCH_SCHEMA_VERSION,
+            feedbackSchema: FEEDBACK_SCHEMA_VERSION,
+            storageSizeBytes: options.researchStorageDiagnostics?.storageSizeBytes ?? 0,
+            activePersistenceKey: RESEARCH_ACTIVE_RUN_KEY,
+            writePolicy: policy,
+          }
+        : null,
+    pendingResearchFeedback,
+    updateResearchFeedback,
+    finalizeResearchFeedback,
     character,
     currentRoom,
     renderedRoom,

@@ -102,7 +102,7 @@ export function TopologyLabPage() {
     <PageContainer
       eyebrow="Generator-3 development instrument"
       title="Topology Lab"
-      intro="In-memory room experiments. No active run, profile, best record, recovery cooldown, or Run History data is written."
+      intro="In-memory room experiments. No research records are written. No active run, profile, best record, recovery cooldown, or Run History data is written."
     >
       <div className="sandbox-banner" role="status">
         SANDBOX · persistence guards active

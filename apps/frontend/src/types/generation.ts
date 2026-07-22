@@ -9,11 +9,13 @@ import type {
   RoomFeatureVector,
 } from './topology';
 
-export const GENERATED_ROOM_SAVE_SCHEMA_VERSION = 1;
+export const GENERATED_ROOM_SAVE_SCHEMA_VERSION = 2;
 
 export type GeneratedRoomMode = 'reinforce' | 'poke' | 'fallback';
 export type GeneratedRoomShape = 'rectangle' | 'l-shape';
 export type HazardPattern = 'scattered' | 'clustered';
+export type RoomSelectorId = 'rules-adaptive' | 'neutral-procedural';
+export type RoomSelectorVersion = 'rules-selector-1' | 'neutral-selector-1';
 
 export interface GeneratedRoomParameters {
   mode: Exclude<GeneratedRoomMode, 'fallback'>;
@@ -56,6 +58,12 @@ export interface GeneratedRoomDetails {
   featureSchemaVersion?: number;
   exitDecisions?: DirectionalExitDecision[];
   recoveryDecision?: RecoveryDecision;
+  sharedPoolId?: string;
+  selectorId?: RoomSelectorId;
+  selectorVersion?: RoomSelectorVersion;
+  selectorProfileConsumed?: boolean;
+  selectorExplanation?: string[];
+  selectedFeatureVector?: RoomFeatureVector;
 }
 
 export interface RecoveryInputSnapshot {
@@ -123,10 +131,40 @@ export interface RoomCandidateSummary {
   featureVector: RoomFeatureVector;
 }
 
+export interface ValidatedRoomCandidate {
+  id: string;
+  save: GeneratedRoomSave;
+  archetype: RoomArchetype;
+  featureVector: RoomFeatureVector;
+}
+
+export interface RoomSelectionDecision {
+  selectorId: RoomSelectorId;
+  selectorVersion: RoomSelectorVersion;
+  sharedPoolId: string;
+  candidateCount: number;
+  selectedCandidateId: string;
+  selectedCandidateRank: number;
+  selectedScore: number | null;
+  deterministicRoll: number;
+  explanationTokens: string[];
+  topCandidates: RoomCandidateSummary[];
+  reducedDiversity: boolean;
+  fallbackUsed: boolean;
+  profileConsumed: boolean;
+  challengedTraits: (keyof AdaptiveProfile)[];
+}
+
+export interface RoomSelector<TContext> {
+  readonly selectorId: RoomSelectorId;
+  readonly selectorVersion: RoomSelectorVersion;
+  select(pool: readonly ValidatedRoomCandidate[], context: TContext): RoomSelectionDecision;
+}
+
 export interface GeneratedRoomSave {
   schemaVersion: number;
   generatorVersion: GeneratorVersion;
-  gameVersion?: GameVersion | 'mvp-0.2' | 'unknown';
+  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'unknown';
   adaptationVersion?: AdaptationVersion;
   runSeed: string;
   roomSeed: string;
@@ -146,8 +184,10 @@ export interface GenerationRequest {
   mode: Exclude<GeneratedRoomMode, 'fallback'>;
   generatorVersion?: GeneratorVersion;
   adaptationVersion?: AdaptationVersion;
-  gameVersion?: GameVersion | 'mvp-0.2';
+  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3';
   recovery?: RecoveryGenerationContext;
+  selectorId?: RoomSelectorId;
+  recentArchetypes?: RoomArchetype[];
 }
 
 export interface RoomValidationResult {
@@ -222,7 +262,7 @@ export interface GeneratorTransitionRecord {
 }
 
 export interface RunGenerationProvenance {
-  gameVersion: GameVersion | 'mvp-0.2' | 'unknown';
+  gameVersion: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'unknown';
   adaptationVersion: AdaptationVersion;
   startingGeneratorVersion: GeneratorVersion;
   activeGeneratorVersion: GeneratorVersion;

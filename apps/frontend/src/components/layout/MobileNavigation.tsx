@@ -5,6 +5,7 @@ const links = [
   ['/dungeon', 'Play'],
   ['/characters', 'Heroes'],
   ['/history', 'Runs'],
+  ['/research', 'Research'],
   ['/settings', 'Settings'],
 ];
 

@@ -1,12 +1,15 @@
 import type { DungeonConfig } from '../types/adventure';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE_URL = configuredBaseUrl ? configuredBaseUrl.replace(/\/$/, '') : null;
 
 interface ApiErrorPayload {
   error?: string;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  if (!API_BASE_URL)
+    throw new Error('Local API is not configured. This feature remains browser-local.');
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options?.headers },
@@ -19,7 +22,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ status: string; service: string }>('/api/health'),
+  configured: API_BASE_URL !== null,
+  health: (signal?: AbortSignal) =>
+    request<{ status: string; service: string }>('/api/health', { signal }),
   adventures: () => request<unknown[]>('/api/adventures'),
   createAdventure: (config: DungeonConfig) =>
     request('/api/adventures', { method: 'POST', body: JSON.stringify(config) }),

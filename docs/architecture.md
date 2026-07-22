@@ -1,5 +1,28 @@
 # Recommended Resonant Ruins architecture
 
+## Implemented mvp-0.4 research boundaries
+
+`generator-4` separates candidate construction from selection. A profile-independent generator
+builds and validates a shared pool and stable pool ID. `RoomSelector` implementations receive that
+immutable pool: `RuleBasedRoomSelector` accepts behavioral context, while `NeutralRoomSelector` has
+a context type with no adaptive profile. Frozen generator-2 and generator-3 dispatch paths remain
+unchanged.
+
+`RunMode` and `RunExecutionPolicy` centralize persistence permission for normal, research, and
+sandbox execution. Research uses `resonant-ruins:research:v1` and
+`resonant-ruins:research-active-run:v1`; it cannot update normal active-run, permanent-profile,
+History, or best-record boundaries. The research active envelope owns the room-start snapshot and
+pending feedback so refresh cannot associate an answer with a later room.
+
+Research contracts live in `types/research.ts`, Zod schemas in `research/schemas.ts`, storage in
+`services/researchStorage.ts`, and pure assignment/summary/export/record logic in `research/`.
+`CandidateScoringModel` is only a future interface: the current shadow status is unavailable, emits
+no scores, and is not a player control. The backend is not part of gameplay or research recording.
+With no explicit API base URL the frontend makes no network request.
+
+See [Research Mode](RESEARCH_MODE.md), [neutral control](NEUTRAL_CONTROL.md), and
+[future model plan](FUTURE_MODEL_PLAN.md).
+
 ## Architecture goal
 
 Keep Resonant Ruins understandable as it grows: one frontend application, one API, one shared contract layer, and explicit boundaries around game rules, persistence, authentication, and external providers. The project does not need microservices, event streaming, GraphQL, a complex state library, or a plugin system at its current scale.

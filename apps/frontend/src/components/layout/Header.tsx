@@ -7,6 +7,7 @@ const links = [
   ['/dungeon', 'Dungeon'],
   ['/characters', 'Characters'],
   ['/history', 'History'],
+  ['/research', 'Research'],
   ['/about', 'Method'],
   ['/settings', 'Settings'],
 ];

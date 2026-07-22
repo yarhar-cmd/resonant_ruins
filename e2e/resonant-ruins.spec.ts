@@ -16,8 +16,11 @@ import { evaluationRooms } from '../apps/frontend/src/data/rooms/evaluationRooms
 import { createCombatMetrics, type EnemyRoomState } from '../apps/frontend/src/types/enemies';
 import { RAT_COMBAT_CONFIG } from '../apps/frontend/src/config/combat';
 import type { TileCoordinate } from '../apps/frontend/src/types/rooms';
+import { researchFixture } from '../apps/frontend/src/test/researchFixtures';
 
 const ACTIVE_RUN_KEY = 'mirrorvault:active-run:v1';
+const RESEARCH_STORAGE_KEY = 'resonant-ruins:research:v1';
+const RESEARCH_ACTIVE_RUN_KEY = 'resonant-ruins:research-active-run:v1';
 
 function freshRecord(): ActiveRunRecord {
   const now = Date.now();
@@ -287,6 +290,65 @@ async function seedActiveRun(page: Page, record: ActiveRunRecord = freshRecord()
   });
 }
 
+function pendingResearchBrowserFixture() {
+  const fixture = researchFixture();
+  return {
+    storage: {
+      researchSchemaVersion: 'research-1',
+      activeSessionId: fixture.session.id,
+      sessions: [fixture.session],
+    },
+    active: {
+      researchSchemaVersion: 'research-1',
+      researchSessionId: fixture.session.id,
+      researchRunId: fixture.run.id,
+      gameplay: createActiveRunRecord(fixture.gameplay, 'warden', Date.now())!,
+      pendingFeedback: fixture.pending,
+      roomStart: fixture.roomStart,
+    },
+  };
+}
+
+function completedResearchBrowserFixture() {
+  const fixture = researchFixture();
+  const feedback = {
+    ...fixture.record.feedback,
+    status: 'submitted' as const,
+    difficulty: 'about_right' as const,
+    fairness: 4 as const,
+    enjoyment: 5 as const,
+    submittedAt: '2026-01-01T00:00:20.000Z',
+    responseDurationMs: 10_000,
+  };
+  const official = structuredClone(fixture.session);
+  official.status = 'ended';
+  official.endedAt = '2026-01-01T00:00:20.000Z';
+  official.runs[0]!.status = 'completed';
+  official.runs[0]!.endedAt = official.endedAt;
+  official.runs[0]!.rooms = [{ ...fixture.record, feedback }];
+  const pilot = structuredClone(official);
+  pilot.id = 'pilot-session-fixture';
+  pilot.pilot = true;
+  pilot.participantCode = 'PILOT_01';
+  pilot.runs[0]!.id = 'pilot-run-fixture';
+  pilot.runs[0]!.pilot = true;
+  pilot.runs[0]!.rooms = [
+    {
+      ...pilot.runs[0]!.rooms[0]!,
+      pilot: true,
+      participantCode: pilot.participantCode,
+      researchSessionId: pilot.id,
+      runId: pilot.runs[0]!.id,
+      roomDecisionId: 'pilot-room-decision-fixture',
+    },
+  ];
+  return {
+    researchSchemaVersion: 'research-1',
+    activeSessionId: null,
+    sessions: [official, pilot],
+  };
+}
+
 test.beforeEach(async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
@@ -302,6 +364,184 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect((page as Page & { consoleErrors?: string[] }).consoleErrors).toEqual([]);
+});
+
+test('Research page requires opt-in and starts labeled Pilot and Official sessions locally', async ({
+  page,
+}) => {
+  await seedActiveRun(page);
+  const normalBefore = await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY);
+  await page.goto('/research');
+  await expect(page.getByRole('heading', { name: 'Research Mode' })).toBeVisible();
+  await expect(page.getByText(/Nothing is automatically uploaded/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Pilot Session' })).toBeDisabled();
+  await page.getByLabel('Optional participant code').fill('PILOT_BROWSER_01');
+  await page.getByLabel(/I have read this notice and choose to start/i).check();
+  await page.getByRole('button', { name: 'Start Pilot Session' }).click();
+  await expect(page).toHaveURL(/\/research\/run$/);
+  const pilot = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    RESEARCH_STORAGE_KEY,
+  );
+  expect(pilot.sessions[0]).toMatchObject({ pilot: true, participantCode: 'PILOT_BROWSER_01' });
+  expect(await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY)).toBe(
+    normalBefore,
+  );
+  await expect(page.locator('body')).not.toContainText('RULES_ADAPTIVE');
+  await expect(page.locator('body')).not.toContainText('NEUTRAL_PROCEDURAL');
+
+  await page.evaluate(
+    ({ storageKey, activeKey }) => {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(activeKey);
+    },
+    { storageKey: RESEARCH_STORAGE_KEY, activeKey: RESEARCH_ACTIVE_RUN_KEY },
+  );
+  await page.goto('/research');
+  await page.getByLabel(/I have read this notice and choose to start/i).check();
+  await page.getByRole('button', { name: 'Start Research Session' }).click();
+  await expect(page).toHaveURL(/\/research\/run$/);
+  const official = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    RESEARCH_STORAGE_KEY,
+  );
+  expect(official.sessions[0].pilot).toBe(false);
+});
+
+test('pending room feedback survives refresh and finalizes exactly once before the next room', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const fixture = pendingResearchBrowserFixture();
+  await page.evaluate(
+    ({ storageKey, activeKey, storage, active }) => {
+      localStorage.setItem(storageKey, JSON.stringify(storage));
+      localStorage.setItem(activeKey, JSON.stringify(active));
+    },
+    {
+      storageKey: RESEARCH_STORAGE_KEY,
+      activeKey: RESEARCH_ACTIVE_RUN_KEY,
+      storage: fixture.storage,
+      active: fixture.active,
+    },
+  );
+  await page.goto('/research/run');
+  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toBeVisible();
+  const originalRoom = await page.locator('[data-room-id]').getAttribute('data-room-id');
+  await page.getByLabel('About Right').check();
+  await page.getByLabel('4 — Fair').check();
+  await page.getByLabel('5 — Very Enjoyable').check();
+  await page.reload();
+  await expect(page.getByLabel('About Right')).toBeChecked();
+  await expect(page.getByLabel('4 — Fair')).toBeChecked();
+  await expect(page.getByLabel('5 — Very Enjoyable')).toBeChecked();
+  await page.getByRole('button', { name: 'Submit and continue' }).click();
+  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)!).sessions[0].runs[0].rooms.length,
+        RESEARCH_STORAGE_KEY,
+      ),
+    )
+    .toBe(1);
+  await expect
+    .poll(() => page.locator('[data-room-id]').getAttribute('data-room-id'))
+    .not.toBe(originalRoom);
+  await page.reload();
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).sessions[0].runs[0].rooms.length,
+      RESEARCH_STORAGE_KEY,
+    ),
+  ).toBe(1);
+});
+
+test('feedback Escape opens deliberate skip confirmation and explicit skip records once', async ({
+  page,
+}) => {
+  const fixture = pendingResearchBrowserFixture();
+  await page.evaluate(
+    ({ storageKey, activeKey, storage, active }) => {
+      localStorage.setItem(storageKey, JSON.stringify(storage));
+      localStorage.setItem(activeKey, JSON.stringify(active));
+    },
+    {
+      storageKey: RESEARCH_STORAGE_KEY,
+      activeKey: RESEARCH_ACTIVE_RUN_KEY,
+      storage: fixture.storage,
+      active: fixture.active,
+    },
+  );
+  await page.goto('/research/run');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alertdialog', { name: /Skip this room/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toBeVisible();
+  await page.getByRole('button', { name: 'Skip feedback' }).click();
+  await page.getByRole('button', { name: 'Confirm skip' }).click();
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        (key) =>
+          JSON.parse(localStorage.getItem(key)!).sessions[0].runs[0].rooms[0]?.feedback.status,
+        RESEARCH_STORAGE_KEY,
+      ),
+    )
+    .toBe('skipped');
+});
+
+test('Research Summary excludes Pilot by default and export/delete controls preserve normal data', async ({
+  page,
+}) => {
+  await seedActiveRun(page);
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+    key: RESEARCH_STORAGE_KEY,
+    value: completedResearchBrowserFixture(),
+  });
+  const normalBefore = await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY);
+  await page.goto('/research');
+  await expect(page.locator('.research-summary-grid').getByText('1 / 1 (100%)')).toBeVisible();
+  await page.getByLabel('Include Pilot Data').check();
+  await expect(page.locator('.research-summary-grid').getByText('2 / 2 (100%)')).toBeVisible();
+
+  const [jsonDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export all JSON' }).click(),
+  ]);
+  expect(jsonDownload.suggestedFilename()).toMatch(
+    /^resonant-ruins-research-.*-all-sessions\.json$/,
+  );
+  const [csvDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export all CSV' }).click(),
+  ]);
+  expect(csvDownload.suggestedFilename()).toMatch(/^resonant-ruins-research-.*-all-sessions\.csv$/);
+
+  await page.getByRole('button', { name: /Delete Pilot Data/ }).click();
+  await page.getByRole('button', { name: 'Delete research data' }).click();
+  const afterPilotDelete = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    RESEARCH_STORAGE_KEY,
+  );
+  expect(afterPilotDelete.sessions).toHaveLength(1);
+  expect(afterPilotDelete.sessions[0].pilot).toBe(false);
+  await page.getByRole('button', { name: 'Clear all research data' }).click();
+  await page.getByRole('button', { name: 'Delete research data' }).click();
+  expect(await page.evaluate((key) => localStorage.getItem(key), RESEARCH_STORAGE_KEY)).toBeNull();
+  expect(await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY)).toBe(
+    normalBefore,
+  );
+});
+
+test('an unconfigured API sends no localhost health request', async ({ page }) => {
+  const healthRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/health')) healthRequests.push(request.url());
+  });
+  await page.reload();
+  await expect(page.getByText('Local only · API not configured')).toBeVisible();
+  expect(healthRequests).toEqual([]);
 });
 
 test('clean first descent reaches Awakening Chamber 1', async ({ page }) => {

@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { evaluationRooms } from '../../data/rooms/evaluationRooms';
 import { createRoomEnemyState } from '../../utils/enemySystem';
 import { createFreshRun } from '../../utils/runLifecycle';
 import { PlaytestDiagnostics } from './PlaytestDiagnostics';
 
-function renderDiagnostics() {
+function renderDiagnostics(research?: ComponentProps<typeof PlaytestDiagnostics>['research']) {
   const room = evaluationRooms[3]!;
   const gameplay = createFreshRun({
     maximumHealth: 6,
@@ -39,7 +40,15 @@ function renderDiagnostics() {
     },
   };
   const stateBeforeRender = structuredClone(state);
-  render(<PlaytestDiagnostics gameplay={state} room={room} isInvulnerable={false} now={10_125} />);
+  render(
+    <PlaytestDiagnostics
+      gameplay={state}
+      room={room}
+      isInvulnerable={false}
+      now={10_125}
+      research={research}
+    />,
+  );
   return { state, stateBeforeRender };
 }
 
@@ -85,7 +94,7 @@ describe('preview-safe Playtest Diagnostics panel', () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
     expect(writeText.mock.calls[0]![0]).toContain('seed authored-room');
-    expect(writeText.mock.calls[0]![0]).toContain('game=mvp-0.3 generator=generator-3');
+    expect(writeText.mock.calls[0]![0]).toContain('game=mvp-0.4 generator=generator-4');
     expect(writeText.mock.calls[0]![0]).toContain('evaluation-room-04-rat-1');
     expect(writeText.mock.calls[0]![0]).toContain('timers=475/0/0ms');
     expect(screen.getByRole('status')).toHaveTextContent('Diagnostic summary copied.');
@@ -103,5 +112,50 @@ describe('preview-safe Playtest Diagnostics panel', () => {
     expect(screen.getByRole('dialog', { name: 'Playtest Diagnostics' })).toBeVisible();
     expect(state).toEqual(stateBeforeRender);
     vi.unstubAllGlobals();
+  });
+
+  it('shows read-only Research Mode provenance and persistence diagnostics in Preview', () => {
+    renderDiagnostics({
+      runMode: 'research',
+      pilot: true,
+      sessionId: 'research-session-preview',
+      participantCodePresent: true,
+      condition: 'NEUTRAL_PROCEDURAL',
+      assignmentMethod: 'balanced-two-run-blocks-1',
+      selectorId: 'neutral-procedural',
+      selectorVersion: 'neutral-selector-1',
+      profileConsumed: false,
+      sharedPoolId: 'pool-preview',
+      requestedCandidateCount: 20,
+      validCandidateCount: 20,
+      rejectedCandidateCount: 2,
+      pendingFeedbackRoom: 'generated-room-preview',
+      pendingOutcomeStatus: 'completed',
+      finalizedRecordStatus: 'pending',
+      recordCount: 4,
+      invalidRecordCount: 0,
+      researchSchema: 'research-1',
+      feedbackSchema: 'feedback-1',
+      storageSizeBytes: 4096,
+      activePersistenceKey: 'resonant-ruins:research-active-run:v1',
+      writePolicy: {
+        mode: 'research',
+        writeNormalActiveRun: false,
+        writeResearchActiveRun: true,
+        writePermanentProfile: false,
+        writeResearchSessionProfile: true,
+        writeNormalHistory: false,
+        writeNormalBestRecords: false,
+        writeResearchDataset: true,
+        writeSandboxState: false,
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'PLAYTEST DIAGNOSTICS' }));
+
+    expect(screen.getByRole('heading', { name: 'Research session' })).toBeVisible();
+    expect(screen.getByText('research / Pilot')).toBeVisible();
+    expect(screen.getByText('NEUTRAL_PROCEDURAL / balanced-two-run-blocks-1')).toBeVisible();
+    expect(screen.getByText('neutral-procedural / neutral-selector-1 / false')).toBeVisible();
+    expect(screen.getByText('unavailable (No model installed) / disabled')).toBeVisible();
   });
 });

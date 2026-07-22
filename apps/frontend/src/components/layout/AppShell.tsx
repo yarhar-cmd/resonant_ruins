@@ -7,7 +7,7 @@ import { MobileNavigation } from './MobileNavigation';
 import { StorageWarning } from '../mirrorvault/StorageWarning';
 
 export function AppShell() {
-  const apiOnline = useApiHealth();
+  const apiStatus = useApiHealth();
   const { settings, storageWarning, dismissStorageWarning } = useAdventure();
 
   return (
@@ -26,9 +26,18 @@ export function AppShell() {
       </main>
       <Footer />
       <MobileNavigation />
-      <div className={`api-status ${apiOnline ? 'is-online' : ''}`} title="Local API status">
+      <div
+        className={`api-status ${apiStatus === 'online' ? 'is-online' : ''}`}
+        title="Local API status"
+      >
         <span aria-hidden="true" />
-        {apiOnline === null ? 'API checking' : apiOnline ? 'Local API linked' : 'Demo-only mode'}
+        {apiStatus === 'checking'
+          ? 'API checking'
+          : apiStatus === 'online'
+            ? 'Local API linked'
+            : apiStatus === 'not-configured'
+              ? 'Local only · API not configured'
+              : 'Local API unavailable'}
       </div>
     </div>
   );

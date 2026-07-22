@@ -1,12 +1,41 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { GameplayState } from '../../utils/gameplayState';
 import type { RoomDefinition } from '../../types/rooms';
+import type { ResearchCondition } from '../../types/research';
+import type { RunExecutionPolicy, RunMode } from '../../types/runMode';
+import { SHADOW_MODEL_STATUS } from '../../research/shadowModel';
 import {
   formatDiagnosticTile,
   formatPlaytestDiagnosticSummary,
   selectPlaytestDiagnostics,
 } from '../../utils/playtestDiagnostics';
 import './PlaytestDiagnostics.css';
+
+export interface ResearchPlaytestDiagnostics {
+  runMode: RunMode;
+  pilot: boolean;
+  sessionId: string;
+  participantCodePresent: boolean;
+  condition: ResearchCondition;
+  assignmentMethod: string;
+  selectorId: string;
+  selectorVersion: string;
+  profileConsumed: boolean;
+  sharedPoolId: string;
+  requestedCandidateCount: number;
+  validCandidateCount: number;
+  rejectedCandidateCount: number;
+  pendingFeedbackRoom: string | null;
+  pendingOutcomeStatus: string | null;
+  finalizedRecordStatus: 'none' | 'pending' | 'finalized';
+  recordCount: number;
+  invalidRecordCount: number;
+  researchSchema: string;
+  feedbackSchema: string;
+  storageSizeBytes: number;
+  activePersistenceKey: string;
+  writePolicy: RunExecutionPolicy;
+}
 
 export function PlaytestDiagnostics({
   gameplay,
@@ -15,6 +44,7 @@ export function PlaytestDiagnostics({
   now = Date.now(),
   effectsSetting = 'full',
   reducedMotion = false,
+  research = null,
 }: {
   gameplay: GameplayState;
   room: RoomDefinition;
@@ -22,6 +52,7 @@ export function PlaytestDiagnostics({
   now?: number;
   effectsSetting?: 'full' | 'reduced' | 'off';
   reducedMotion?: boolean;
+  research?: ResearchPlaytestDiagnostics | null;
 }) {
   const [open, setOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
@@ -56,7 +87,12 @@ export function PlaytestDiagnostics({
   async function copySummary() {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard is unavailable.');
-      await navigator.clipboard.writeText(formatPlaytestDiagnosticSummary(snapshot));
+      const researchSummary = research
+        ? `\nresearch=${research.pilot ? 'Pilot' : 'Official'} condition=${research.condition} selector=${research.selectorId}/${research.selectorVersion} pool=${research.sharedPoolId} feedback=${research.finalizedRecordStatus} records=${research.recordCount} invalid=${research.invalidRecordCount} model=${SHADOW_MODEL_STATUS.message}`
+        : '';
+      await navigator.clipboard.writeText(
+        `${formatPlaytestDiagnosticSummary(snapshot)}${researchSummary}`,
+      );
       setCopyStatus('Diagnostic summary copied.');
     } catch {
       setCopyStatus('Unable to copy diagnostic summary.');
@@ -399,6 +435,96 @@ export function PlaytestDiagnostics({
                 </ul>
               )}
             </section>
+
+            {research && (
+              <section aria-labelledby={`${titleId}-research`}>
+                <h3 id={`${titleId}-research`}>Research session</h3>
+                <dl>
+                  <div>
+                    <dt>Run mode / session type</dt>
+                    <dd>
+                      {research.runMode} / {research.pilot ? 'Pilot' : 'Official'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Session ID</dt>
+                    <dd>{research.sessionId}</dd>
+                  </div>
+                  <div>
+                    <dt>Participant code</dt>
+                    <dd>{research.participantCodePresent ? 'present' : 'absent'}</dd>
+                  </div>
+                  <div>
+                    <dt>Condition / assignment</dt>
+                    <dd>
+                      {research.condition} / {research.assignmentMethod}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Selector / profile consumed</dt>
+                    <dd>
+                      {research.selectorId} / {research.selectorVersion} /{' '}
+                      {String(research.profileConsumed)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Shared pool</dt>
+                    <dd>{research.sharedPoolId}</dd>
+                  </div>
+                  <div>
+                    <dt>Candidates valid / requested / rejected</dt>
+                    <dd>
+                      {research.validCandidateCount} / {research.requestedCandidateCount} /{' '}
+                      {research.rejectedCandidateCount}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Pending feedback / outcome</dt>
+                    <dd>
+                      {research.pendingFeedbackRoom ?? 'none'} /{' '}
+                      {research.pendingOutcomeStatus ?? 'none'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Record status / valid / invalid</dt>
+                    <dd>
+                      {research.finalizedRecordStatus} / {research.recordCount} /{' '}
+                      {research.invalidRecordCount}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Research / feedback schemas</dt>
+                    <dd>
+                      {research.researchSchema} / {research.feedbackSchema}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Research storage</dt>
+                    <dd>
+                      {research.storageSizeBytes} bytes / {research.activePersistenceKey}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Model / shadow mode</dt>
+                    <dd>
+                      {SHADOW_MODEL_STATUS.availability} ({SHADOW_MODEL_STATUS.message}) /{' '}
+                      {SHADOW_MODEL_STATUS.shadowMode}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Write policy</dt>
+                    <dd>
+                      normal active {String(research.writePolicy.writeNormalActiveRun)}; research
+                      active {String(research.writePolicy.writeResearchActiveRun)}; permanent
+                      profile {String(research.writePolicy.writePermanentProfile)}; session profile{' '}
+                      {String(research.writePolicy.writeResearchSessionProfile)}; normal history{' '}
+                      {String(research.writePolicy.writeNormalHistory)}; research dataset{' '}
+                      {String(research.writePolicy.writeResearchDataset)}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            )}
 
             <button type="button" className="playtest-diagnostics__copy" onClick={copySummary}>
               Copy Diagnostic Summary

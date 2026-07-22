@@ -80,8 +80,8 @@ describe('preview-safe Playtest Diagnostics selectors', () => {
     expect(snapshot.room).toMatchObject({
       number: 4,
       seed: 'authored-room',
-      gameVersion: 'mvp-0.3',
-      generatorVersion: 'generator-3',
+      gameVersion: 'mvp-0.4',
+      generatorVersion: 'generator-4',
       adaptationVersion: 'rules-2',
       type: 'Awakening Chamber',
       mode: 'not applicable',
@@ -124,7 +124,7 @@ describe('preview-safe Playtest Diagnostics selectors', () => {
     );
 
     expect(summary).toContain('Room 4 | seed authored-room');
-    expect(summary).toContain('game=mvp-0.3 generator=generator-3');
+    expect(summary).toContain('game=mvp-0.4 generator=generator-4');
     expect(summary).toContain('Player tile=1,5 facing=right');
     expect(summary).toContain(
       'Rat evaluation-room-04-rat-1 tile=9,5 facing=left awareness=alerted state=telegraphing',

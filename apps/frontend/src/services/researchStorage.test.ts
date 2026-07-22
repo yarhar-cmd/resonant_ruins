@@ -1,0 +1,119 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { RESEARCH_STORAGE_KEY } from '../config/research';
+import { PLAYER_PROFILE_KEY } from './playerProfileStorage';
+import { RUN_ARCHIVE_KEY } from './runArchive';
+import {
+  appendResearchRun,
+  clearAllResearchData,
+  createResearchRun,
+  createResearchSession,
+  deletePilotResearchData,
+  deleteResearchSession,
+  endResearchSession,
+  loadResearchStorage,
+  parseResearchStorage,
+  researchStorageSize,
+  startResearchSession,
+} from './researchStorage';
+
+describe('research session storage', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('requires valid opt-in input and stores Pilot and Official sessions separately', () => {
+    expect(() =>
+      createResearchSession({ pilot: false, participantCode: 'name with spaces' }),
+    ).toThrow('Invalid participant code.');
+    const pilot = startResearchSession({
+      pilot: true,
+      participantCode: '  PILOT_01  ',
+      id: 'pilot-session',
+      sessionSeed: 'pilot-seed',
+      now: 1_000,
+    });
+    expect(pilot.issue).toBeNull();
+    expect(pilot.session).toMatchObject({ pilot: true, participantCode: 'PILOT_01' });
+    const official = startResearchSession({
+      pilot: false,
+      id: 'official-session',
+      sessionSeed: 'official-seed',
+      now: 2_000,
+    });
+    expect(official.issue).toBeNull();
+    expect(loadResearchStorage().data.sessions).toHaveLength(2);
+  });
+
+  it('stores deterministic assigned runs and restores incomplete sessions', () => {
+    const { session } = startResearchSession({
+      pilot: false,
+      id: 'session',
+      sessionSeed: 'seed',
+      now: 1_000,
+    });
+    const first = createResearchRun({
+      session,
+      characterId: 'warden',
+      experiencePreset: 'seasoned-adventurer',
+      id: 'run-1',
+      now: 2_000,
+    });
+    expect(appendResearchRun(session.id, first)).toBeNull();
+    const restored = loadResearchStorage().data.sessions[0]!;
+    const second = createResearchRun({
+      session: restored,
+      characterId: 'warden',
+      experiencePreset: 'seasoned-adventurer',
+      id: 'run-2',
+      now: 3_000,
+    });
+    expect(new Set([first.condition, second.condition])).toEqual(
+      new Set(['RULES_ADAPTIVE', 'NEUTRAL_PROCEDURAL']),
+    );
+    expect(appendResearchRun(session.id, second)).toBeNull();
+    expect(appendResearchRun(session.id, second)).toBe('conflict');
+    expect(loadResearchStorage().data.activeSessionId).toBe('session');
+  });
+
+  it('deletes only Pilot data and preserves Official and normal data', () => {
+    localStorage.setItem(PLAYER_PROFILE_KEY, '{"normal":true}');
+    localStorage.setItem(RUN_ARCHIVE_KEY, '{"normal":true}');
+    startResearchSession({ pilot: true, id: 'pilot', sessionSeed: 'pilot' });
+    startResearchSession({ pilot: false, id: 'official', sessionSeed: 'official' });
+    expect(deletePilotResearchData()).toBeNull();
+    expect(loadResearchStorage().data.sessions.map(({ id }) => id)).toEqual(['official']);
+    expect(localStorage.getItem(PLAYER_PROFILE_KEY)).toBe('{"normal":true}');
+    expect(localStorage.getItem(RUN_ARCHIVE_KEY)).toBe('{"normal":true}');
+    expect(deleteResearchSession('official')).toBeNull();
+    expect(loadResearchStorage().data.sessions).toEqual([]);
+  });
+
+  it('ends active work without inventing completion and supports research-only clear', () => {
+    const { session } = startResearchSession({
+      pilot: false,
+      id: 'ending-session',
+      sessionSeed: 'ending-seed',
+      now: 1_000,
+    });
+    const run = createResearchRun({
+      session,
+      characterId: 'warden',
+      experiencePreset: 'new-delver',
+      id: 'active-run',
+      now: 2_000,
+    });
+    appendResearchRun(session.id, run);
+    expect(endResearchSession(session.id, 3_000)).toBeNull();
+    expect(loadResearchStorage().data.sessions[0]).toMatchObject({
+      status: 'ended',
+      runs: [{ status: 'interrupted' }],
+    });
+    expect(researchStorageSize(loadResearchStorage().data)).toBeGreaterThan(0);
+    expect(clearAllResearchData()).toBeNull();
+    expect(localStorage.getItem(RESEARCH_STORAGE_KEY)).toBeNull();
+  });
+
+  it('rejects malformed versions and duplicate room identities', () => {
+    expect(parseResearchStorage({ researchSchemaVersion: 'research-99', sessions: [] })).toBeNull();
+    localStorage.setItem(RESEARCH_STORAGE_KEY, '{');
+    expect(loadResearchStorage().issue).toBe('invalid');
+  });
+});

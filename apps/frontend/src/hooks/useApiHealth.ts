@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
 export function useApiHealth() {
-  const [online, setOnline] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<'checking' | 'online' | 'offline' | 'not-configured'>(
+    api.configured ? 'checking' : 'not-configured',
+  );
 
   useEffect(() => {
+    if (!api.configured) return;
     const controller = new AbortController();
     api
-      .health()
-      .then(() => setOnline(true))
-      .catch(() => setOnline(false));
+      .health(controller.signal)
+      .then(() => setStatus('online'))
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setStatus('offline');
+      });
     return () => controller.abort();
   }, []);
 
-  return online;
+  return status;
 }
