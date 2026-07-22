@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loadActiveRun } from '../services/activeRunStorage';
+import { loadRunArchive } from '../services/runArchive';
+import { formatSurvivalTime } from '../utils/gameplayState';
 
 const signals = [
   [
@@ -25,6 +27,17 @@ const signals = [
 
 export function HomePage() {
   const [resumableRun] = useState(() => Boolean(loadActiveRun().record));
+  const [runSummary] = useState(() => {
+    const histories = Object.values(loadRunArchive().data.histories)
+      .flat()
+      .sort((left, right) => Date.parse(right.endedAt) - Date.parse(left.endedAt));
+    return {
+      recent: histories[0],
+      bestRooms: histories.reduce((best, run) => Math.max(best, run.dungeonRoomsCleared), 0),
+      bestResonance: histories.reduce((best, run) => Math.max(best, run.resonanceCollected), 0),
+    };
+  });
+
   return (
     <>
       <section className="hero">
@@ -36,74 +49,58 @@ export function HomePage() {
           The dungeon is <em>watching how you play.</em>
         </h1>
         <p className="hero__intro">
-          Cross five Awakening Chambers. Resonant Ruins reads your pace, tactics, and appetite for
-          risk, then builds an endless dungeon around you.
+          Cross five Awakening Chambers, then enter an endless dungeon shaped by your pace, tactics,
+          and appetite for risk.
         </p>
-        <Link className="button button--primary" to={resumableRun ? '/dungeon/run' : '/dungeon'}>
-          {resumableRun ? 'Resume Run' : 'Start Run'} ↓
-        </Link>
-        <div className="experiment-summary" aria-label="Experiment summary">
-          <div>
-            <strong>05</strong>
-            <span>Awakening Chambers</span>
-          </div>
-          <div>
-            <strong>∞</strong>
-            <span>generated rooms</span>
-          </div>
-          <div>
-            <strong>00</strong>
-            <span>data sent away</span>
-          </div>
+        <div className="hero__actions">
+          <Link className="button button--primary" to={resumableRun ? '/dungeon/run' : '/dungeon'}>
+            {resumableRun ? 'Resume Run' : 'Start Run'}
+          </Link>
+          <Link className="button button--secondary" to="/research">
+            Join Research
+          </Link>
         </div>
       </section>
 
-      <section className="home-intake">
-        <div>
-          <p className="section-number">01 / LIVE PROTOTYPE</p>
-          <h2>Enter the experiment</h2>
-          <p>Everything runs in this browser. Refresh or reset whenever you want to begin again.</p>
-        </div>
-        <div className="vault-preview" aria-hidden="true">
-          <span className="vault-preview__player" />
-          <span className="vault-preview__rune" />
-          <span className="vault-preview__enemy vault-preview__enemy--one" />
-          <span className="vault-preview__enemy vault-preview__enemy--two" />
-          <span className="vault-preview__door" />
-        </div>
-      </section>
-
-      <section className="method-section">
+      <section className="home-overview">
         <header>
-          <p className="section-number">02 / THE METHOD</p>
-          <h2>
-            Same rules. <em>Different dungeon.</em>
-          </h2>
-          <p>The prototype changes room composition, not the physics underneath your feet.</p>
+          <p className="section-number">How it adapts</p>
+          <h2>Same rules. Different rooms.</h2>
+          <p>
+            Your behavior influences which deterministic room candidate is selected. Movement,
+            combat rules, and damage stay constant.
+          </p>
         </header>
-        <div className="signal-grid">
+        <div className="home-method" aria-label="Adaptive signals">
           {signals.map(([letter, title, copy, change]) => (
             <article key={letter}>
-              <span className="signal-letter">{letter}</span>
-              <h3>{title}</h3>
+              <h3>
+                <span aria-hidden="true">{letter}</span>
+                {title}
+              </h3>
               <p>{copy}</p>
-              <small>CHANGES → {change}</small>
+              <small>Influences {change}</small>
             </article>
           ))}
         </div>
-        <div className="constants">
-          <span>Always constant</span>
-          <ul>
-            {[
-              'collision physics',
-              'player speed',
-              'moveset',
-              'attack cooldown',
-              'environment rules',
-            ].map((item) => (
-              <li key={item}>◇ {item}</li>
-            ))}
-          </ul>
+        <div className="home-run-summary" aria-label="Local run summary">
+          <div>
+            <span>Recent run</span>
+            <strong>
+              {runSummary.recent
+                ? `${runSummary.recent.dungeonRoomsCleared} rooms · ${formatSurvivalTime(runSummary.recent.timeSurvivedMs)}`
+                : 'No completed runs'}
+            </strong>
+          </div>
+          <div>
+            <span>Best rooms</span>
+            <strong>{runSummary.bestRooms}</strong>
+          </div>
+          <div>
+            <span>Best Resonance</span>
+            <strong>{runSummary.bestResonance}</strong>
+          </div>
+          <Link to="/history">View History</Link>
         </div>
       </section>
     </>

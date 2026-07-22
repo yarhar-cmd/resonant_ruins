@@ -258,6 +258,7 @@ export function DungeonGrid({
                 data-tile-x={column}
                 data-tile-y={row}
                 data-tile-kind={kind}
+                data-exit-direction={exit?.direction}
                 aria-hidden="true"
               >
                 {isPlayer && (
@@ -283,6 +284,9 @@ export function DungeonGrid({
                       .filter(Boolean)
                       .join(' ')}
                   >
+                    <span className="player-token__cloak" />
+                    <span className="player-token__helm" />
+                    <span className="player-token__body" />
                     {status !== 'defeated' && (
                       <span className="player-token__facing">{facingArrows[player.facing]}</span>
                     )}
@@ -320,6 +324,11 @@ export function DungeonGrid({
                     data-enemy-awareness={rat.awareness}
                     data-enemy-outcome={rat.attackOutcome ?? undefined}
                   >
+                    {rat.state === 'telegraphing' && (
+                      <span className="rat-token__warning" aria-hidden="true">
+                        !
+                      </span>
+                    )}
                     <span className="rat-token__visual">
                       <span className="rat-token__tail" />
                       <span className="rat-token__body">
@@ -365,6 +374,7 @@ export function DungeonGrid({
                   <span className="ruin-torch" data-decoration-id={torch.id}>
                     <span className="ruin-torch__bracket" />
                     <span className="ruin-torch__flame" />
+                    <span className="ruin-torch__ember" />
                   </span>
                 )}
               </span>
@@ -383,11 +393,14 @@ export function DungeonGrid({
             .join('. ')}
         </p>
       )}
-      <p id="resonant-ruins-grid-instructions" className="grid-hint">
-        Resonant Ruins controls: move with WASD or arrow keys, attack with Space, and hold either
-        Shift key to shield, and press E when facing an available interactable. Red rune floor
-        markings are walkable hazards that deal damage.
-      </p>
+      <details className="game-help">
+        <summary>Controls</summary>
+        <p id="resonant-ruins-grid-instructions" className="grid-hint">
+          Resonant Ruins controls: move with WASD or arrow keys, attack with Space, hold Shift to
+          shield, and press E when facing an interactable. Red rune floor markings are walkable
+          hazards.
+        </p>
+      </details>
       <p className="game-announcement" aria-live="polite" aria-atomic="true">
         {announcement}
       </p>

@@ -6,7 +6,6 @@ import { AwakeningCompleteText } from '../components/mirrorvault/AwakeningComple
 import { GameOverResults } from '../components/mirrorvault/GameOverResults';
 import { GameShell } from '../components/mirrorvault/GameShell';
 import { PauseMenu } from '../components/mirrorvault/PauseMenu';
-import { RoomStatus } from '../components/mirrorvault/RoomStatus';
 import { StatusPanel } from '../components/mirrorvault/StatusPanel';
 import { StorageWarning } from '../components/mirrorvault/StorageWarning';
 import { RoomFeedbackDialog } from '../components/mirrorvault/RoomFeedbackDialog';
@@ -106,7 +105,6 @@ export function DungeonRunSession({
       pauseButtonRef={pauseButtonRef}
       onPause={run.pauseRun}
     >
-      <RoomStatus label={run.roomLabel} />
       <StatusPanel
         roomLabel={run.roomLabel}
         mode={run.runMode === 'research' ? 'Research session' : 'Exploring'}
@@ -133,6 +131,7 @@ export function DungeonRunSession({
             : undefined
         }
         resonance={run.gameplay.resonance}
+        elapsedTime={run.frozenTime}
         sandboxResonance={run.runMode === 'sandbox'}
       />
       {run.storageWarning && (
@@ -149,16 +148,12 @@ export function DungeonRunSession({
           data-room-id={run.currentRoom.id}
           data-survival-time={run.frozenTime}
         >
-          <div className="chamber-label">
-            <span>{run.roomLabel}</span>
-            <span>
-              {run.runMode === 'research'
-                ? 'Research run active'
-                : run.inGeneratedDungeon
-                  ? 'Dungeon active'
-                  : 'Awakening active'}
-            </span>
-          </div>
+          {run.runMode !== 'normal' && (
+            <div className="chamber-label">
+              <span>{run.roomLabel}</span>
+              <span>{run.runMode === 'research' ? 'Research run active' : 'Sandbox active'}</span>
+            </div>
+          )}
           <DungeonGrid
             bounds={roomBounds(run.renderedRoom)}
             hazards={run.renderedHazards}
@@ -191,7 +186,10 @@ export function DungeonRunSession({
             <div
               className={`room-transition room-transition--${run.roomTransition.phase}`}
               aria-hidden="true"
-            />
+            >
+              <span className="room-transition__vignette" />
+              <span className="room-transition__dust" />
+            </div>
           )}
           {run.showAwakeningComplete && (
             <AwakeningCompleteText onFinished={run.hideAwakeningComplete} />

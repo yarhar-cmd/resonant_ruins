@@ -4,11 +4,9 @@ import { MODEL_LAB_ENABLED, TOPOLOGY_LAB_ENABLED } from '../../config/environmen
 
 const links = [
   ['/', 'Home'],
-  ['/dungeon', 'Dungeon'],
-  ['/characters', 'Characters'],
-  ['/history', 'History'],
+  ['/dungeon', 'Play'],
   ['/research', 'Research'],
-  ['/about', 'Method'],
+  ['/history', 'History'],
   ['/settings', 'Settings'],
 ];
 
@@ -22,8 +20,22 @@ export function Header() {
             {label}
           </NavLink>
         ))}
-        {TOPOLOGY_LAB_ENABLED && <NavLink to="/topology-lab">Topology Lab</NavLink>}
-        {MODEL_LAB_ENABLED && <NavLink to="/model-lab">Model Lab</NavLink>}
+        {(TOPOLOGY_LAB_ENABLED || MODEL_LAB_ENABLED) && (
+          <details className="nav-menu nav-menu--labs">
+            <summary>Labs</summary>
+            <div className="nav-menu__links">
+              {TOPOLOGY_LAB_ENABLED && <NavLink to="/topology-lab">Topology Lab</NavLink>}
+              {MODEL_LAB_ENABLED && <NavLink to="/model-lab">Model Lab</NavLink>}
+            </div>
+          </details>
+        )}
+        <details className="nav-menu nav-menu--more">
+          <summary>More</summary>
+          <div className="nav-menu__links">
+            <NavLink to="/characters">Characters</NavLink>
+            <NavLink to="/about">About</NavLink>
+          </div>
+        </details>
       </nav>
       <span className="local-badge">LOCAL ONLY</span>
     </header>
