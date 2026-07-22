@@ -21,6 +21,10 @@
     "format:check": "prettier --check .",
     "analyze:research": "node scripts/analyze-research.mjs",
     "prepare:model-data": "node node_modules/tsx/dist/cli.mjs tools/model_data/prepare.ts",
+    "train:model": "python tools/model_training/train_model.py",
+    "evaluate:model": "python tools/model_training/evaluate_model.py",
+    "inspect:model": "python tools/model_training/inspect_model.py",
+    "test:model-training": "python -m unittest discover -s tools/model_training/tests -t tools/model_training",
     "typecheck:model-tools": "node node_modules/typescript/bin/tsc -p tools/model_data/tsconfig.json --pretty false"
   },
   "devDependencies": {
