@@ -72,6 +72,7 @@ export function ConfirmationDialog({
             ref={cancelRef}
             className="button button--secondary"
             type="button"
+            data-audio-event="ui.cancel"
             onClick={onCancel}
           >
             Cancel
@@ -79,6 +80,7 @@ export function ConfirmationDialog({
           <button
             type="button"
             className={`button ${destructive ? 'button--danger' : 'button--primary'}`}
+            data-audio-event="ui.confirm"
             onClick={onConfirm}
           >
             {confirmLabel}
