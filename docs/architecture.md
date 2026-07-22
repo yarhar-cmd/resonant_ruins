@@ -1,5 +1,26 @@
 # Recommended Resonant Ruins architecture
 
+## Implemented mvp-0.5 model boundary
+
+`model-features-1` is the single language-neutral encoding contract. TypeScript owns privacy-safe
+ResearchExport preparation and live feature construction from recorded pre-room `profileBefore`;
+the offline Python package owns grouped evaluation, baselines, logistic fitting, and
+`model-artifact-1` export. Zod validates artifacts before pure local TypeScript inference. Python/
+TypeScript parity fixtures lock encoded vectors, normalization, logits, probabilities, classes, and
+ranks.
+
+Generator-4 finalizes the active Rules or Neutral decision before optional shadow observation. The
+observer receives immutable candidate feature snapshots and cannot change gameplay. Optional
+`shadow-1` evidence is stored only in Research records; predictions remain hidden until feedback.
+No approved model is installed, so Official Research has no scores. The committed synthetic fixture
+is explicit Pilot/local/Preview test material only.
+
+The lazy Model Comparison Lab and counterfactual route are compiled only for local development or
+an exact flagged Preview. Imports and model selection remain memory-only. Sandbox mode denies every
+normal, research, profile, History, and best-record write. Production bundle scans reject the Lab,
+fixture, and controls. See [model inference](MODEL_INFERENCE.md), [shadow mode](MODEL_SHADOW_MODE.md),
+[Model Lab](MODEL_COMPARISON_LAB.md), and [model privacy](MODEL_PRIVACY.md).
+
 ## Implemented mvp-0.4 research boundaries
 
 `generator-4` separates candidate construction from selection. A profile-independent generator
@@ -16,8 +37,9 @@ pending feedback so refresh cannot associate an answer with a later room.
 
 Research contracts live in `types/research.ts`, Zod schemas in `research/schemas.ts`, storage in
 `services/researchStorage.ts`, and pure assignment/summary/export/record logic in `research/`.
-`CandidateScoringModel` is only a future interface: the current shadow status is unavailable, emits
-no scores, and is not a player control. The backend is not part of gameplay or research recording.
+`CandidateScoringModel` remains a zero-control boundary: without an explicitly compatible artifact
+the shadow status is unavailable, and no score becomes a player control. The backend is not part of
+gameplay or research recording.
 With no explicit API base URL the frontend makes no network request.
 
 See [Research Mode](RESEARCH_MODE.md), [neutral control](NEUTRAL_CONTROL.md), and

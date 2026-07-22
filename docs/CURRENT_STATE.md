@@ -1,5 +1,26 @@
 # Resonant Ruins current state
 
+## mvp-0.5 baseline learned-selector foundation
+
+The repository now contains an offline, privacy-reduced multinomial logistic pipeline without
+granting a model gameplay control. `model-features-1` defines 31 semantic features and fixed one-hot
+vocabularies shared by TypeScript preparation/live inference and Python training. Preparation uses
+recorded pre-room `profileBefore`, derives only prior ratings, groups by participant/session through
+discarded opaque labels, fingerprints canonical data, excludes Pilot by default, and enforces
+centralized Official thresholds.
+
+The pinned local Python package compares grouped baselines and three logistic variants, emits
+aggregate evaluation plus strict `model-artifact-1`, and refuses silent overwrite/promotion. Zod-
+validated TypeScript inference matches committed parity fixtures and returns typed failures. The
+only artifact is a synthetic development fixture; no Official model is approved.
+
+Research shadow scoring runs after active selection and cannot change pool/selection/RNG/content.
+Compact optional `shadow-1` evidence attaches the observed rating after feedback, while the feedback
+dialog remains prediction-blind. `/model-lab` compares Rules/Neutral/Model locally or in an exact
+flagged Preview; its imports and development selection stay in memory. Exact in-memory candidates
+may run only under the write-disabled counterfactual sandbox. Production excludes the Lab and
+fixture. See the model documents linked from the README.
+
 ## mvp-0.4 research foundation
 
 New runs use deterministic `generator-4`. It constructs one profile-independent validated room

@@ -1,8 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearCounterfactualSandbox } from '../model/counterfactualSandbox';
 import { clearDevelopmentShadowArtifact } from '../model/developmentModelSelection';
+import developmentArtifactValue from '../model/__fixtures__/development-artifact-1.json';
+import { createResearchExport } from '../research/export';
+import { researchFixture } from '../test/researchFixtures';
 import { ModelLabPage } from './ModelLabPage';
 
 describe('Resonant Ruins Model Comparison Lab', () => {
@@ -43,5 +46,41 @@ describe('Resonant Ruins Model Comparison Lab', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Launch Counterfactual Sandbox' }));
     expect(screen.getByText('Sandbox route reached')).toBeVisible();
+  });
+
+  it('validates artifact and ResearchExport imports and refuses reconstructed replay', async () => {
+    render(
+      <MemoryRouter>
+        <ModelLabPage />
+      </MemoryRouter>,
+    );
+    const artifactInput = screen.getByLabelText('Import artifact JSON');
+    fireEvent.change(artifactInput, {
+      target: { files: [{ text: async () => '{invalid' } as File] },
+    });
+    expect(await screen.findByText(/Artifact rejected: file is not valid JSON/i)).toBeVisible();
+    fireEvent.change(artifactInput, {
+      target: {
+        files: [{ text: async () => JSON.stringify(developmentArtifactValue) } as File],
+      },
+    });
+    await waitFor(() => expect(screen.getByText(/loaded in memory/i)).toBeVisible());
+
+    const fixture = researchFixture();
+    fixture.run.rooms = [fixture.record];
+    fixture.session.runs = [fixture.run];
+    const researchExport = createResearchExport(
+      [fixture.session],
+      'session',
+      '2026-01-02T00:00:00.000Z',
+    );
+    fireEvent.change(screen.getByLabelText('Import ResearchExport JSON'), {
+      target: {
+        files: [{ text: async () => JSON.stringify(researchExport) } as File],
+      },
+    });
+    expect(await screen.findByText(/ResearchExport validated in memory/i)).toBeVisible();
+    expect(screen.getByText(/1 imported rooms/i)).toBeVisible();
+    expect(screen.getByText(/replay is disabled/i)).toBeVisible();
   });
 });

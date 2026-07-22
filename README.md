@@ -17,6 +17,9 @@ This repository is intentionally a functional prototype. Story scenes and adapta
 - [Research schema](docs/RESEARCH_DATA_SCHEMA.md) and [CSV dictionary](docs/RESEARCH_DATA_DICTIONARY.md)
 - [Neutral control](docs/NEUTRAL_CONTROL.md), [offline analysis](docs/RESEARCH_ANALYSIS.md), and [privacy](docs/RESEARCH_PRIVACY.md)
 - [Future learned-selector plan](docs/FUTURE_MODEL_PLAN.md)
+- [Model data preparation](docs/MODEL_DATA_PREPARATION.md), [feature schema](docs/MODEL_FEATURE_SCHEMA.md), and [training](docs/MODEL_TRAINING.md)
+- [Model evaluation](docs/MODEL_EVALUATION.md), [artifact](docs/MODEL_ARTIFACT.md), and [TypeScript inference](docs/MODEL_INFERENCE.md)
+- [Shadow mode](docs/MODEL_SHADOW_MODE.md), [Model Lab](docs/MODEL_COMPARISON_LAB.md), and [model privacy](docs/MODEL_PRIVACY.md)
 - [Earlier future-backend notes](docs/future-backend-plan.md)
 
 ## Technology
@@ -114,6 +117,8 @@ npm run dev:backend
 - `/settings` — local accessibility and presentation preferences
 - `/research` — opt-in Pilot/Official browser-local research sessions, summaries, and exports
 - `/research/run` — isolated research gameplay and generated-room feedback
+- `/model-lab` — local/flagged-Preview-only model comparison and in-memory imports
+- `/model-lab/sandbox` — memory-only counterfactual candidate play; absent from production
 - `/contact` — locally validated test form
 - every unmatched URL — custom 404 chamber
 
@@ -204,6 +209,12 @@ only when `VERCEL_ENV=preview` and `VITE_ENABLE_TOPOLOGY_LAB=true`; normal produ
 the route, navigation, and mutation controls. The Lab does not call normal active-run, profile,
 History, best-record, recovery, or research persistence. No research records are written.
 
+Local development also exposes the Model Comparison Lab at `/model-lab`. Preview builds require
+both `VERCEL_ENV=preview` and `VITE_ENABLE_MODEL_LAB=true`; production excludes the route, fixture,
+imports, and counterfactual controls. Imported artifacts/ResearchExports, explicit development-model
+selection, and generated sandbox candidates stay in memory. Official Research has no approved model
+installed; the synthetic fixture can be selected only for Pilot testing in a Lab-enabled build.
+
 The active-run record contains the run ID, character, health, elapsed active time, room order,
 current room and tile, facing, stable statistics, Awakening analytics, authoritative pause state,
 and remaining invulnerability, pending-rune, and attack-cooldown durations. Temporary held input,
@@ -267,8 +278,17 @@ npm run typecheck
 npm run build
 npm run verify:production-safety
 npm run analyze:research -- path\to\export.json
+npm run prepare:model-data -- path\to\exports --output model-data\private\prepared.json
+npm run test:model-training
+npm run verify:model-parity
+npm run verify:model-safety
 npm run format
 ```
+
+Offline model training uses the ignored `.venv-model` environment and the pinned requirements in
+`tools/model_training/requirements.txt`. See [model training](docs/MODEL_TRAINING.md) before using
+`train:model`, `evaluate:model`, or `inspect:model`; no command uploads data or auto-promotes an
+artifact.
 
 To verify the separately built preview artifact, run
 `node scripts/verify-production-bundle.mjs --mode=preview --dir=apps/frontend/dist-preview`.

@@ -281,7 +281,7 @@ export function useRunController(
       options.onResearchPendingChange?.(null);
       options.onResearchShadowChange?.(null);
     }
-  }, [gameplay, generatedSave, options, researchRoomStart, runMode]);
+  }, [gameplay, generatedSave, options, pendingResearchShadow, researchRoomStart, runMode]);
 
   useEnemyClock({
     enabled: Boolean(

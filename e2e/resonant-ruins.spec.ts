@@ -544,6 +544,37 @@ test('an unconfigured API sends no localhost health request', async ({ page }) =
   expect(healthRequests).toEqual([]);
 });
 
+test('Model Lab stays in memory and launches a visibly non-evidence sandbox', async ({ page }) => {
+  await seedActiveRun(page);
+  const protectedKeys = [
+    ACTIVE_RUN_KEY,
+    RESEARCH_STORAGE_KEY,
+    RESEARCH_ACTIVE_RUN_KEY,
+    'mirrorvault:player-profile:v1',
+    'mirrorvault:run-archive:v1',
+  ];
+  const before = await page.evaluate(
+    (keys) => Object.fromEntries(keys.map((key) => [key, localStorage.getItem(key)])),
+    protectedKeys,
+  );
+  await page.goto('/model-lab');
+  await expect(page.getByRole('heading', { name: 'Model Comparison Lab' })).toBeVisible();
+  await expect(page.getByText(/imports and experiments stay in memory/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Select synthetic fixture' }).click();
+  await expect(page.getByText(/Synthetic development fixture selected explicitly/i)).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'About Right' })).toBeVisible();
+  await page.getByRole('button', { name: 'Launch Counterfactual Sandbox' }).click();
+  await expect(page).toHaveURL(/\/model-lab\/sandbox\?token=/);
+  await expect(page.getByText('Counterfactual Sandbox')).toBeVisible();
+  await expect(page.getByText(/not official research evidence/i)).toBeVisible();
+  expect(
+    await page.evaluate(
+      (keys) => Object.fromEntries(keys.map((key) => [key, localStorage.getItem(key)])),
+      protectedKeys,
+    ),
+  ).toEqual(before);
+});
+
 test('clean first descent reaches Awakening Chamber 1', async ({ page }) => {
   await page.goto('/dungeon');
   await page.getByLabel('Seasoned Adventurer').check();

@@ -94,7 +94,7 @@ describe('preview-safe Playtest Diagnostics panel', () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
     expect(writeText.mock.calls[0]![0]).toContain('seed authored-room');
-    expect(writeText.mock.calls[0]![0]).toContain('game=mvp-0.4 generator=generator-4');
+    expect(writeText.mock.calls[0]![0]).toContain('game=mvp-0.5 generator=generator-4');
     expect(writeText.mock.calls[0]![0]).toContain('evaluation-room-04-rat-1');
     expect(writeText.mock.calls[0]![0]).toContain('timers=475/0/0ms');
     expect(screen.getByRole('status')).toHaveTextContent('Diagnostic summary copied.');

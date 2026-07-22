@@ -1,9 +1,22 @@
 # Future learned selector plan
 
-No machine-learning model is trained, installed, or executed in `mvp-0.4`. The active adaptive selector is deterministic rules-based logic. Diagnostics report **No model installed**, model availability `unavailable`, and shadow mode `disabled`; no probabilities, synthetic scores, placeholder ranking, or AI-selected language is generated.
+`mvp-0.5` implements the offline preparation/training/evaluation pipeline, strict artifact schema,
+TypeScript inference/parity, optional Research shadow evidence, and a development-only Model Lab.
+The committed model is a synthetic fixture, not a research result. No approved model is installed,
+and every active room remains selected by unchanged deterministic Rules or Neutral logic.
 
-The `CandidateScoringModel` interface reserves a boundary for a future `LearnedRoomSelector`. A future model may score the same prevalidated feature vectors, but it must never bypass room safety, mutate candidate construction, or directly generate unsafe geometry. Deployment should begin in offline evaluation, then opt-in shadow mode, before any player-facing selection authority.
+The `CandidateScoringModel` boundary may support a future `LearnedRoomSelector`, but no model may
+bypass safety, mutate candidate construction, generate geometry, or gain control from v0.5 shadow
+records. Promotion requires a sufficiently representative Official dataset, grouped holdout review,
+calibration/subgroup analysis, privacy approval, an approved registry artifact, and a prospective
+control experiment.
 
-Prerequisites include an approved privacy/retention process, sufficient representative Official data, documented label definitions, missing-data handling, class-balance review, and evaluation grouped by participant/session. Random room-level train/test splits are prohibited because repeated rooms from one person and within-session carryover create leakage.
+Prerequisites include approved consent/retention/deletion procedures, documented label definitions,
+missing-data handling, class-balance review, and grouping by participant/session. Random room-level
+splits remain prohibited because repeated rooms and within-session carryover create leakage.
 
-Evaluation should compare calibration and held-out participant/session outcomes against both `rules-selector-1` and `neutral-selector-1`, report uncertainty and subgroup limitations, and preserve a deterministic safe fallback. Model ID/version, feature schema, input provenance, availability, and decision evidence must be recorded. A model must not be described as improving play until prospective evidence supports that claim.
+The proposed v0.6 end state is a preregistered experiment comparing the approved learned selector
+against Rules and Neutral using the same validated generator-4 pool, with deterministic safe
+fallback. It must report uncertainty, calibration, subgroup limitations, selection bias, missing
+defeat labels, and possible previous-rating feedback loops. Do not describe the model as improving
+play until prospective evidence supports that claim.

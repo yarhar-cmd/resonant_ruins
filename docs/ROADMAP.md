@@ -1,5 +1,27 @@
 # Resonant Ruins feature roadmap
 
+## mvp-0.5 — Baseline Learned Selector & Model Laboratory
+
+- **Implemented:** Privacy-safe JSON preparation, target-leakage allowlist, fixed feature manifest,
+  deterministic fingerprinting, grouped quality thresholds, pinned Python baselines/logistic
+  training, strict artifact registry, TypeScript inference/parity/explanations, zero-control shadow
+  evidence, prediction blinding, Model Lab, sandbox isolation, and model safety scans.
+- **Why:** Establishes a reproducible model research boundary without allowing fixture output or an
+  unreviewed learned system to affect the game.
+- **Affected areas:** `apps/frontend/src/model`, Research schemas/controller/storage, generator-4
+  observer boundary, `tools/model_data`, `tools/model_training`, development routes, scripts/docs.
+- **Prerequisites:** Completed mvp-0.4 Research Mode and generator-4 shared pools.
+- **Difficulty/Priority/Backend:** Hard / Critical / No backend.
+- **Definition of done:** All required unit, Python, browser, stress, type, lint, build, parity,
+  production/Preview, data-safety, secret, formatting, and diff checks pass; no approved model or
+  gameplay-control path exists; repository is clean with private data absent.
+
+### Planned mvp-0.6 control experiment
+
+Collect adequate reviewed Official data, manually approve a compatible artifact, predefine the
+prospective evaluation, and only then test a learned selector against unchanged Rules and Neutral
+conditions with the same safe candidate pools. This is not implemented or approved in mvp-0.5.
+
 ## mvp-0.4 — Research Mode & Data Foundation
 
 - **Implemented:** generator-4 shared candidate pools, adaptive/neutral selector boundary, exact
