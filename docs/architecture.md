@@ -1,5 +1,24 @@
 # Recommended Resonant Ruins architecture
 
+## Implemented mvp-0.5 reward boundary
+
+`rewards-1` is a deterministic post-selection layer in `utils/rewardGeneration.ts`. The enforced
+order is shared generator-4 pool -> active selector -> finalized active decision -> optional shadow
+observation -> reward eligibility/roll/placement -> persisted selected-room snapshot -> gameplay.
+The layer accepts a `GeneratedRoomSave`, returns a cloned save, and cannot mutate the shared pool,
+selector decision, feature vectors, shadow probabilities/ranks, or pre-reward room content.
+
+Reward configuration lives in `config/rewards.ts`; reward and Cache types live separately from
+Fountain types; generic interaction discovery/runtime/channel state remains shared. Cache solidity
+flows through the existing blocking-feature lookup, so player collision, Rat pathing/reservations,
+attack blocking, safe routes, and complete room validation use one rule. Resonance mutation is
+centralized in `utils/resonance.ts` and remains a nonnegative run-local score.
+
+Normal active persistence uses schema v9 and normal archive persistence uses schema v4. Research
+keeps optional rewards-1 fields inside the existing research-1 contract, preserving old records.
+Sandbox force/disable options are explicit, memory-only, and available only inside the already
+gated Model Lab. Production scans reject their labels. See [REWARD_SYSTEM.md](REWARD_SYSTEM.md).
+
 ## Implemented mvp-0.5 model boundary
 
 `model-features-1` is the single language-neutral encoding contract. TypeScript owns privacy-safe

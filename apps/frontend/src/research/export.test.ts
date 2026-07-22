@@ -9,8 +9,8 @@ import {
   researchExportJson,
 } from './export';
 
-function exportFixture() {
-  const fixture = researchFixture();
+function exportFixture(forceCache = false) {
+  const fixture = researchFixture(forceCache ? { rewardOverride: 'force' } : undefined);
   fixture.record.feedback = {
     ...fixture.record.feedback,
     status: 'submitted',
@@ -44,6 +44,15 @@ describe('research JSON and CSV export', () => {
     expect(csv).toContain('"[{""id""');
     expect(csv).toContain("'=FORMULA()");
     expect(csv).toContain(',false,');
+  });
+
+  it('exports the stable 103-column rewards-1 extension without changing research-1', () => {
+    const csv = researchExportCsv(exportFixture(true));
+    expect(RESEARCH_CSV_COLUMNS).toHaveLength(103);
+    expect(RESEARCH_CSV_COLUMNS).toContain('reward_system_version');
+    expect(RESEARCH_CSV_COLUMNS).toContain('cache_channel_cancellation_reasons_json');
+    expect(csv).toContain('rewards-1');
+    expect(csv).toContain('sandbox-forced');
   });
 
   it('excludes participant code from sanitized filenames', () => {

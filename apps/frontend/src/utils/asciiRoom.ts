@@ -1,7 +1,8 @@
 import type { RoomDefinition } from '../types/rooms';
+import type { InteractableRuntimeStates } from '../types/interactions';
 import { coordinateKey } from './roomGeometry';
 
-export function asciiRoom(room: RoomDefinition): string {
+export function asciiRoom(room: RoomDefinition, interactables?: InteractableRuntimeStates): string {
   const floor = new Set(room.floorTiles.map(coordinateKey));
   const walls = new Set(
     [...(room.outerWallTiles ?? []), ...(room.internalWallTiles ?? [])].map(coordinateKey),
@@ -10,25 +11,30 @@ export function asciiRoom(room: RoomDefinition): string {
   const rats = new Set((room.enemySpawns ?? []).map((rat) => coordinateKey(rat.tile)));
   const exits = new Set(room.exits.map((exit) => coordinateKey(exit.tile)));
   const fountain = room.features?.find((feature) => feature.kind === 'restoration-fountain');
+  const cache = room.features?.find((feature) => feature.kind === 'resonance-cache');
   const lines: string[] = [];
   for (let y = 0; y < room.height; y += 1) {
     let line = '';
     for (let x = 0; x < room.width; x += 1) {
       const key = coordinateKey({ x, y });
       line +=
-        fountain && coordinateKey(fountain.tile) === key
-          ? 'F'
-          : exits.has(key)
-            ? 'E'
-            : rats.has(key)
-              ? 'R'
-              : hazards.has(key)
-                ? '^'
-                : walls.has(key)
-                  ? '#'
-                  : floor.has(key)
-                    ? '.'
-                    : ' ';
+        cache && coordinateKey(cache.tile) === key
+          ? interactables?.[cache.id]?.depleted
+            ? 'c'
+            : 'C'
+          : fountain && coordinateKey(fountain.tile) === key
+            ? 'F'
+            : exits.has(key)
+              ? 'E'
+              : rats.has(key)
+                ? 'R'
+                : hazards.has(key)
+                  ? '^'
+                  : walls.has(key)
+                    ? '#'
+                    : floor.has(key)
+                      ? '.'
+                      : ' ';
     }
     lines.push(line.trimEnd());
   }

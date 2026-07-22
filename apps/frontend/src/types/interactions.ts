@@ -1,7 +1,7 @@
 import type { CardinalDirection } from './player';
 import type { TileCoordinate } from './rooms';
 
-export type InteractionType = 'restoration-fountain';
+export type InteractionType = 'restoration-fountain' | 'resonance-cache';
 export type InteractionStatus = 'idle' | 'available' | 'channeling' | 'completed' | 'cancelled';
 export type InteractionCancellationReason =
   | 'movement'
@@ -35,13 +35,16 @@ export interface InteractionChannelState {
   remainingMs: number;
   status: Exclude<InteractionStatus, 'available'>;
   cancellationReason: InteractionCancellationReason | null;
-  result: 'restored-one-health' | null;
+  result: 'restored-one-health' | 'awarded-resonance' | null;
 }
 
 export interface InteractableRuntimeState {
   depleted: boolean;
   encounteredAt: number | null;
   usedAt: number | null;
+  healthWhenUsed?: number | null;
+  resonanceAwarded?: boolean;
+  cancellationReasons?: InteractionCancellationReason[];
 }
 
 export type InteractableRuntimeStates = Record<string, InteractableRuntimeState>;

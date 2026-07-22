@@ -97,7 +97,11 @@ describe('Resonant Ruins dungeon routing, run layout, and pause flow', () => {
       experiencePreset: 'dungeon-veteran',
       firstTimeComplete: true,
     });
-    expect(activeRecord()).toMatchObject({ version: 8, experiencePreset: 'dungeon-veteran' });
+    expect(activeRecord()).toMatchObject({
+      version: 9,
+      experiencePreset: 'dungeon-veteran',
+      resonance: 0,
+    });
   });
 
   it('redirects /dungeon to a valid run and /dungeon/run to setup when no run exists', () => {

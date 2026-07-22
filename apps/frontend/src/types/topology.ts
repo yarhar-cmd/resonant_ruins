@@ -1,4 +1,6 @@
 import type { TileCoordinate } from './rooms';
+import type { CachePlacementCategory, CacheSpawnReason } from './rewards';
+import type { RewardSystemVersion } from '../config/version';
 
 export const ROOM_FEATURE_SCHEMA_VERSION = 1 as const;
 export const ROOM_FEATURE_VECTOR_SCHEMA_VERSION = 1 as const;
@@ -53,8 +55,23 @@ export interface RuinTorchFeature extends DecorativeRoomFeature {
   source: 'authored' | 'generated';
 }
 
+export interface ResonanceCacheFeature extends BlockingRoomFeature {
+  kind: 'resonance-cache';
+  rewardSystemVersion: RewardSystemVersion;
+  placementCategory: CachePlacementCategory;
+  spawnedReason: Extract<CacheSpawnReason, 'spawned' | 'sandbox-forced'>;
+  spawnRoll: number;
+  interactionTiles: TileCoordinate[];
+  optionalRouteScore: number;
+  visualVariant: 'ruined-stone-coffer';
+}
+
 export type RoomFeature =
-  RestorationFountainFeature | RuinTorchFeature | BlockingRoomFeature | DecorativeRoomFeature;
+  | RestorationFountainFeature
+  | ResonanceCacheFeature
+  | RuinTorchFeature
+  | BlockingRoomFeature
+  | DecorativeRoomFeature;
 
 export interface TopologyMetrics {
   floorArea: number;

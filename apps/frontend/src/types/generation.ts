@@ -1,6 +1,7 @@
 import type { AdaptationVersion, GameVersion, GeneratorVersion } from '../config/version';
 import type { AdaptiveProfile, ExperiencePreset } from './adaptation';
 import type { ExitDirection, RoomDefinition, TileCoordinate } from './rooms';
+import type { RewardDecision } from './rewards';
 import type { EnemyCountPlan } from './enemies';
 import type {
   FountainPlacementStyle,
@@ -9,7 +10,7 @@ import type {
   RoomFeatureVector,
 } from './topology';
 
-export const GENERATED_ROOM_SAVE_SCHEMA_VERSION = 2;
+export const GENERATED_ROOM_SAVE_SCHEMA_VERSION = 3;
 
 export type GeneratedRoomMode = 'reinforce' | 'poke' | 'fallback';
 export type GeneratedRoomShape = 'rectangle' | 'l-shape';
@@ -64,6 +65,7 @@ export interface GeneratedRoomDetails {
   selectorProfileConsumed?: boolean;
   selectorExplanation?: string[];
   selectedFeatureVector?: RoomFeatureVector;
+  rewardDecision?: RewardDecision;
 }
 
 export interface RecoveryInputSnapshot {
@@ -176,7 +178,7 @@ export interface RoomSelector<TContext> {
 }
 
 export interface GeneratedRoomSave {
-  schemaVersion: number;
+  schemaVersion: 1 | 2 | 3;
   generatorVersion: GeneratorVersion;
   gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'mvp-0.4' | 'unknown';
   adaptationVersion?: AdaptationVersion;
@@ -265,6 +267,16 @@ export interface RoomDecisionRecord {
     damageAfterEncounter: number;
     gameVersion: string;
     generatorVersion: GeneratorVersion;
+  };
+  rewardOutcome?: {
+    rewardSystemVersion: 'rewards-1';
+    eligible: boolean;
+    spawned: boolean;
+    spawnReason: RewardDecision['spawnReason'];
+    cacheId: string | null;
+    placementCategory: RewardDecision['placementCategory'];
+    opened: boolean;
+    resonanceAwarded: boolean;
   };
 }
 

@@ -11,6 +11,37 @@ const participantCode = z
   .nullable();
 const condition = z.enum(['RULES_ADAPTIVE', 'NEUTRAL_PROCEDURAL']);
 const exitDirection = z.enum(['north', 'east', 'south', 'west']);
+const cacheSpawnReason = z.enum([
+  'spawned',
+  'ineligible-no-optional-route',
+  'roll-failed',
+  'no-valid-placement',
+  'authored-room',
+  'fallback-suppressed',
+  'sandbox-forced',
+  'sandbox-disabled',
+  'invalid-after-validation',
+]);
+const cachePlacementCategory = z.enum([
+  'optional-dead-end',
+  'optional-branch',
+  'side-chamber',
+  'alcove',
+  'longer-alternate-route',
+  'visible-detour',
+]);
+const interactionCancellationReason = z.enum([
+  'movement',
+  'turned-away',
+  'attack',
+  'shield',
+  'damage',
+  'combat-alert',
+  'defeat',
+  'room-transition',
+  'unavailable',
+  'restart',
+]);
 const profile = z.object({
   pace: normalized,
   caution: normalized,
@@ -198,6 +229,16 @@ export const RoomResearchRecordSchema = z.object({
   fountainSpawned: z.boolean(),
   fountainPlacement: z.enum(['safe', 'risky']).nullable(),
   safeRouteExists: z.boolean(),
+  rewardSystemVersion: z.literal('rewards-1').optional(),
+  cacheEligible: z.boolean().optional(),
+  eligiblePlacementCount: nonnegative.optional(),
+  cacheSpawnRoll: finite.min(0).max(1).nullable().optional(),
+  cacheSpawned: z.boolean().optional(),
+  cacheSpawnReason: cacheSpawnReason.optional(),
+  cacheCoordinate: z.object({ x: z.number().int(), y: z.number().int() }).nullable().optional(),
+  cachePlacementCategory: cachePlacementCategory.nullable().optional(),
+  cacheOptionalRouteScore: nonnegative.nullable().optional(),
+  cacheInteractionTileCount: nonnegative.optional(),
   shadow: ShadowRoomEvidenceSchema.optional(),
   outcome: z.object({
     status: z.enum(['completed', 'defeated', 'interrupted']),
@@ -221,6 +262,15 @@ export const RoomResearchRecordSchema = z.object({
     fountainSkipped: z.boolean(),
     fountainHealthBefore: nonnegative.nullable(),
     fountainHealthAfter: nonnegative.nullable(),
+    cacheEncountered: z.boolean().optional(),
+    cacheOpened: z.boolean().optional(),
+    cacheSkipped: z.boolean().optional(),
+    timeFromRoomStartToOpeningMs: nonnegative.nullable().optional(),
+    healthWhenCacheOpened: nonnegative.nullable().optional(),
+    resonanceBefore: nonnegative.optional(),
+    resonanceAfter: nonnegative.optional(),
+    resonanceEarned: nonnegative.optional(),
+    cacheChannelCancellationReasons: z.array(interactionCancellationReason).optional(),
   }),
   feedback: RoomFeedbackSchema,
 });
@@ -243,6 +293,7 @@ export const ResearchRoomStartSnapshotSchema = z.object({
   enteredAtMs: nonnegative,
   capturedAt: timestamp,
   healthBefore: nonnegative,
+  resonanceBefore: nonnegative.optional(),
   profileBefore: profile,
   performance: z.object({
     recentDamage: nonnegative,

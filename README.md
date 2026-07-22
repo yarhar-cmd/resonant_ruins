@@ -20,6 +20,7 @@ This repository is intentionally a functional prototype. Story scenes and adapta
 - [Model data preparation](docs/MODEL_DATA_PREPARATION.md), [feature schema](docs/MODEL_FEATURE_SCHEMA.md), and [training](docs/MODEL_TRAINING.md)
 - [Model evaluation](docs/MODEL_EVALUATION.md), [artifact](docs/MODEL_ARTIFACT.md), and [TypeScript inference](docs/MODEL_INFERENCE.md)
 - [Shadow mode](docs/MODEL_SHADOW_MODE.md), [Model Lab](docs/MODEL_COMPARISON_LAB.md), and [model privacy](docs/MODEL_PRIVACY.md)
+- [Reward system](docs/REWARD_SYSTEM.md) and [Resonance Cache](docs/RESONANCE_CACHE.md)
 - [Earlier future-backend notes](docs/future-backend-plan.md)
 
 ## Technology
@@ -166,6 +167,16 @@ restore exactly one HP. Generated Fountains impose a two-room spawn cooldown, re
 depleted, and participate in player, Rat, attack, path, and safe-route validation. Awakening Chamber
 3 contains the authored introduction and does not affect generated cooldown.
 
+New generator-4 rooms then pass through the deterministic `rewards-1` post-selection layer. The
+layer runs only after the active selector and shadow observer are finished, examines only the
+selected room, and never changes candidate pools, selector evidence, model inputs, topology,
+Fountains, Rats, Runes, or exits. A room must first contain a validated optional-route placement;
+eligible rooms receive a seeded 35% spawn roll and can contain at most one solid Resonance Cache.
+Face the ruined stone coffer and press E (or Interact) to channel for 400 ms and collect exactly one
+run-local Resonance. Opened Caches remain visible and solid. Resonance is score-only in mvp-0.5,
+persists for the run, and appears in the HUD, Pause, Game Over, Runs, and Best Resonance records.
+Research uses the identical condition- and profile-independent reward process in both conditions.
+
 The active-run record stores the exact selected current-room snapshot, compact top-three candidate
 summaries, bounded decision history, chosen exit direction, and generator provenance. Refreshes do
 not regenerate the current room. Existing `generator-2` runs continue under generator-2; legacy
@@ -196,7 +207,7 @@ The browser stores only prototype data under these keys:
 - `mirrorvault:character`
 - `mirrorvault:settings`
 - `mirrorvault:player-profile:v1`
-- `mirrorvault:run-archive:v1` (version 3 envelope)
+- `mirrorvault:run-archive:v1` (version 4 envelope)
 - `mirrorvault:active-run:v1`
 - `resonant-ruins:research:v1` (opt-in research sessions and generated-room records)
 - `resonant-ruins:research-active-run:v1` (resumable research run and pending feedback)

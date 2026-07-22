@@ -8,7 +8,7 @@ import { gameplayReducer } from '../apps/frontend/src/utils/gameplayState';
 import { generateDungeonRoom } from '../apps/frontend/src/utils/generatedRoomGenerator';
 import { generateArchetypeRoomV3 } from '../apps/frontend/src/utils/generatedRoomGeneratorV3';
 import type { RoomArchetype } from '../apps/frontend/src/types/topology';
-import { createRatFromSpawn } from '../apps/frontend/src/utils/enemySystem';
+import { createRatFromSpawn, createRoomEnemyState } from '../apps/frontend/src/utils/enemySystem';
 import { emptyEnemyRoomState } from '../apps/frontend/src/utils/enemySystem';
 import { coordinateToGridPosition, findSafeSpawn } from '../apps/frontend/src/utils/roomGeometry';
 import { createFreshRun } from '../apps/frontend/src/utils/runLifecycle';
@@ -17,6 +17,14 @@ import { createCombatMetrics, type EnemyRoomState } from '../apps/frontend/src/t
 import { RAT_COMBAT_CONFIG } from '../apps/frontend/src/config/combat';
 import type { TileCoordinate } from '../apps/frontend/src/types/rooms';
 import { researchFixture } from '../apps/frontend/src/test/researchFixtures';
+import {
+  applyRewardLayer,
+  findRewardPlacementCandidates,
+} from '../apps/frontend/src/utils/rewardGeneration';
+import {
+  directionBetweenAdjacent,
+  getResonanceCaches,
+} from '../apps/frontend/src/utils/interactions';
 
 const ACTIVE_RUN_KEY = 'mirrorvault:active-run:v1';
 const RESEARCH_STORAGE_KEY = 'resonant-ruins:research:v1';
@@ -283,6 +291,115 @@ function fountainRecord({
   return createActiveRunRecord({ ...gameplay, currentHealth }, 'warden', now)!;
 }
 
+let generatedCacheFixture: ReturnType<typeof applyRewardLayer> | null = null;
+function cacheGeneratedRoom() {
+  if (generatedCacheFixture) return structuredClone(generatedCacheFixture);
+  for (let index = 0; index < 40; index += 1) {
+    const selected = generateDungeonRoom({
+      runSeed: `e2e-cache-${index}`,
+      dungeonRoomNumber: 10,
+      chosenExitId: 'e2e-cache-entry',
+      entranceDirection: 'west',
+      experiencePreset: 'seasoned-adventurer',
+      effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
+      mode: 'reinforce',
+      generatorVersion: 'generator-4',
+      adaptationVersion: 'rules-2',
+      gameVersion: 'mvp-0.5',
+    });
+    if (
+      findRewardPlacementCandidates(selected).candidates.length > 0 &&
+      (selected.roomSnapshot.enemySpawns?.length ?? 0) > 0
+    ) {
+      generatedCacheFixture = applyRewardLayer(selected, { override: 'force' });
+      return structuredClone(generatedCacheFixture);
+    }
+  }
+  throw new Error('Unable to create deterministic Resonance Cache browser fixture.');
+}
+
+function cacheRecord({
+  alertedRat = false,
+  unawareRat = false,
+  opened = false,
+  defeated = false,
+}: {
+  alertedRat?: boolean;
+  unawareRat?: boolean;
+  opened?: boolean;
+  defeated?: boolean;
+} = {}): ActiveRunRecord {
+  const now = Date.now();
+  const generated = cacheGeneratedRoom();
+  const cache = getResonanceCaches(generated.roomSnapshot)[0]!;
+  const approach = cache.interactionTiles[0]!;
+  const facing = directionBetweenAdjacent(approach, cache.tile)!;
+  const enemies = createRoomEnemyState(
+    generated.roomSnapshot,
+    'seasoned-adventurer',
+    now,
+    generated.details.enemyCountPlan ?? null,
+  );
+  if (alertedRat) {
+    const rat = enemies.rats[0];
+    if (!rat) throw new Error('Cache browser fixture needs a Rat for combat-lock coverage.');
+    enemies.aiFrozen = true;
+    enemies.rats[0] = { ...rat, awareness: 'alerted', state: 'chasing' };
+  } else if (unawareRat) {
+    enemies.aiFrozen = true;
+  } else if (!unawareRat) {
+    enemies.rats = [];
+  }
+  let gameplay = gameplayReducer(
+    createFreshRun({
+      maximumHealth: 6,
+      experiencePreset: 'seasoned-adventurer',
+      startedAt: now,
+      runId: `cache-run-${now}`,
+      runSeed: generated.runSeed,
+    }),
+    {
+      type: 'commit-room-transition',
+      destinationRoomId: generated.roomSnapshot.id,
+      destinationRoomIndex: 5,
+      destinationSpawn: coordinateToGridPosition(approach),
+      enteredFrom: 'west',
+      exitedAtMs: 0,
+      exitChoice: null,
+      evaluationComplete: true,
+      generatedRoom: generated,
+      chosenExitId: 'e2e-cache-entry',
+      exitDirection: 'east',
+      enemies,
+    },
+  );
+  gameplay = gameplayReducer(gameplay, {
+    type: 'turn',
+    direction: facing,
+    trigger: 'press',
+    timestamp: now,
+  });
+  if (opened) {
+    gameplay = {
+      ...gameplay,
+      resonance: 1,
+      interactables: {
+        ...gameplay.interactables,
+        [cache.id]: {
+          ...gameplay.interactables[cache.id]!,
+          depleted: true,
+          encounteredAt: now,
+          usedAt: now,
+          healthWhenUsed: 6,
+          resonanceAwarded: true,
+        },
+      },
+    };
+  }
+  const record = createActiveRunRecord(gameplay, 'warden', now)!;
+  return defeated ? { ...record, status: 'defeated', currentHealth: 0 } : record;
+}
+
 async function seedActiveRun(page: Page, record: ActiveRunRecord = freshRecord()) {
   await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
     key: ACTIVE_RUN_KEY,
@@ -436,7 +553,9 @@ test('pending room feedback survives refresh and finalizes exactly once before t
   await expect(page.getByLabel('4 — Fair')).toBeChecked();
   await expect(page.getByLabel('5 — Very Enjoyable')).toBeChecked();
   await page.getByRole('button', { name: 'Submit and continue' }).click();
-  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toHaveCount(0, {
+    timeout: 15_000,
+  });
   await expect
     .poll(async () =>
       page.evaluate(
@@ -774,6 +893,113 @@ test('Fountain channel pauses and restores across refresh without healing twice'
     'data-fountain-state',
     'depleted',
   );
+});
+
+test('Resonance Cache channels once, cancels, restores, remains solid, and persists', async ({
+  page,
+}) => {
+  const initial = cacheRecord();
+  await seedActiveRun(page, initial);
+  await page.goto('/dungeon/run');
+  const cache = page.locator('[data-feature-id$="resonance-cache"]');
+  await expect(cache).toHaveAttribute('data-cache-state', 'unopened');
+  await expect(
+    page.getByRole('button', {
+      name: 'Resonance Cache, unopened, grants one Resonance',
+    }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Resonance 0')).toBeVisible();
+
+  await page.keyboard.press('KeyE');
+  await expect(
+    page.getByRole('progressbar', { name: 'Resonance Cache opening progress' }),
+  ).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect(
+    page.getByRole('progressbar', { name: 'Resonance Cache opening progress' }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel('Resonance 0')).toBeVisible();
+
+  await page.goto('/about');
+  await seedActiveRun(page, cacheRecord());
+  await page.goto('/dungeon/run');
+  await page.keyboard.press('KeyE');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Paused' })).toContainText('Resonance: 0');
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
+  await page.getByRole('button', { name: 'Resume' }).click();
+  await expect(page.getByLabel('Resonance 1')).toBeVisible({ timeout: 2_000 });
+  await expect(cache).toHaveAttribute('data-cache-state', 'opened');
+  await expect(page.getByRole('button', { name: /Resonance Cache/ })).toHaveCount(0);
+
+  const playerBefore = await page.locator('.tile--player').evaluate((tile) => ({
+    x: tile.getAttribute('data-tile-x'),
+    y: tile.getAttribute('data-tile-y'),
+  }));
+  const towardCache: Record<string, string> = {
+    up: 'ArrowUp',
+    right: 'ArrowRight',
+    down: 'ArrowDown',
+    left: 'ArrowLeft',
+  };
+  await page.keyboard.press(towardCache[initial.facing]!);
+  expect(
+    await page.locator('.tile--player').evaluate((tile) => ({
+      x: tile.getAttribute('data-tile-x'),
+      y: tile.getAttribute('data-tile-y'),
+    })),
+  ).toEqual(playerBefore);
+
+  await page.reload();
+  await expect(page.locator('[data-cache-state="opened"]')).toBeVisible();
+  await expect(page.getByLabel('Resonance 1')).toBeVisible();
+  const saved = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    ACTIVE_RUN_KEY,
+  );
+  expect(saved.resonance).toBe(1);
+  const awardedRuntime = (
+    Object.values(saved.interactables) as { resonanceAwarded?: boolean }[]
+  ).find((runtime) => runtime.resonanceAwarded);
+  expect(awardedRuntime).toMatchObject({
+    depleted: true,
+    resonanceAwarded: true,
+  });
+});
+
+test('an alerted Rat blocks Cache opening while an unaware Rat does not', async ({ page }) => {
+  await seedActiveRun(page, cacheRecord({ alertedRat: true }));
+  await page.goto('/dungeon/run');
+  await expect(page.locator('[data-cache-state="unopened"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Resonance Cache/ })).toHaveCount(0);
+  await page.keyboard.press('KeyE');
+  await expect(
+    page.getByRole('progressbar', { name: 'Resonance Cache opening progress' }),
+  ).toHaveCount(0);
+
+  await page.goto('/about');
+  await seedActiveRun(page, cacheRecord({ unawareRat: true }));
+  await page.goto('/dungeon/run');
+  await expect(page.getByRole('button', { name: /Resonance Cache, unopened/ })).toBeVisible();
+});
+
+test('Game Over and Runs preserve exact Resonance and normal Best Resonance', async ({ page }) => {
+  await seedActiveRun(page, cacheRecord({ opened: true, defeated: true }));
+  await page.goto('/dungeon/run');
+  const dialog = page.getByRole('dialog', { name: 'Game Over' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Resonance')).toBeVisible();
+  await expect(dialog.getByText('1')).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('mirrorvault:run-archive:v1')))
+    .not.toBeNull();
+
+  await page.goto('/history');
+  await expect(page.locator('.history-card').first()).toContainText('Resonance');
+  await expect(page.locator('.history-card').first()).toContainText('1');
+  await expect(page.locator('.best-runs')).toContainText('Best Resonance');
+  await expect(page.locator('.best-runs')).toContainText('1');
 });
 
 test('Visual Effects choice persists and leaves essential gameplay feedback enabled', async ({

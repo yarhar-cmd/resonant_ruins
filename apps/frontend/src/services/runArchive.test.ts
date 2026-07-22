@@ -17,6 +17,7 @@ function record(
   characterId: CharacterId = 'warden',
   preset: ExperiencePreset = 'seasoned-adventurer',
   rooms = Number(id),
+  resonance = 0,
 ) {
   return createCompletedRunRecord({
     id,
@@ -26,10 +27,12 @@ function record(
     timeSurvivedMs: Number(id) * 1_000,
     dungeonRoomsCleared: rooms,
     enemiesDefeated: Number(id),
+    resonanceCollected: resonance,
+    rewardSystemVersion: 'rewards-1',
   });
 }
 
-describe('Resonant Ruins completed-run archive v2', () => {
+describe('Resonant Ruins completed-run archive v4', () => {
   beforeEach(() => localStorage.clear());
 
   it('stores preset and dungeon-only count, deduplicates, and keeps newest-first history', () => {
@@ -65,6 +68,8 @@ describe('Resonant Ruins completed-run archive v2', () => {
         timeSurvivedMs: 10_000,
         dungeonRoomsCleared: 3,
         enemiesDefeated: 8,
+        resonanceCollected: 2,
+        rewardSystemVersion: 'rewards-1',
       }),
     );
     archiveCompletedRun(
@@ -75,6 +80,8 @@ describe('Resonant Ruins completed-run archive v2', () => {
         timeSurvivedMs: 10_000,
         dungeonRoomsCleared: 4,
         enemiesDefeated: 8,
+        resonanceCollected: 4,
+        rewardSystemVersion: 'rewards-1',
       }),
     );
     archiveCompletedRun(record('3', 'warden', 'dungeon-veteran', 2));
@@ -83,6 +90,8 @@ describe('Resonant Ruins completed-run archive v2', () => {
       bestDungeonRoomsCleared: 4,
       bestRoomsRunId: 'two',
       bestEnemiesRunId: 'two',
+      bestResonance: 4,
+      bestResonanceRunId: 'two',
     });
     expect(loadRunArchive().data.bestStats.warden['dungeon-veteran'].bestRoomsRunId).toBe('3');
   });
@@ -113,6 +122,71 @@ describe('Resonant Ruins completed-run archive v2', () => {
     expect(loaded.data.histories.warden[0]).toMatchObject({
       experiencePreset: 'unknown',
       dungeonRoomsCleared: 4,
+      resonanceCollected: 0,
+      rewardSystemVersion: null,
+    });
+  });
+
+  it('migrates a v3 archive without fabricating reward provenance or a Resonance best', () => {
+    const current = createEmptyRunArchive();
+    localStorage.setItem(
+      RUN_ARCHIVE_KEY,
+      JSON.stringify({
+        ...current,
+        version: 3,
+        histories: {
+          ...current.histories,
+          warden: [
+            {
+              version: 3,
+              id: 'pre-reward',
+              characterId: 'warden',
+              experiencePreset: 'new-delver',
+              endedAt: '2026-01-01T00:00:00.000Z',
+              timeSurvivedMs: 1_000,
+              dungeonRoomsCleared: 1,
+              enemiesDefeated: 0,
+              gameVersion: 'mvp-0.4',
+              generatorVersions: ['generator-4'],
+              adaptationVersions: ['rules-2'],
+              mixedGeneratorProvenance: false,
+            },
+          ],
+        },
+      }),
+    );
+
+    const loaded = loadRunArchive();
+    expect(loaded.issue).toBeNull();
+    expect(loaded.data.histories.warden[0]).toMatchObject({
+      version: 4,
+      resonanceCollected: 0,
+      rewardSystemVersion: null,
+    });
+    expect(loaded.data.bestStats.warden['new-delver']).toMatchObject({
+      bestResonance: 0,
+      bestResonanceRunId: null,
+    });
+  });
+
+  it('updates Best Resonance only for versioned reward runs and preserves it when history clears', () => {
+    archiveCompletedRun(record('1', 'warden', 'new-delver', 1, 2));
+    archiveCompletedRun(record('2', 'warden', 'new-delver', 1, 5));
+    archiveCompletedRun(
+      createCompletedRunRecord({
+        ...record('3', 'warden', 'new-delver', 1, 99),
+        rewardSystemVersion: null,
+      }),
+    );
+
+    expect(loadRunArchive().data.bestStats.warden['new-delver']).toMatchObject({
+      bestResonance: 5,
+      bestResonanceRunId: '2',
+    });
+    const cleared = clearRecentRunHistory();
+    expect(cleared.data.bestStats.warden['new-delver']).toMatchObject({
+      bestResonance: 5,
+      bestResonanceRunId: '2',
     });
   });
 

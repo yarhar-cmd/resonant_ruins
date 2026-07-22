@@ -14,7 +14,7 @@ import type {
 } from '../../types/player';
 import type { AvoidedDamageEvent, DamageEvent, GameplayStatus } from '../../utils/gameplayState';
 import type { RoomDefinition, TileCoordinate } from '../../types/rooms';
-import type { RestorationFountainFeature } from '../../types/topology';
+import type { ResonanceCacheFeature, RestorationFountainFeature } from '../../types/topology';
 import type { EnemyRoomState } from '../../types/enemies';
 import type {
   InteractableDefinition,
@@ -30,6 +30,7 @@ import {
   getInternalWallLookup,
   getWallLookup,
 } from '../../utils/roomGeometry';
+import { getResonanceCaches, interactionChannelDuration } from '../../utils/interactions';
 
 const legacyEnemies = new Set(['2-3', '3-5']);
 const MAX_ROOM_COLUMNS = 21;
@@ -183,9 +184,14 @@ export function DungeonGrid({
                 ? (feature as RestorationFountainFeature)
                 : null;
             const torch = feature?.kind === 'ruin-torch' ? feature : null;
+            const cache =
+              feature?.kind === 'resonance-cache' && 'rewardSystemVersion' in feature
+                ? (feature as ResonanceCacheFeature)
+                : null;
             const fountainDepleted = fountain
               ? Boolean(interactables?.[fountain.id]?.depleted)
               : false;
+            const cacheOpened = cache ? Boolean(interactables?.[cache.id]?.depleted) : false;
             const isWall = Boolean(wallLookup?.has(coordinateKey(coordinate)));
             const isInternalWall = Boolean(internalWallLookup?.has(coordinateKey(coordinate)));
             const isFloor = Boolean(floorLookup?.has(coordinateKey(coordinate)));
@@ -227,9 +233,13 @@ export function DungeonGrid({
                       ? fountainDepleted
                         ? 'fountain-depleted'
                         : 'fountain'
-                      : isFloor
-                        ? 'floor'
-                        : 'void'
+                      : cache
+                        ? cacheOpened
+                          ? 'resonance-cache-opened'
+                          : 'resonance-cache'
+                        : isFloor
+                          ? 'floor'
+                          : 'void'
               : legacyKind;
             const className = [
               'tile',
@@ -336,6 +346,21 @@ export function DungeonGrid({
                     <span className="fountain__basin fountain__basin--lower" />
                   </span>
                 )}
+                {cache && (
+                  <span
+                    className={`resonance-cache ${cacheOpened ? 'resonance-cache--opened' : 'resonance-cache--unopened'}`}
+                    data-feature-id={cache.id}
+                    data-cache-state={cacheOpened ? 'opened' : 'unopened'}
+                    data-cache-placement={cache.placementCategory}
+                  >
+                    <span className="resonance-cache__glow" />
+                    <span className="resonance-cache__coffer">
+                      <span className="resonance-cache__lid" />
+                      <span className="resonance-cache__body" />
+                      <span className="resonance-cache__brass" />
+                    </span>
+                  </span>
+                )}
                 {torch && (
                   <span className="ruin-torch" data-decoration-id={torch.id}>
                     <span className="ruin-torch__bracket" />
@@ -347,6 +372,17 @@ export function DungeonGrid({
           })}
         </div>
       </div>
+      {room && getResonanceCaches(room).length > 0 && (
+        <p className="sr-only" aria-live="polite">
+          {getResonanceCaches(room)
+            .map((cache) =>
+              interactables?.[cache.id]?.depleted
+                ? 'Resonance Cache, opened'
+                : 'Resonance Cache, unopened, grants one Resonance',
+            )
+            .join('. ')}
+        </p>
+      )}
       <p id="resonant-ruins-grid-instructions" className="grid-hint">
         Resonant Ruins controls: move with WASD or arrow keys, attack with Space, and hold either
         Shift key to shield, and press E when facing an available interactable. Red rune floor
@@ -434,14 +470,20 @@ export function DungeonGrid({
         <div className="interaction-prompt" role="status" aria-live="polite">
           <span>
             {interaction?.status === 'channeling'
-              ? 'Restoring health…'
+              ? interaction.type === 'resonance-cache'
+                ? 'Opening Resonance Cache…'
+                : 'Restoring health…'
               : availableInteraction?.prompt}
           </span>
           {interaction?.status === 'channeling' && (
             <progress
-              max={700}
-              value={700 - interaction.remainingMs}
-              aria-label="Restoration progress"
+              max={interactionChannelDuration(interaction.type)}
+              value={interactionChannelDuration(interaction.type) - interaction.remainingMs}
+              aria-label={
+                interaction.type === 'resonance-cache'
+                  ? 'Resonance Cache opening progress'
+                  : 'Restoration progress'
+              }
             />
           )}
         </div>

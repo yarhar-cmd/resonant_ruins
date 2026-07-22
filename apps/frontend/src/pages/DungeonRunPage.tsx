@@ -132,6 +132,8 @@ export function DungeonRunSession({
             ? enemiesRemaining
             : undefined
         }
+        resonance={run.gameplay.resonance}
+        sandboxResonance={run.runMode === 'sandbox'}
       />
       {run.storageWarning && (
         <StorageWarning message={run.storageWarning} onDismiss={run.clearStorageWarning} />
@@ -201,6 +203,7 @@ export function DungeonRunSession({
         open={paused}
         pauseButtonRef={pauseButtonRef}
         savedMessage={run.lastSavedMessage}
+        resonance={run.gameplay.resonance}
         onResume={run.resumeRun}
         onSettings={run.openSettings}
         onRestart={run.restartRun}

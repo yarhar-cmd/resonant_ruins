@@ -1,5 +1,28 @@
 # Resonant Ruins current state
 
+## mvp-0.5 Resonance Cache reward foundation
+
+The implemented `rewards-1` layer runs after generator-4 candidate construction, active Rules or
+Neutral selection, and optional shadow scoring. It evaluates only the final selected room. A
+validated optional-route opportunity is required before a deterministic 35% eligible-room roll;
+authored Awakening Chambers, safe fallbacks, frozen pre-generator-4 continuations, and restored old
+rooms are not retrofitted. At most one Cache is added, and complete room validation is rerun with
+the Cache treated as a solid feature.
+
+The ruined stone coffer uses the generic E interaction system. It requires a reachable adjacent
+tile and correct facing, channels for 400 ms, shares the Fountain living-alerted-Rat combat lock,
+and awards exactly one run-local Resonance once. Movement, turning, attack, shield, damage, alert,
+defeat, transition, restart, or invalid state cancels the channel; pause and valid refresh preserve
+remaining time. Opened Caches remain visible and solid. Active save v9 and run archive v4 migrate
+older records to zero/unknown reward state without inventing Cache activity.
+
+Resonance is score-only: it does not affect health, combat, generation, profiles, selectors,
+adaptation, or model scoring. Normal runs write History and preset-partitioned Best Resonance;
+Research keeps its value and reward telemetry inside isolated research storage; sandbox overrides
+remain memory-only. Research records stay on `research-1` through optional backward-compatible
+fields, and CSV export now has 103 stable columns. See [Reward system](REWARD_SYSTEM.md) and
+[Resonance Cache](RESONANCE_CACHE.md).
+
 ## mvp-0.5 baseline learned-selector foundation
 
 The repository now contains an offline, privacy-reduced multinomial logistic pipeline without
@@ -78,9 +101,16 @@ Resonant Ruins now has a reducer-owned, deterministic Rat combat loop: unaware R
 
 Rat facing, awareness, target, lunge/recovery outcome, and remaining deadlines restore through active-run schema v6. Held physical shield input is intentionally cleared on pause/refresh. New deterministic rooms use `generator-2` after the minimum Rat spawn distance changed to 4 path tiles; saved rooms retain the generator version that created them. Development-only Combat Debug exposes bounded playtest counters and is rejected from production bundles by the safety scan.
 
-Implemented boundaries remain intentionally narrow: no new enemies, rewards, healing, upgrades, backend gameplay authority, database, accounts, research telemetry, machine learning, audio, or mobile controls were added. See [Enemy Framework v0.2](ENEMY_FRAMEWORK.md) and [Balance changelog](BALANCE_CHANGELOG.md).
+At the mvp-0.2 checkpoint, boundaries remained intentionally narrow: no new enemies, rewards,
+healing, upgrades, backend gameplay authority, database, accounts, research telemetry, machine
+learning, audio, or mobile controls were added. Later implementation updates are documented above.
+See [Enemy Framework v0.2](ENEMY_FRAMEWORK.md) and
+[Balance changelog](BALANCE_CHANGELOG.md).
 
 ## Historical audit: executive assessment
+
+The remainder of this section is the original repository audit snapshot. Its implementation-gap
+claims are retained for traceability and are superseded by the milestone updates above.
 
 Mirrorvault is a coherent, attractive local prototype rather than a finished adaptive game or production web service. Its strongest qualities are the distinct visual identity, clear separation between frontend and backend, strict TypeScript configuration, centralized API and storage boundaries, usable responsive layouts, and honest labeling of mock content. Its biggest gap is behavioral: the interface describes an adaptive dungeon, but most game signals, combat rules, hazards, rewards, health, character traits, and room generation are still decorative or disconnected from state.
 

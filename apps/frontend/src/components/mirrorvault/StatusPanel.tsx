@@ -9,6 +9,8 @@ export function StatusPanel({
   isDefeated,
   dungeonRoomsCleared,
   enemiesRemaining,
+  resonance = 0,
+  sandboxResonance = false,
   isHealing = false,
   fullHealthFeedback = false,
 }: {
@@ -22,6 +24,8 @@ export function StatusPanel({
   isDefeated: boolean;
   dungeonRoomsCleared?: number;
   enemiesRemaining?: number;
+  resonance?: number;
+  sandboxResonance?: boolean;
   isHealing?: boolean;
   fullHealthFeedback?: boolean;
 }) {
@@ -75,6 +79,13 @@ export function StatusPanel({
           <strong>{enemiesRemaining}</strong>
         </div>
       )}
+      <div
+        data-status-field="resonance"
+        aria-label={`${sandboxResonance ? 'Sandbox ' : ''}Resonance ${resonance}`}
+      >
+        <span>{sandboxResonance ? 'Sandbox Resonance' : 'Resonance'}</span>
+        <strong>◇ {resonance}</strong>
+      </div>
       <div data-status-field="delver">
         <span>Delver</span>
         <strong>{character}</strong>

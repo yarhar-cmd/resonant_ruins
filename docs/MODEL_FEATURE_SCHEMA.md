@@ -21,3 +21,10 @@ rating including `__missing__`, all generator-4 archetypes/boundaries, and Fount
 `__missing__` and `previousRatingAvailable=0`; other documented cold-start fields use explicit count
 indicators. `profileForRoom` (the recorded `profileBefore`) is authoritative. `profileAfter` is
 forbidden because it includes behavior from the room being predicted.
+
+## Reward exclusion
+
+`model-features-1` contains no Resonance, Cache eligibility, spawn roll, placement, encounter, open,
+skip, or reward-outcome field. rewards-1 runs after active selection and shadow scoring, so it
+cannot change semantic inputs, encoded vectors, probabilities, classes, or ranks. Reward telemetry
+is retained only for later descriptive analysis and a separately versioned future feature schema.

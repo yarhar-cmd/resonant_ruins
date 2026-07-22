@@ -69,9 +69,11 @@ import {
   createIdleInteractionState,
   createInteractableRuntimeStates,
   getAvailableInteraction,
+  getResonanceCaches,
   getRestorationFountains,
   isInteractionTargetValid,
 } from './interactions';
+import { awardResonance, normalizeResonance } from './resonance';
 
 export const INVULNERABILITY_DURATION_MS = PLAYER_DAMAGE_INVULNERABILITY_MS;
 export const ATTACK_COOLDOWN_MS = 400;
@@ -127,6 +129,7 @@ export interface GameplayState {
   player: PlayerState;
   currentHealth: number;
   maximumHealth: number;
+  resonance: number;
   invulnerability: InvulnerabilityState;
   pause: RunPauseState;
   attackCooldown: AttackCooldownState;
@@ -205,6 +208,7 @@ export type GameplayAction =
   | { type: 'debug-defeat-all-enemies'; timestamp: number }
   | { type: 'debug-freeze-enemy-ai'; frozen: boolean }
   | { type: 'shift-enemy-timers'; duration: number }
+  | { type: 'mark-interaction-encountered'; timestamp: number; targetId: string }
   | { type: 'start-interaction'; timestamp: number; room: RoomDefinition; targetId: string }
   | { type: 'interaction-tick'; timestamp: number; room: RoomDefinition }
   | { type: 'interaction-unavailable-feedback'; timestamp: number; targetId: string }
@@ -259,8 +263,25 @@ function cancelInteraction(
   reason: InteractionCancellationReason,
 ): GameplayState {
   if (state.interaction.status !== 'channeling') return state;
+  const runtime = state.interaction.targetId
+    ? state.interactables[state.interaction.targetId]
+    : undefined;
+  const announcement =
+    state.interaction.type === 'resonance-cache'
+      ? 'Resonance Cache opening interrupted.'
+      : 'Restoration interrupted.';
   return {
     ...state,
+    interactables:
+      runtime && state.interaction.targetId
+        ? {
+            ...state.interactables,
+            [state.interaction.targetId]: {
+              ...runtime,
+              cancellationReasons: [...(runtime.cancellationReasons ?? []), reason],
+            },
+          }
+        : state.interactables,
     interaction: {
       ...createIdleInteractionState(),
       targetId: state.interaction.targetId,
@@ -268,7 +289,7 @@ function cancelInteraction(
       status: 'cancelled',
       cancellationReason: reason,
     },
-    announcement: 'Restoration interrupted.',
+    announcement,
   };
 }
 function clampHealth(health: number, maximumHealth: number): number {
@@ -282,6 +303,7 @@ export function createGameplayState(maximumHealth: number): GameplayState {
     player: createPlayer(),
     currentHealth: safeMaximumHealth,
     maximumHealth: safeMaximumHealth,
+    resonance: 0,
     invulnerability: createInvulnerabilityState(),
     pause: createPauseState(),
     attackCooldown: createAttackCooldownState(),
@@ -325,6 +347,10 @@ export function applyPlayerDamage(
   const timeSurvived = fatal
     ? getTimeSurvived(state.runStats, event.timestamp, state.pause)
     : state.runStats.timeSurvived;
+  const interactionTarget = state.interaction.targetId
+    ? state.interactables[state.interaction.targetId]
+    : undefined;
+  const cancellationReason: InteractionCancellationReason = fatal ? 'defeat' : 'damage';
   return {
     ...state,
     status: fatal ? 'defeated' : 'active',
@@ -360,9 +386,22 @@ export function applyPlayerDamage(
             targetId: state.interaction.targetId,
             type: state.interaction.type,
             status: 'cancelled',
-            cancellationReason: fatal ? 'defeat' : 'damage',
+            cancellationReason,
           }
         : state.interaction,
+    interactables:
+      state.interaction.status === 'channeling' && interactionTarget && state.interaction.targetId
+        ? {
+            ...state.interactables,
+            [state.interaction.targetId]: {
+              ...interactionTarget,
+              cancellationReasons: [
+                ...(interactionTarget.cancellationReasons ?? []),
+                cancellationReason,
+              ],
+            },
+          }
+        : state.interactables,
     lastAttack: fatal ? null : state.lastAttack,
     lastDamage: { ...event, fatal },
     lastAvoidedDamage: null,
@@ -967,6 +1006,9 @@ function createRoomDecisionRecord(
   const recovery = room.details.recoveryDecision;
   const fountain = getRestorationFountains(room.roomSnapshot)[0];
   const runtime = fountain ? state.interactables[fountain.id] : undefined;
+  const reward = room.details.rewardDecision;
+  const cache = getResonanceCaches(room.roomSnapshot)[0];
+  const cacheRuntime = cache ? state.interactables[cache.id] : undefined;
   return {
     roomNumber: room.dungeonRoomNumber,
     roomId: room.roomSnapshot.id,
@@ -1015,6 +1057,20 @@ function createRoomDecisionRecord(
                 : 0,
             gameVersion: room.gameVersion ?? 'unknown',
             generatorVersion: room.generatorVersion,
+          },
+        }
+      : {}),
+    ...(reward
+      ? {
+          rewardOutcome: {
+            rewardSystemVersion: reward.rewardSystemVersion,
+            eligible: reward.eligible,
+            spawned: reward.spawned,
+            spawnReason: reward.spawnReason,
+            cacheId: reward.cacheId,
+            placementCategory: reward.placementCategory,
+            opened: cacheRuntime?.depleted ?? false,
+            resonanceAwarded: cacheRuntime?.resonanceAwarded ?? false,
           },
         }
       : {}),
@@ -1263,6 +1319,17 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
     };
   }
   if (state.pause.isPaused) return state;
+  if (action.type === 'mark-interaction-encountered') {
+    const runtime = state.interactables[action.targetId];
+    if (!runtime || runtime.encounteredAt !== null) return state;
+    return {
+      ...state,
+      interactables: {
+        ...state.interactables,
+        [action.targetId]: { ...runtime, encounteredAt: action.timestamp },
+      },
+    };
+  }
   if (action.type === 'start-interaction') {
     if (state.interaction.status === 'channeling') return state;
     const target = getAvailableInteraction({
@@ -1283,6 +1350,9 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
           depleted: false,
           encounteredAt: state.interactables[target.id]?.encounteredAt ?? action.timestamp,
           usedAt: null,
+          healthWhenUsed: null,
+          resonanceAwarded: state.interactables[target.id]?.resonanceAwarded ?? false,
+          cancellationReasons: state.interactables[target.id]?.cancellationReasons ?? [],
         },
       },
       interaction: {
@@ -1295,7 +1365,8 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
         cancellationReason: null,
         result: null,
       },
-      announcement: 'Restoring health…',
+      announcement:
+        target.type === 'resonance-cache' ? 'Opening Resonance Cache…' : 'Restoring health…',
     };
   }
   if (action.type === 'interaction-unavailable-feedback')
@@ -1335,6 +1406,34 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
         interaction: { ...channel, remainingMs: channel.deadline - action.timestamp },
       };
     if (state.interactables[channel.targetId]?.depleted) return state;
+    if (channel.type === 'resonance-cache') {
+      const runtime = state.interactables[channel.targetId];
+      if (!runtime) return cancelInteraction(state, 'unavailable');
+      const reward = awardResonance(state.resonance, Boolean(runtime.resonanceAwarded));
+      if (!reward.awarded) return state;
+      return {
+        ...state,
+        resonance: reward.resonance,
+        interactables: {
+          ...state.interactables,
+          [channel.targetId]: {
+            ...runtime,
+            depleted: true,
+            usedAt: action.timestamp,
+            healthWhenUsed: state.currentHealth,
+            resonanceAwarded: true,
+          },
+        },
+        interaction: {
+          ...channel,
+          deadline: null,
+          remainingMs: 0,
+          status: 'completed',
+          result: 'awarded-resonance',
+        },
+        announcement: `Resonance Shard collected. Resonance ${reward.resonance}.`,
+      };
+    }
     return {
       ...state,
       currentHealth: Math.min(state.maximumHealth, state.currentHealth + 1),
@@ -1344,6 +1443,7 @@ export function gameplayReducer(state: GameplayState, action: GameplayAction): G
           ...state.interactables[channel.targetId],
           depleted: true,
           usedAt: action.timestamp,
+          healthWhenUsed: state.currentHealth,
         },
       },
       interaction: {
@@ -1654,6 +1754,7 @@ export interface RestorableGameplayRun {
   runId: string;
   elapsedMs: number;
   currentHealth: number;
+  resonance?: number;
   player: Pick<PlayerState, 'position' | 'facing'>;
   dungeonRoomsCleared: number;
   roomsCleared?: number;
@@ -1729,6 +1830,7 @@ export function restoreGameplayState(
     status: snapshot.status,
     player: { ...base.player, position: snapshot.player.position, facing: snapshot.player.facing },
     currentHealth: clampHealth(snapshot.currentHealth, base.maximumHealth),
+    resonance: normalizeResonance(snapshot.resonance),
     pause: snapshot.pause.isPaused
       ? {
           isPaused: true,

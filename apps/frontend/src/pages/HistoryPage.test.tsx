@@ -16,8 +16,10 @@ function archive(input: {
   rooms: number;
   enemies: number;
   gameVersion?: string;
-  generatorVersions?: ('generator-1' | 'generator-2' | 'generator-3')[];
+  generatorVersions?: ('generator-1' | 'generator-2' | 'generator-3' | 'generator-4')[];
   mixedGeneratorProvenance?: boolean;
+  resonance?: number;
+  rewardSystemVersion?: string | null;
 }) {
   archiveCompletedRun(
     createCompletedRunRecord({
@@ -31,6 +33,8 @@ function archive(input: {
       gameVersion: input.gameVersion,
       generatorVersions: input.generatorVersions,
       mixedGeneratorProvenance: input.mixedGeneratorProvenance,
+      resonanceCollected: input.resonance,
+      rewardSystemVersion: input.rewardSystemVersion,
     }),
   );
 }
@@ -170,5 +174,37 @@ describe('Resonant Ruins Runs page', () => {
     expect(localStorage.getItem('mirrorvault:active-run:v1')).toBe('active-preserved');
     expect(localStorage.getItem('mirrorvault:player-profile:v1')).toBe('profile-preserved');
     expect(localStorage.getItem('mirrorvault:settings')).toBe('settings-preserved');
+  });
+
+  it('shows per-run and Best Resonance while labeling legacy values as not recorded', () => {
+    archive({
+      id: 'rewarded-run',
+      characterId: 'warden',
+      experiencePreset: 'new-delver',
+      endedAt: '2026-07-01T00:00:00.000Z',
+      time: 70_000,
+      rooms: 7,
+      enemies: 4,
+      gameVersion: 'mvp-0.5',
+      generatorVersions: ['generator-4'],
+      resonance: 3,
+      rewardSystemVersion: 'rewards-1',
+    });
+    archive({
+      id: 'legacy-run',
+      characterId: 'seeker',
+      endedAt: '2026-06-01T00:00:00.000Z',
+      time: 60_000,
+      rooms: 6,
+      enemies: 2,
+    });
+
+    render(<HistoryPage />);
+    expect(screen.getAllByText('Best Resonance')).toHaveLength(2);
+    const cards = document.querySelectorAll('.history-card');
+    expect(within(cards[0] as HTMLElement).getByText('Resonance')).toBeVisible();
+    expect(within(cards[0] as HTMLElement).getByText('3')).toBeVisible();
+    expect(within(cards[1] as HTMLElement).getByText('Resonance')).toBeVisible();
+    expect(within(cards[1] as HTMLElement).getByText('Not recorded')).toBeVisible();
   });
 });

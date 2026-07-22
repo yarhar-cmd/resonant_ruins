@@ -1,5 +1,16 @@
 # Resonant Ruins backlog
 
+## Completed mvp-0.5 sidequest: Resonance Caches
+
+- [x] **High - Resonance Cache reward foundation** - Add deterministic post-selection rewards-1,
+      optional-route eligibility, one solid Cache, generic 400 ms interaction, and score-only
+      run-local Resonance without changing generator-4 selection or model-features-1.
+- [x] **High - Reward persistence and reporting** - Migrate active save v9 and archive v4; show
+      Resonance in HUD, Pause, Game Over, History, and preset-partitioned Best Resonance.
+- [x] **High - Research/model isolation** - Use identical Rules/Neutral reward behavior, optional
+      research-1 telemetry, 103-column exports, model prediction invariance, diagnostics, sandbox
+      controls, and Production exclusion checks.
+
 ## mvp-0.5: Baseline Learned Selector & Model Laboratory
 
 - [x] **Critical — Privacy-safe model data boundary** · Allowlisted `model-features-1`, prior-only

@@ -2,6 +2,22 @@
 
 CSV export uses one generated room per row and a stable header from `RESEARCH_CSV_COLUMNS` in `apps/frontend/src/research/export.ts`. Empty values are empty cells. Arrays and nested objects are compact JSON strings, not JavaScript object coercions. Fields beginning with spreadsheet formula characters are prefixed safely, then all fields receive RFC 4180 quoting where needed.
 
+The rewards-1 extension increases the stable header from 84 to 103 columns. Older research-1
+records export empty reward cells and remain valid.
+
+## Reward system and Resonance
+
+| Field group                                                                                                       | Meaning                                                  |
+| ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `reward_system_version`                                                                                           | `rewards-1` when a reward decision was recorded          |
+| `cache_eligible`, `eligible_placement_count`                                                                      | Optional-route eligibility and validated placement count |
+| `cache_spawn_roll`, `cache_spawned`, `cache_spawn_reason`                                                         | Deterministic 35% eligible-room decision                 |
+| `cache_coordinate_json`, `cache_placement_category`, `cache_optional_route_score`, `cache_interaction_tile_count` | Selected placement evidence                              |
+| `cache_encountered`, `cache_opened`, `cache_skipped`                                                              | Player outcome; encounter is not inferred from spawn     |
+| `time_from_room_start_to_opening_ms`, `health_when_cache_opened`                                                  | Opening timing/context                                   |
+| `resonance_before`, `resonance_after`, `resonance_earned`                                                         | Isolated run-local score transition                      |
+| `cache_channel_cancellation_reasons_json`                                                                         | Ordered practical cancellation evidence                  |
+
 ## Identity and versions
 
 | Field group                                                                                                     | Meaning                                            |

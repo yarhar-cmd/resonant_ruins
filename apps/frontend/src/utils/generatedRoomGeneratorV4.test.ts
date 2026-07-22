@@ -43,8 +43,8 @@ const extremeProfile = {
 };
 
 describe('generator-4 shared candidate pools', () => {
-  it('declares generated-room schema 2 while keeping frozen generator provenance', () => {
-    expect(GENERATED_ROOM_SAVE_SCHEMA_VERSION).toBe(2);
+  it('declares persisted schema 3 while keeping raw generator and frozen provenance intact', () => {
+    expect(GENERATED_ROOM_SAVE_SCHEMA_VERSION).toBe(3);
     expect(
       generateDungeonRoom(
         request({

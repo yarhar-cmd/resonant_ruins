@@ -16,7 +16,11 @@ export function ModelSandboxPage() {
       </div>
       <DungeonRunSession
         initialRecord={sandbox.record}
-        controllerOptions={{ mode: 'sandbox', returnPath: '/model-lab' }}
+        controllerOptions={{
+          mode: 'sandbox',
+          returnPath: '/model-lab',
+          rewardOverride: sandbox.rewardOverride,
+        }}
       />
     </div>
   );

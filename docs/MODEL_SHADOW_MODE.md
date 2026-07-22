@@ -1,5 +1,12 @@
 # Shadow mode
 
+## rewards-1 ordering
+
+Only after shadow evidence is finalized may rewards-1 evaluate the selected room. The reward layer
+does not see or consume model output, and Cache state is not a model-features-1 input. Regression
+coverage verifies unchanged candidate predictions/ranks with rewards disabled, failed, spawned,
+and collected.
+
 Shadow scoring has zero gameplay authority in `mvp-0.5`. Generator-4 first constructs and validates
 the immutable shared candidate pool, the active Rules or Neutral selector finalizes its decision,
 and only then an optional observer receives feature snapshots. Observer success, incompatibility,

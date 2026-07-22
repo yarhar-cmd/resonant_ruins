@@ -1,6 +1,8 @@
 import type { AdaptiveProfile, ExperiencePreset } from './adaptation';
 import type { RoomCandidateSummary, RoomSelectorId, RoomSelectorVersion } from './generation';
-import type { ExitDirection } from './rooms';
+import type { ExitDirection, TileCoordinate } from './rooms';
+import type { CachePlacementCategory, CacheSpawnReason } from './rewards';
+import type { InteractionCancellationReason } from './interactions';
 import type { RoomArchetype, RoomFeatureVector } from './topology';
 
 export type ResearchCondition = 'RULES_ADAPTIVE' | 'NEUTRAL_PROCEDURAL';
@@ -65,6 +67,15 @@ export interface RoomResearchOutcome {
   fountainSkipped: boolean;
   fountainHealthBefore: number | null;
   fountainHealthAfter: number | null;
+  cacheEncountered?: boolean;
+  cacheOpened?: boolean;
+  cacheSkipped?: boolean;
+  timeFromRoomStartToOpeningMs?: number | null;
+  healthWhenCacheOpened?: number | null;
+  resonanceBefore?: number;
+  resonanceAfter?: number;
+  resonanceEarned?: number;
+  cacheChannelCancellationReasons?: InteractionCancellationReason[];
 }
 
 export interface ResearchRoomStartSnapshot {
@@ -75,6 +86,7 @@ export interface ResearchRoomStartSnapshot {
   enteredAtMs: number;
   capturedAt: string;
   healthBefore: number;
+  resonanceBefore?: number;
   profileBefore: AdaptiveProfile;
   performance: ResearchPerformanceSummary;
   roomsClearedBefore: number;
@@ -167,6 +179,16 @@ export interface RoomResearchRecord {
   fountainSpawned: boolean;
   fountainPlacement: 'safe' | 'risky' | null;
   safeRouteExists: boolean;
+  rewardSystemVersion?: 'rewards-1';
+  cacheEligible?: boolean;
+  eligiblePlacementCount?: number;
+  cacheSpawnRoll?: number | null;
+  cacheSpawned?: boolean;
+  cacheSpawnReason?: CacheSpawnReason;
+  cacheCoordinate?: TileCoordinate | null;
+  cachePlacementCategory?: CachePlacementCategory | null;
+  cacheOptionalRouteScore?: number | null;
+  cacheInteractionTileCount?: number;
   shadow?: ShadowRoomEvidence;
   outcome: RoomResearchOutcome;
   feedback: RoomFeedback;

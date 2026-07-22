@@ -48,6 +48,18 @@ describe('Resonant Ruins Model Comparison Lab', () => {
     expect(screen.getByText('Sandbox route reached')).toBeVisible();
   });
 
+  it('exposes explicit sandbox-local reward overrides in the gated Model Lab only', () => {
+    render(
+      <MemoryRouter>
+        <ModelLabPage />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Launch with forced Resonance Cache' }),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Launch with rewards disabled' })).toBeVisible();
+  });
+
   it('validates artifact and ResearchExport imports and refuses reconstructed replay', async () => {
     render(
       <MemoryRouter>

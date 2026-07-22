@@ -1,5 +1,22 @@
 # Resonant Ruins feature roadmap
 
+## Completed mvp-0.5 sidequest: Resonance Caches - Reward Foundation
+
+- **Implemented:** `rewards-1` post-selection eligibility, deterministic 35% eligible-room roll,
+  optional-route placement, one solid ruined-stone Cache, 400 ms generic interaction channel,
+  run-local score-only Resonance, persistence/History/Best Resonance, research telemetry,
+  diagnostics, sandbox overrides, production exclusion, and focused/stress/browser coverage.
+- **Why:** Gives optional routes a meaningful but experimentally controlled outcome and adds a
+  second run-success measure without expanding into inventory or progression.
+- **Affected areas:** Reward generation/config/types, generic interactions/gameplay, active/archive
+  storage, HUD/results/History, research records/exports, diagnostics, Model Lab sandbox, docs/tests.
+- **Prerequisites:** generator-4 shared pools, selector/shadow ordering, shared solid-feature
+  validation, generic Fountain interaction architecture, and isolated run policies.
+- **Difficulty/Priority/Backend:** Hard / High / No backend.
+- **Definition of done:** The same selected room inputs yield identical rewards across conditions;
+  selector/model evidence is unchanged; Cache/Resonance restore exactly once; production contains
+  no mutation controls; all required automated and manual checks pass.
+
 ## mvp-0.5 — Baseline Learned Selector & Model Laboratory
 
 - **Implemented:** Privacy-safe JSON preparation, target-leakage allowlist, fixed feature manifest,

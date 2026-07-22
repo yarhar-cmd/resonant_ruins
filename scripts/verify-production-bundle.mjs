@@ -45,6 +45,8 @@ const modelLabText = [
   'Counterfactual Sandbox',
   'fixture-logistic-development-1',
   'Import ResearchExport JSON',
+  'Launch with forced Resonance Cache',
+  'Launch with rewards disabled',
 ];
 const forbiddenText =
   scanMode === 'preview'

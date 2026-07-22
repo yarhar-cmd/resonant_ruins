@@ -21,6 +21,7 @@ describe('Resonant Ruins Pause menu', () => {
           onRestart={onRestart}
           onMainMenu={onMainMenu}
           savedMessage="Run saved"
+          resonance={3}
         />
       </>,
     );
@@ -35,6 +36,7 @@ describe('Resonant Ruins Pause menu', () => {
       ),
     ).toEqual(['Resume', 'Settings', 'Restart Run', 'Main Menu']);
     expect(screen.getByText('Run saved')).toBeVisible();
+    expect(screen.getByText('Resonance: 3')).toBeVisible();
     fireEvent.keyDown(resume, { key: 'Tab', shiftKey: true });
     expect(screen.getByRole('button', { name: 'Main Menu' })).toHaveFocus();
 

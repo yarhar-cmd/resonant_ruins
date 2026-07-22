@@ -4,11 +4,12 @@ Research records are runtime-validated with Zod at storage and export boundaries
 
 ## Versions and namespaces
 
-- Game: `mvp-0.4`
+- Game: `mvp-0.5`
 - Generator: `generator-4`
 - Adaptation rules: `rules-2`
 - Research schema: `research-1`
 - Feedback schema: `feedback-1`
+- Reward system: optional `rewards-1` extension
 - Storage: `resonant-ruins:research:v1`
 - Active research run: `resonant-ruins:research-active-run:v1`
 
@@ -27,6 +28,8 @@ Each room record includes:
 - condition, selector ID/version, profile-consumed flag, deterministic roll, explanations, and selected rank/score;
 - shared pool ID, requested/valid/rejected counts, rejection counts, top candidates, and selected feature vector;
 - entrance, archetype, boundary, exits, Fountain opportunity, and safe-route evidence;
+- optional rewards-1 eligibility, roll, placement, Cache encounter/open/skip, Resonance, and
+  cancellation evidence;
 - profile snapshots, recent performance, health, combat/movement/hazard metrics, exit outcome, and completion/defeat status;
 - feedback status, difficulty, optional fairness/enjoyment, skipped fields, and response timing.
 
@@ -37,3 +40,9 @@ The pending active-run envelope stores the exact pending record and current answ
 Defeat records preserve available metrics, selected candidate evidence, and room identity. They use `outcome.status: defeated`, no chosen exit, and `feedback.status: not_requested_due_to_defeat`. Ended sessions may retain interrupted runs; analysis reports incomplete sessions and missing feedback as data-quality signals.
 
 See [the CSV dictionary](RESEARCH_DATA_DICTIONARY.md) for flattened export fields.
+
+Rewards remain optional inside `research-1`. This preserves validation and export compatibility for
+pre-rewards records instead of inventing values. Cache encounter requires a real adjacent/facing
+opportunity; spawn alone is not an encounter. A spawned unopened Cache is skipped when the room
+ends, including defeat when that definition is actually satisfied. Pilot and Official use the same
+reward rules in both conditions, and reward fields are excluded from model-features-1.

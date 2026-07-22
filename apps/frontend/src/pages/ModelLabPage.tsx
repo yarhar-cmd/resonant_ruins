@@ -250,8 +250,13 @@ export function ModelLabPage() {
     }
   }
 
-  function launchSandbox() {
-    const token = createCounterfactualSandbox(selectedPreview.save, selectedPreview.id);
+  function launchSandbox(rewardOverride: 'force' | 'disable' = 'disable') {
+    const token = createCounterfactualSandbox(
+      selectedPreview.save,
+      selectedPreview.id,
+      Date.now(),
+      rewardOverride,
+    );
     navigate(`/model-lab/sandbox?token=${encodeURIComponent(token)}`);
   }
 
@@ -405,8 +410,22 @@ export function ModelLabPage() {
               Exact generator-4 geometry exists in memory, so this candidate is eligible for a
               sandbox-only counterfactual run.
             </p>
-            <button className="button" type="button" onClick={launchSandbox}>
+            <button className="button" type="button" onClick={() => launchSandbox()}>
               Launch Counterfactual Sandbox
+            </button>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => launchSandbox('force')}
+            >
+              Launch with forced Resonance Cache
+            </button>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => launchSandbox('disable')}
+            >
+              Launch with rewards disabled
             </button>
             {selectedPrediction && (
               <div className="model-explanation">

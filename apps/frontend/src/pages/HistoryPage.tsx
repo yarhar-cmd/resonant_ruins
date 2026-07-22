@@ -65,6 +65,7 @@ export function HistoryPage() {
     ['Best Survival', view.best.bestTimeRunId],
     ['Best Rooms', view.best.bestRoomsRunId],
     ['Best Enemies', view.best.bestEnemiesRunId],
+    ['Best Resonance', view.best.bestResonanceRunId],
   ] as const) {
     if (runId) bestBadges.set(runId, [...(bestBadges.get(runId) ?? []), label]);
   }
@@ -167,6 +168,7 @@ export function HistoryPage() {
             <option value="generator-1">generator-1</option>
             <option value="generator-2">generator-2</option>
             <option value="generator-3">generator-3</option>
+            <option value="generator-4">generator-4</option>
             <option value="unknown">Unknown</option>
           </select>
         </label>
@@ -186,6 +188,10 @@ export function HistoryPage() {
           <div>
             <dt>Best Enemies Defeated</dt>
             <dd>{view.best.bestEnemiesDefeated}</dd>
+          </div>
+          <div>
+            <dt>Best Resonance</dt>
+            <dd>{view.best.bestResonance}</dd>
           </div>
         </dl>
       </section>
@@ -249,6 +255,10 @@ export function HistoryPage() {
                   <div>
                     <dt>Enemies defeated</dt>
                     <dd>{run.enemiesDefeated}</dd>
+                  </div>
+                  <div>
+                    <dt>Resonance</dt>
+                    <dd>{run.rewardSystemVersion ? run.resonanceCollected : 'Not recorded'}</dd>
                   </div>
                 </dl>
                 {bestBadges.has(run.id) && (

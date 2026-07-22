@@ -35,6 +35,7 @@ import type {
   ShadowRoomEvidence,
 } from '../types/research';
 import type { CandidateScoringModel } from '../types/model';
+import type { RewardGenerationOverride } from '../types/rewards';
 import { getRunExecutionPolicy, type RunMode } from '../types/runMode';
 import {
   getEffectiveProfileV1,
@@ -83,6 +84,8 @@ import { PLAYTEST_DIAGNOSTICS_ENABLED } from '../config/environment';
 import { buildModelSemanticFeatures } from '../model/featureBuilder';
 import { deriveLiveModelPreRoomContext } from '../model/liveContext';
 import { attachObservedShadowRating, createShadowRoomEvidence } from '../model/shadowEvidence';
+import { applyRewardLayer } from '../utils/rewardGeneration';
+import { VERSION_INFO } from '../config/version';
 
 function rememberRoom(cache: Map<string, RoomDefinition>, room: RoomDefinition) {
   cache.delete(room.id);
@@ -125,6 +128,7 @@ export interface RunControllerOptions {
     invalidRecordCount: number;
     storageSizeBytes: number;
   };
+  rewardOverride?: RewardGenerationOverride;
 }
 
 export function useRunController(
@@ -228,6 +232,16 @@ export function useRunController(
       gameplay.player,
     ],
   );
+
+  useEffect(() => {
+    if (!availableInteraction || gameplay.interactables[availableInteraction.id]?.encounteredAt)
+      return;
+    dispatchGameplay({
+      type: 'mark-interaction-encountered',
+      timestamp: Date.now(),
+      targetId: availableInteraction.id,
+    });
+  }, [availableInteraction, gameplay.interactables]);
 
   useEffect(() => {
     if (
@@ -368,6 +382,11 @@ export function useRunController(
         timeSurvivedMs: timeSurvived,
         dungeonRoomsCleared,
         enemiesDefeated,
+        resonanceCollected: gameplay.resonance,
+        rewardSystemVersion:
+          gameplay.dungeonProgress?.provenance?.gameVersion === 'mvp-0.5'
+            ? VERSION_INFO.rewardSystemVersion
+            : null,
         gameVersion: gameplay.dungeonProgress?.provenance?.gameVersion ?? 'unknown',
         generatorVersions: gameplay.dungeonProgress?.provenance
           ? [
@@ -388,6 +407,7 @@ export function useRunController(
     gameplay.dungeonProgress,
     gameplay.experiencePreset,
     gameplay.pause.totalPausedMs,
+    gameplay.resonance,
     gameplay.runStats,
     gameplay.status,
     playableCharacterId,
@@ -488,7 +508,7 @@ export function useRunController(
             incomingEntranceDirection: entranceDirection,
           })
         : null;
-    const generatedRoom = generateDungeonRoom(
+    const selectedRoom = generateDungeonRoom(
       {
         runSeed: dungeon.runSeed,
         dungeonRoomNumber,
@@ -554,6 +574,10 @@ export function useRunController(
           }
         : undefined,
     );
+    const generatedRoom = applyRewardLayer(selectedRoom, {
+      enabled: runMode !== 'sandbox' || Boolean(options.rewardOverride),
+      override: options.rewardOverride,
+    });
     rememberRoom(roomSnapshotsRef.current, generatedRoom.roomSnapshot);
     return { generatedRoom, entranceDirection, scheduled, effectiveProfile };
   }
@@ -1057,6 +1081,7 @@ export function useRunController(
       timeSurvived: frozenTime,
       roomsCleared: gameplay.runStats.dungeonRoomsCleared,
       enemiesDefeated: gameplay.runStats.enemiesDefeated,
+      resonance: gameplay.resonance,
       onHide: () => setHiddenResultsRunId(gameplay.runStats.runId),
       onReopen: () => setHiddenResultsRunId(null),
       onRestart: restartRun,
