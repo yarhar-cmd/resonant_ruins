@@ -3,6 +3,7 @@ export type Challenge = 'relaxed' | 'balanced' | 'demanding';
 export type Playstyle = 'balanced' | 'combat' | 'puzzle' | 'exploration';
 
 import type { ExperiencePreset } from './adaptation';
+import type { AudioSettings } from './audio';
 
 export interface DungeonConfig {
   experience: ExperiencePreset;
@@ -47,8 +48,10 @@ export interface RunRecord {
 }
 
 export interface UserSettings {
+  /** Compatibility mirror for pre-polish saves. Always equals !audio.muted. */
   sound: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
   visualEffects: 'full' | 'reduced' | 'off';
+  audio: AudioSettings;
 }
