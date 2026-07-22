@@ -95,7 +95,8 @@ describe('Resonant Ruins dungeon grid', () => {
     const { container, rerender } = renderGrid(shieldingRight);
 
     expect(container.querySelector('.player-token--shielding')).not.toBeNull();
-    expect(container.querySelector('.player-token__facing')).toHaveTextContent('→');
+    expect(container.querySelector('.player-token__facing')).toBeNull();
+    expect(container.querySelector('.player-token__sword')).not.toBeNull();
     expect(container.querySelector('.player-token__shield--active')).not.toBeNull();
     expect(container.querySelector('.player-token--facing-right')).not.toBeNull();
     expect(container.querySelector('.tile--shield-protected')).toBeNull();
@@ -126,7 +127,8 @@ describe('Resonant Ruins dungeon grid', () => {
     );
 
     expect(container.querySelector('.player-token--shielding')).not.toBeNull();
-    expect(container.querySelector('.player-token__facing')).toHaveTextContent('↓');
+    expect(container.querySelector('.player-token__facing')).toBeNull();
+    expect(container.querySelector('.player-token__sword')).not.toBeNull();
     expect(container.querySelector('.player-token--facing-down')).not.toBeNull();
     expect(container.querySelector('.tile--shield-protected')).toBeNull();
   });
@@ -141,13 +143,16 @@ describe('Resonant Ruins dungeon grid', () => {
     });
 
     expect(container.querySelector('.player-token--shielding')).not.toBeNull();
-    expect(container.querySelector('.player-token__facing')).toHaveTextContent('↑');
+    expect(container.querySelector('.player-token__facing')).toBeNull();
     expect(container.querySelector('.tile--shield-protected')).toBeNull();
   });
 
-  it('does not render an inactive carried shield', () => {
+  it('keeps the carried heater shield visible without showing active-block styling', () => {
     const { container } = renderGrid(basePlayer);
-    expect(container.querySelector('.player-token__shield')).toBeNull();
+    expect(container.querySelector('.player-token__shield--carried')).not.toBeNull();
+    expect(container.querySelector('.player-token__shield--active')).toBeNull();
+    expect(container.querySelector('.player-token__sword')).not.toBeNull();
+    expect(container.querySelector('.player-token__facing')).toBeNull();
   });
 
   it('renders a CSS Rat with cardinal facing and distinct combat-state hooks', () => {
@@ -233,6 +238,7 @@ describe('Resonant Ruins dungeon grid', () => {
       'rat-token--telegraphing',
       'rat-token--facing-down',
     );
+    expect(container.querySelector('.rat-token__warning')).toBeNull();
   });
 
   it('renders an in-room slash briefly and never renders an out-of-room target', () => {
@@ -248,6 +254,7 @@ describe('Resonant Ruins dungeon grid', () => {
     };
     const { container, rerender } = renderGrid(basePlayer, attack);
     expect(container.querySelectorAll('.tile--attack-target')).toHaveLength(1);
+    expect(container.querySelector('.attack-slash--right .attack-slash__arc')).not.toBeNull();
 
     act(() => vi.advanceTimersByTime(180));
     expect(container.querySelector('.tile--attack-target')).toBeNull();
@@ -389,7 +396,7 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.player-token--defeated')).not.toBeNull();
     expect(container.querySelector('.player-token__dead-mark')).toHaveTextContent('×');
     expect(container.querySelector('.player-token--damaged')).toBeNull();
-    expect(container.querySelector('.player-token__facing')).toBeNull();
+    expect(container.querySelector('.player-token__sword')).toBeNull();
     expect(container.querySelector('.player-token__shield')).toBeNull();
     expect(container.querySelector('.tile--shield-protected')).toBeNull();
     for (const control of screen.getAllByRole('button')) expect(control).toBeDisabled();
@@ -541,7 +548,8 @@ describe('Resonant Ruins dungeon grid', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Restore Health' }));
     expect(onInteract).toHaveBeenCalledTimes(1);
     rerender(dataDrivenGrid(room));
-    expect(container.querySelector('.ruin-torch')).not.toBeNull();
+    expect(container.querySelector('.ruin-torch')).toHaveAttribute('data-torch-mount', 'south');
+    expect(container.querySelector('.ruin-torch__backplate')).not.toBeNull();
   });
 
   it('renders accessible unopened and opened ruined-stone Cache states with pointer interaction', () => {

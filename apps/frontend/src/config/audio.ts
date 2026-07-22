@@ -3,13 +3,13 @@ import type { AudioEventName, AudioSettings } from '../types/audio';
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   masterVolume: 70,
   effectsVolume: 65,
-  ambienceVolume: 30,
+  ambienceVolume: 20,
   muted: false,
 };
 
 export const AUDIO_VOLUME_RANGE = { minimum: 0, maximum: 100, step: 1 } as const;
 export const FOOTSTEP_PITCH_RANGE = { minimum: 0.94, maximum: 1.06 } as const;
-export const FOOTSTEP_VOLUME_RANGE = { minimum: 0.88, maximum: 1 } as const;
+export const FOOTSTEP_VOLUME_RANGE = { minimum: 0.94, maximum: 1.08 } as const;
 
 export type AudioCategory =
   | 'footsteps'

@@ -50,7 +50,7 @@ export function StatusPanel({
               key={index}
               className={index < currentHealth ? 'health__remaining' : 'health__missing'}
             >
-              {index < currentHealth ? '◆' : '◇'}
+              {index < currentHealth ? '♥' : '♡'}
             </span>
           ))}
         </strong>
@@ -81,7 +81,12 @@ export function StatusPanel({
         aria-label={`${sandboxResonance ? 'Sandbox ' : ''}Resonance ${resonance}`}
       >
         <span>{sandboxResonance ? 'Sandbox Resonance' : 'Resonance'}</span>
-        <strong>◇ {resonance}</strong>
+        <strong>
+          <span className="resonance__icon" aria-hidden="true">
+            ◆
+          </span>{' '}
+          {resonance}
+        </strong>
       </div>
     </aside>
   );

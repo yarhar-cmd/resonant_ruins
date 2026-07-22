@@ -151,7 +151,7 @@ describe('Resonant Ruins Settings profile controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset Audio Settings' }));
     expect(screen.getByLabelText('Master volume')).toHaveValue('70');
     expect(screen.getByLabelText('Effects volume')).toHaveValue('65');
-    expect(screen.getByLabelText('Ambience volume')).toHaveValue('30');
+    expect(screen.getByLabelText('Ambience volume')).toHaveValue('20');
     expect(screen.getByRole('button', { name: 'Mute' })).toHaveAttribute('aria-pressed', 'false');
   });
 });

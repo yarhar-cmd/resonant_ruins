@@ -34,7 +34,7 @@ export function deriveGameplayAudioEvents(
     events.push({
       name: after.lastMove.moved ? 'player.step' : 'player.wall-bump',
       sourceId: after.lastMove.id,
-      intensity: after.lastMove.moved ? 0.72 : 0.58,
+      intensity: after.lastMove.moved ? 0.82 : 0.58,
     });
   }
 

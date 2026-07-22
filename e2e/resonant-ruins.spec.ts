@@ -1080,7 +1080,7 @@ test('audio controls persist Master, Effects, Ambience, and mute without console
   await page.getByRole('button', { name: 'Reset Audio Settings' }).click();
   await expect(page.getByLabel('Master volume')).toHaveValue('70');
   await expect(page.getByLabel('Effects volume')).toHaveValue('65');
-  await expect(page.getByLabel('Ambience volume')).toHaveValue('30');
+  await expect(page.getByLabel('Ambience volume')).toHaveValue('20');
 });
 
 test('development audio counters distinguish movement, turns, bumps, attacks, and Rat cues', async ({

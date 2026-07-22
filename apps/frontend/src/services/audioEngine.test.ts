@@ -147,8 +147,8 @@ describe('Resonant Ruins procedural audio engine', () => {
     now += 80;
     expect(engine.emit({ name: 'player.step' })).toBe(false);
     expect(backend.plays.map(({ pitch }) => pitch)).toEqual([0.94, 1.06]);
-    expect(backend.plays[0]?.event.intensity).toBeCloseTo(0.88);
-    expect(backend.plays[1]?.event.intensity).toBeCloseTo(1);
+    expect(backend.plays[0]?.event.intensity).toBeCloseTo(0.94);
+    expect(backend.plays[1]?.event.intensity).toBeCloseTo(1.08);
     backend.plays[0]?.voice.end();
     expect(engine.emit({ name: 'player.step' })).toBe(true);
   });
@@ -171,7 +171,7 @@ describe('Resonant Ruins procedural audio engine', () => {
   it('keeps randomized footstep helpers bounded even for invalid random inputs', () => {
     expect(selectFootstepPitch(-2)).toBe(0.94);
     expect(selectFootstepPitch(4)).toBe(1.06);
-    expect(selectFootstepVolume(-2)).toBe(0.88);
-    expect(selectFootstepVolume(4)).toBe(1);
+    expect(selectFootstepVolume(-2)).toBe(0.94);
+    expect(selectFootstepVolume(4)).toBe(1.08);
   });
 });

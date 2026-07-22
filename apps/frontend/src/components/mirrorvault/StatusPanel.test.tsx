@@ -21,7 +21,10 @@ describe('Resonant Ruins status panel', () => {
     expect(container.querySelectorAll('.health__indicators > span')).toHaveLength(6);
     expect(container.querySelectorAll('.health__remaining')).toHaveLength(4);
     expect(container.querySelectorAll('.health__missing')).toHaveLength(2);
+    expect(container.querySelector('.health__remaining')).toHaveTextContent('♥');
+    expect(container.querySelector('.health__missing')).toHaveTextContent('♡');
     expect(screen.getByLabelText('Resonance 2')).toHaveTextContent('2');
+    expect(container.querySelector('.resonance__icon')).toHaveTextContent('◆');
   });
 
   it('exposes invulnerable and defeated conditions without relying on color', () => {
