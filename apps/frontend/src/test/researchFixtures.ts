@@ -11,10 +11,17 @@ import type { GameplayState } from '../utils/gameplayState';
 import { coordinateToGridPosition, findSafeSpawn } from '../utils/roomGeometry';
 import { createRoomEnemyState } from '../utils/enemySystem';
 import { createInteractableRuntimeStates } from '../utils/interactions';
+import { applyRewardLayer } from '../utils/rewardGeneration';
+import type { RewardGenerationOverride } from '../types/rewards';
 
-export function researchFixture() {
+export function researchFixture(
+  options: {
+    rewardOverride?: RewardGenerationOverride;
+    pilot?: boolean;
+  } = {},
+) {
   const session = createResearchSession({
-    pilot: false,
+    pilot: options.pilot ?? false,
     participantCode: 'TEST_01',
     id: 'session-fixture',
     sessionSeed: 'session-seed',
@@ -28,24 +35,38 @@ export function researchFixture() {
     now: 2_000,
   });
   session.runs = [run];
-  const generated = generateDungeonRoomV4({
-    runSeed: 'research-room-fixture',
-    dungeonRoomNumber: 1,
-    chosenExitId: 'awakening-exit',
-    entranceDirection: 'west',
-    experiencePreset: 'seasoned-adventurer',
-    effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
-    mode: 'reinforce',
-    generatorVersion: 'generator-4',
-    gameVersion: 'mvp-0.4',
-    adaptationVersion: 'rules-2',
-    selectorId: run.condition === 'RULES_ADAPTIVE' ? 'rules-adaptive' : 'neutral-procedural',
-  });
+  const makeGenerated = (runSeed: string) =>
+    applyRewardLayer(
+      generateDungeonRoomV4({
+        runSeed,
+        dungeonRoomNumber: 1,
+        chosenExitId: 'awakening-exit',
+        entranceDirection: 'west',
+        experiencePreset: 'seasoned-adventurer',
+        effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
+        mode: 'reinforce',
+        generatorVersion: 'generator-4',
+        gameVersion: 'mvp-0.5',
+        adaptationVersion: 'rules-2',
+        selectorId: run.condition === 'RULES_ADAPTIVE' ? 'rules-adaptive' : 'neutral-procedural',
+      }),
+      options.rewardOverride ? { override: options.rewardOverride } : undefined,
+    );
+  let generated = makeGenerated('research-room-fixture');
+  if (options.rewardOverride === 'force' && !generated.details.rewardDecision?.spawned) {
+    for (let index = 0; index < 40; index += 1) {
+      const candidate = makeGenerated(`research-room-fixture-${index}`);
+      if (candidate.details.rewardDecision?.spawned) {
+        generated = candidate;
+        break;
+      }
+    }
+  }
   const base = createFreshRun({
     maximumHealth: 6,
     experiencePreset: 'seasoned-adventurer',
     runId: 'gameplay-run-fixture',
-    runSeed: 'research-room-fixture',
+    runSeed: generated.runSeed,
     startedAt: 1_000,
   });
   const gameplay: GameplayState = {

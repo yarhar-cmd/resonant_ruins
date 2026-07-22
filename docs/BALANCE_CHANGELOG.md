@@ -1,5 +1,25 @@
 # Resonant Ruins balance changelog
 
+## mvp-0.5 - Resonance Cache reward foundation
+
+Reward values are centralized in `apps/frontend/src/config/rewards.ts`.
+
+- Maximum one Cache per newly generated generator-4 room.
+- Eligibility requires a meaningful optional-route placement before rolling.
+- Spawn chance is 35% of eligible rooms, not 35% of all rooms.
+- Opening channel is 400 ms and awards exactly 1 run-local Resonance.
+- A living alerted Rat blocks/cancels opening; unaware Rats and corpses do not.
+- Placement favors optional dead ends, side chambers, branches, alcoves, longer alternate routes,
+  and visible detours while preserving the direct Rune-free route and complete room validation.
+- Resonance is score-only and does not change difficulty, recovery, adaptation, or model scoring.
+
+### Remaining balance questions
+
+- Is 35% of eligible rooms frequent enough to make optional exploration feel consistently useful?
+- Is 400 ms readable after combat without making collection feel slow?
+- Do placement weights create enough visible detours without overusing dead ends?
+- Does Best Resonance motivate exploration without distracting from survival and room completion?
+
 ## mvp-0.4 — Shared-pool selection
 
 - New runs move from generator-3 to generator-4 because behavior traits no longer participate in

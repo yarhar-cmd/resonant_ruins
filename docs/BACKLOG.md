@@ -1,5 +1,35 @@
 # Resonant Ruins backlog
 
+## Completed mvp-0.5 sidequest: Resonance Caches
+
+- [x] **High - Resonance Cache reward foundation** - Add deterministic post-selection rewards-1,
+      optional-route eligibility, one solid Cache, generic 400 ms interaction, and score-only
+      run-local Resonance without changing generator-4 selection or model-features-1.
+- [x] **High - Reward persistence and reporting** - Migrate active save v9 and archive v4; show
+      Resonance in HUD, Pause, Game Over, History, and preset-partitioned Best Resonance.
+- [x] **High - Research/model isolation** - Use identical Rules/Neutral reward behavior, optional
+      research-1 telemetry, 103-column exports, model prediction invariance, diagnostics, sandbox
+      controls, and Production exclusion checks.
+
+## mvp-0.5: Baseline Learned Selector & Model Laboratory
+
+- [x] **Critical — Privacy-safe model data boundary** · Allowlisted `model-features-1`, prior-only
+      ratings, opaque grouping, fingerprints, Pilot exclusion, and Official thresholds.
+- [x] **Critical — Offline grouped model pipeline** · Pinned Python environment, baselines,
+      deterministic grouped evaluation, logistic variants, and strict development/approval gates.
+- [x] **Critical — Zero-control shadow inference** · Zod artifact validation, TypeScript parity,
+      typed failures, post-selection isolation, compact evidence, and prediction blinding.
+- [x] **High — Model Comparison Lab** · Local/flagged-Preview registry/import/comparison/
+      explanation tools with production exclusion.
+- [x] **High — Counterfactual and data safety** · Memory-only sandbox, centralized no-write policy,
+      staged/tracked data scanner, privacy ignores, and browser contamination tests.
+- [ ] **High — Collect adequate Official data** · Wait for reviewed protocol, consent/retention,
+      100-room minimums (prefer 300–500), sufficient groups/classes, and both conditions.
+- [ ] **High — Manually review an approved artifact** · Compare baselines, calibration, subgroup
+      variation, dominance/collapse risks, privacy, and exact compatibility before registry entry.
+- [ ] **Deferred — v0.6 learned-selector experiment** · No control authority until a prospective
+      experiment and deterministic fallback are separately approved.
+
 ## mvp-0.4: Research Mode & Data Foundation
 
 - [x] **Critical — Generator-4 shared pool** · Keep behavior traits out of construction and give

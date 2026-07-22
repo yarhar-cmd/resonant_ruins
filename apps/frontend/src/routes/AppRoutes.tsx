@@ -12,7 +12,7 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { ResearchPage } from '../pages/ResearchPage';
 import { ResearchRunPage } from '../pages/ResearchRunPage';
-import { TOPOLOGY_LAB_ENABLED } from '../config/environment';
+import { MODEL_LAB_ENABLED, TOPOLOGY_LAB_ENABLED } from '../config/environment';
 
 const TopologyLabPage = TOPOLOGY_LAB_ENABLED
   ? lazy(async () => {
@@ -21,11 +21,35 @@ const TopologyLabPage = TOPOLOGY_LAB_ENABLED
     })
   : null;
 
+const ModelLabPage = MODEL_LAB_ENABLED
+  ? lazy(async () => {
+      const module = await import('../pages/ModelLabPage');
+      return { default: module.ModelLabPage };
+    })
+  : null;
+
+const ModelSandboxPage = MODEL_LAB_ENABLED
+  ? lazy(async () => {
+      const module = await import('../pages/ModelSandboxPage');
+      return { default: module.ModelSandboxPage };
+    })
+  : null;
+
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="dungeon/run" element={<DungeonRunPage />} />
       <Route path="research/run" element={<ResearchRunPage />} />
+      {ModelSandboxPage && (
+        <Route
+          path="model-lab/sandbox"
+          element={
+            <Suspense fallback={null}>
+              <ModelSandboxPage />
+            </Suspense>
+          }
+        />
+      )}
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route path="dungeon" element={<DungeonEntryPage />} />
@@ -40,6 +64,16 @@ export function AppRoutes() {
             element={
               <Suspense fallback={null}>
                 <TopologyLabPage />
+              </Suspense>
+            }
+          />
+        )}
+        {ModelLabPage && (
+          <Route
+            path="model-lab"
+            element={
+              <Suspense fallback={null}>
+                <ModelLabPage />
               </Suspense>
             }
           />

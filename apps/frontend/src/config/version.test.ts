@@ -4,6 +4,7 @@ import {
   type AdaptationVersion,
   type GameVersion,
   type GeneratorVersion,
+  type RewardSystemVersion,
   type TelemetrySchemaVersion,
   type VersionInfo,
 } from './version';
@@ -11,9 +12,10 @@ import {
 describe('Resonant Ruins version metadata', () => {
   it('provides the centralized MVP versions for future telemetry records', () => {
     expect(VERSION_INFO).toEqual({
-      gameVersion: 'mvp-0.4',
+      gameVersion: 'mvp-0.5',
       generatorVersion: 'generator-4',
       adaptationVersion: 'rules-2',
+      rewardSystemVersion: 'rewards-1',
       telemetrySchemaVersion: 1,
     });
   });
@@ -23,6 +25,7 @@ describe('Resonant Ruins version metadata', () => {
     expectTypeOf(VERSION_INFO.gameVersion).toEqualTypeOf<GameVersion>();
     expectTypeOf(VERSION_INFO.generatorVersion).toMatchTypeOf<GeneratorVersion>();
     expectTypeOf(VERSION_INFO.adaptationVersion).toMatchTypeOf<AdaptationVersion>();
+    expectTypeOf(VERSION_INFO.rewardSystemVersion).toEqualTypeOf<RewardSystemVersion>();
     expectTypeOf(VERSION_INFO.telemetrySchemaVersion).toEqualTypeOf<TelemetrySchemaVersion>();
   });
 });

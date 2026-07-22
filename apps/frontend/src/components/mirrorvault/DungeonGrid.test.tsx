@@ -539,4 +539,108 @@ describe('Resonant Ruins dungeon grid', () => {
     rerender(dataDrivenGrid(room));
     expect(container.querySelector('.ruin-torch')).not.toBeNull();
   });
+
+  it('renders accessible unopened and opened ruined-stone Cache states with pointer interaction', () => {
+    const baseRoom = createRectangularRoom({
+      id: 'cache-grid-room',
+      phase: 'dungeon',
+      width: 9,
+      height: 7,
+      exitEnabled: true,
+    });
+    const cacheId = 'cache-grid-room-resonance-cache';
+    const room: RoomDefinition = {
+      ...baseRoom,
+      features: [
+        {
+          id: cacheId,
+          kind: 'resonance-cache',
+          tile: { x: 4, y: 3 },
+          blocking: true,
+          rewardSystemVersion: 'rewards-1',
+          placementCategory: 'optional-branch',
+          spawnedReason: 'sandbox-forced',
+          spawnRoll: 0.1,
+          interactionTiles: [{ x: 3, y: 3 }],
+          optionalRouteScore: 42,
+          visualVariant: 'ruined-stone-coffer',
+        },
+      ],
+    };
+    const onInteract = vi.fn(() => true);
+    const common = {
+      bounds: roomBounds(room),
+      hazards: [],
+      room,
+      player: { ...basePlayer, position: { row: 3, column: 3 } },
+      status: 'active' as const,
+      isInvulnerable: false,
+      blockedMove: null,
+      lastAttack: null,
+      lastDamage: null,
+      lastAvoidedDamage: null,
+      announcement: '',
+      controlsDisabled: false,
+      onMove: vi.fn(),
+      onAttack: () => true,
+      onShieldChange: vi.fn(),
+      onInteract,
+    };
+    const availableInteraction = {
+      id: cacheId,
+      type: 'resonance-cache' as const,
+      tile: { x: 4, y: 3 },
+      range: 1 as const,
+      requiredFacing: 'right' as const,
+      available: true,
+      accessibleLabel: 'Resonance Cache, unopened, grants one Resonance',
+      prompt: 'E â€” Open Resonance Cache',
+      channelDurationMs: 400,
+    };
+    const { container, rerender } = render(
+      <DungeonGrid
+        {...common}
+        availableInteraction={availableInteraction}
+        interactables={{
+          [cacheId]: {
+            depleted: false,
+            encounteredAt: 1_000,
+            usedAt: null,
+            resonanceAwarded: false,
+          },
+        }}
+      />,
+    );
+
+    expect(container.querySelector('[data-cache-state="unopened"]')).toHaveClass(
+      'resonance-cache--unopened',
+    );
+    expect(screen.getAllByText(/Resonance Cache, unopened, grants one Resonance/)).toHaveLength(2);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Resonance Cache, unopened, grants one Resonance',
+      }),
+    );
+    expect(onInteract).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <DungeonGrid
+        {...common}
+        availableInteraction={null}
+        interactables={{
+          [cacheId]: {
+            depleted: true,
+            encounteredAt: 1_000,
+            usedAt: 1_400,
+            resonanceAwarded: true,
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-cache-state="opened"]')).toHaveClass(
+      'resonance-cache--opened',
+    );
+    expect(screen.getByText('Resonance Cache, opened')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Resonance Cache/ })).not.toBeInTheDocument();
+  });
 });

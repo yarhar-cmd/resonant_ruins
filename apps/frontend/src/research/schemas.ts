@@ -11,6 +11,37 @@ const participantCode = z
   .nullable();
 const condition = z.enum(['RULES_ADAPTIVE', 'NEUTRAL_PROCEDURAL']);
 const exitDirection = z.enum(['north', 'east', 'south', 'west']);
+const cacheSpawnReason = z.enum([
+  'spawned',
+  'ineligible-no-optional-route',
+  'roll-failed',
+  'no-valid-placement',
+  'authored-room',
+  'fallback-suppressed',
+  'sandbox-forced',
+  'sandbox-disabled',
+  'invalid-after-validation',
+]);
+const cachePlacementCategory = z.enum([
+  'optional-dead-end',
+  'optional-branch',
+  'side-chamber',
+  'alcove',
+  'longer-alternate-route',
+  'visible-detour',
+]);
+const interactionCancellationReason = z.enum([
+  'movement',
+  'turned-away',
+  'attack',
+  'shield',
+  'damage',
+  'combat-alert',
+  'defeat',
+  'room-transition',
+  'unavailable',
+  'restart',
+]);
 const profile = z.object({
   pace: normalized,
   caution: normalized,
@@ -63,6 +94,57 @@ const candidateSummary = z.object({
   archetype: featureVector.shape.archetype,
   featureVector,
 });
+const difficultyRating = z.enum(['too_easy', 'about_right', 'too_hard']);
+const shadowContribution = z.object({
+  targetClass: difficultyRating,
+  feature: z.string().min(1),
+  contribution: finite,
+  phrase: z.string().min(1),
+});
+const shadowCandidate = z.object({
+  candidateId: z.string().min(1),
+  probabilities: z.object({
+    too_easy: finite.min(0).max(1),
+    about_right: finite.min(0).max(1),
+    too_hard: finite.min(0).max(1),
+  }),
+  predictedClass: difficultyRating,
+  confidence: finite.min(0).max(1),
+  rank: z.number().int().positive(),
+  topContributions: z.array(shadowContribution).max(12),
+});
+
+export const ShadowRoomEvidenceSchema = z
+  .object({
+    schemaVersion: z.literal('shadow-1'),
+    status: z.enum(['scored', 'incompatible', 'failed']),
+    roomDecisionId: z.string().min(1),
+    sharedPoolId: z.string().min(1),
+    artifactId: z.string().min(1).nullable(),
+    modelId: z.string().min(1).nullable(),
+    modelVersion: z.string().min(1).nullable(),
+    featureSchemaVersion: z.literal('model-features-1'),
+    activeSelectorId: z.enum(['rules-adaptive', 'neutral-procedural']),
+    activeSelectedCandidateId: z.string().min(1),
+    candidates: z.array(shadowCandidate).max(20),
+    modelPreferredCandidateId: z.string().min(1).nullable(),
+    agreesWithActiveSelector: z.boolean().nullable(),
+    priorRatingAvailable: z.boolean(),
+    scoringDurationMs: nonnegative.nullable(),
+    failure: z.object({ stage: z.string().min(1), reasonCode: z.string().min(1) }).nullable(),
+    observedRating: difficultyRating.nullable(),
+    predictedObservedClass: difficultyRating.nullable(),
+    predictionCorrect: z.boolean().nullable(),
+  })
+  .superRefine((shadow, context) => {
+    if (shadow.status === 'scored' && shadow.candidates.length === 0)
+      context.addIssue({ code: 'custom', message: 'Scored shadow evidence needs candidates.' });
+    for (const candidate of shadow.candidates) {
+      const sum = Object.values(candidate.probabilities).reduce((total, value) => total + value, 0);
+      if (Math.abs(sum - 1) > 1e-8)
+        context.addIssue({ code: 'custom', message: 'Shadow probabilities must sum to one.' });
+    }
+  });
 
 export const RoomFeedbackSchema = z
   .object({
@@ -104,7 +186,7 @@ export const RoomResearchRecordSchema = z.object({
   capturedAt: timestamp,
   condition,
   assignmentMethodId: z.literal('balanced-two-run-blocks-1'),
-  gameVersion: z.literal('mvp-0.4'),
+  gameVersion: z.enum(['mvp-0.4', 'mvp-0.5']),
   generatorVersion: z.literal('generator-4'),
   adaptationVersion: z.literal('rules-2'),
   selectorId: z.enum(['rules-adaptive', 'neutral-procedural']),
@@ -147,6 +229,17 @@ export const RoomResearchRecordSchema = z.object({
   fountainSpawned: z.boolean(),
   fountainPlacement: z.enum(['safe', 'risky']).nullable(),
   safeRouteExists: z.boolean(),
+  rewardSystemVersion: z.literal('rewards-1').optional(),
+  cacheEligible: z.boolean().optional(),
+  eligiblePlacementCount: nonnegative.optional(),
+  cacheSpawnRoll: finite.min(0).max(1).nullable().optional(),
+  cacheSpawned: z.boolean().optional(),
+  cacheSpawnReason: cacheSpawnReason.optional(),
+  cacheCoordinate: z.object({ x: z.number().int(), y: z.number().int() }).nullable().optional(),
+  cachePlacementCategory: cachePlacementCategory.nullable().optional(),
+  cacheOptionalRouteScore: nonnegative.nullable().optional(),
+  cacheInteractionTileCount: nonnegative.optional(),
+  shadow: ShadowRoomEvidenceSchema.optional(),
   outcome: z.object({
     status: z.enum(['completed', 'defeated', 'interrupted']),
     durationMs: nonnegative,
@@ -169,6 +262,15 @@ export const RoomResearchRecordSchema = z.object({
     fountainSkipped: z.boolean(),
     fountainHealthBefore: nonnegative.nullable(),
     fountainHealthAfter: nonnegative.nullable(),
+    cacheEncountered: z.boolean().optional(),
+    cacheOpened: z.boolean().optional(),
+    cacheSkipped: z.boolean().optional(),
+    timeFromRoomStartToOpeningMs: nonnegative.nullable().optional(),
+    healthWhenCacheOpened: nonnegative.nullable().optional(),
+    resonanceBefore: nonnegative.optional(),
+    resonanceAfter: nonnegative.optional(),
+    resonanceEarned: nonnegative.optional(),
+    cacheChannelCancellationReasons: z.array(interactionCancellationReason).optional(),
   }),
   feedback: RoomFeedbackSchema,
 });
@@ -191,6 +293,7 @@ export const ResearchRoomStartSnapshotSchema = z.object({
   enteredAtMs: nonnegative,
   capturedAt: timestamp,
   healthBefore: nonnegative,
+  resonanceBefore: nonnegative.optional(),
   profileBefore: profile,
   performance: z.object({
     recentDamage: nonnegative,

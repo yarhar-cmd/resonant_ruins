@@ -2,6 +2,7 @@ import { ARCHETYPE_IDS, ARCHETYPE_UNLOCK_ROOM, TOPOLOGY_CONFIG } from '../config
 import type { AdaptiveProfile } from '../types/adaptation';
 import type {
   GeneratedRoomSave,
+  Generator4ShadowObserver,
   GenerationRequest,
   RoomSelectionDecision,
   ValidatedRoomCandidate,
@@ -12,6 +13,7 @@ import { selectNeutralRoom } from './neutralRoomSelector';
 import { selectRuleBasedRoom } from './ruleBasedRoomSelector';
 import { hashSeed } from './seededRandom';
 import { validateGeneratedRoomV3 } from './generatedRoomValidatorV3';
+import { getRestorationFountains } from './interactions';
 
 export const GENERATOR_4_CONSTRUCTION_PROFILE: Readonly<AdaptiveProfile> = Object.freeze({
   pace: 0.5,
@@ -93,7 +95,7 @@ export function buildSharedCandidatePoolV4(
       const candidate = generateTopologyCandidate(request, archetype, attempt, {
         roomSeed,
         generatorVersion: 'generator-4',
-        gameVersion: 'mvp-0.4',
+        gameVersion: 'mvp-0.5',
         constructionProfile: GENERATOR_4_CONSTRUCTION_PROFILE,
         constructionMode: 'reinforce',
         fountainPlacementPreference: attempt % 2 === 0 ? 'safe' : 'risky',
@@ -125,7 +127,7 @@ export function buildSharedCandidatePoolV4(
     const fallback = generateTopologyCandidate(request, 'safe-fallback', 10_000, {
       roomSeed,
       generatorVersion: 'generator-4',
-      gameVersion: 'mvp-0.4',
+      gameVersion: 'mvp-0.5',
       constructionProfile: GENERATOR_4_CONSTRUCTION_PROFILE,
       constructionMode: 'reinforce',
       fountainPlacementPreference: 'safe',
@@ -176,9 +178,31 @@ function chooseFromPool(
 export function generateDungeonRoomV4(
   request: GenerationRequest,
   validator: typeof validateGeneratedRoomV3 = validateGeneratedRoomV3,
+  shadowObserver?: Generator4ShadowObserver,
 ): GeneratedRoomSave {
   const pool = buildSharedCandidatePoolV4(request, validator);
   const decision = chooseFromPool(request, pool);
+  if (shadowObserver) {
+    const candidates = Object.freeze(
+      pool.candidates.map((candidate) => {
+        const fountain = getRestorationFountains(candidate.save.roomSnapshot)[0];
+        return Object.freeze({
+          id: candidate.id,
+          featureVector: Object.freeze({ ...candidate.featureVector }),
+          fountainPlacement: fountain?.placementStyle ?? 'none',
+        });
+      }),
+    );
+    try {
+      shadowObserver({
+        sharedPoolId: pool.poolId,
+        candidates,
+        activeDecision: Object.freeze(structuredClone(decision)),
+      });
+    } catch {
+      // Shadow observation is deliberately fail-closed and has zero gameplay authority.
+    }
+  }
   const selected = pool.candidates.find(
     (candidate) => candidate.id === decision.selectedCandidateId,
   )!;

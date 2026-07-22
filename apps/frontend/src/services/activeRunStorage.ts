@@ -48,23 +48,26 @@ import {
   createIdleInteractionState,
   createInteractableRuntimeStates,
   directionBetweenAdjacent,
+  getResonanceCaches,
   getRestorationFountains,
 } from '../utils/interactions';
+import { normalizeResonance, serializeResonance } from '../utils/resonance';
 import type { CharacterId } from './runArchive';
 import { parseAdaptiveProfile } from './playerProfileStorage';
 
 export const ACTIVE_RUN_KEY = 'mirrorvault:active-run:v1';
-export const ACTIVE_RUN_VERSION = 8 as const;
+export const ACTIVE_RUN_VERSION = 9 as const;
 export type ActiveRunStorageIssue = 'invalid' | 'unavailable' | 'write-failed';
 
 export interface ActiveRunRecord {
-  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   runId: string;
   characterId: CharacterId;
   status: 'active' | 'defeated';
   elapsedMs: number;
   currentHealth: number;
   maximumHealth: number;
+  resonance?: number;
   playerPosition: TileCoordinate;
   facing: CardinalDirection;
   dungeonRoomsCleared?: number;
@@ -151,7 +154,9 @@ function parseInteraction(value: unknown): InteractionChannelState | null {
     return null;
   if (
     (value.targetId !== null && typeof value.targetId !== 'string') ||
-    (value.type !== null && value.type !== 'restoration-fountain') ||
+    (value.type !== null &&
+      value.type !== 'restoration-fountain' &&
+      value.type !== 'resonance-cache') ||
     (value.startedAt !== null && !isCount(value.startedAt)) ||
     value.deadline !== null ||
     !isCount(value.remainingMs) ||
@@ -168,7 +173,9 @@ function parseInteraction(value: unknown): InteractionChannelState | null {
         'unavailable',
         'restart',
       ].includes(String(value.cancellationReason))) ||
-    (value.result !== null && value.result !== 'restored-one-health')
+    (value.result !== null &&
+      value.result !== 'restored-one-health' &&
+      value.result !== 'awarded-resonance')
   )
     return null;
   return value as unknown as InteractionChannelState;
@@ -181,7 +188,9 @@ function parseInteractables(
   if (!isObject(value)) return null;
   const validIds = new Set(
     (room.features ?? [])
-      .filter((feature) => feature.kind === 'restoration-fountain')
+      .filter(
+        (feature) => feature.kind === 'restoration-fountain' || feature.kind === 'resonance-cache',
+      )
       .map((feature) => feature.id),
   );
   const result: InteractableRuntimeStates = {};
@@ -191,16 +200,49 @@ function parseInteractables(
       !isObject(raw) ||
       typeof raw.depleted !== 'boolean' ||
       (raw.encounteredAt !== null && !isCount(raw.encounteredAt)) ||
-      (raw.usedAt !== null && !isCount(raw.usedAt))
+      (raw.usedAt !== null && !isCount(raw.usedAt)) ||
+      (raw.healthWhenUsed !== undefined &&
+        raw.healthWhenUsed !== null &&
+        !isCount(raw.healthWhenUsed)) ||
+      (raw.resonanceAwarded !== undefined && typeof raw.resonanceAwarded !== 'boolean') ||
+      (raw.cancellationReasons !== undefined &&
+        (!Array.isArray(raw.cancellationReasons) ||
+          !raw.cancellationReasons.every((reason) =>
+            [
+              'movement',
+              'turned-away',
+              'attack',
+              'shield',
+              'damage',
+              'combat-alert',
+              'defeat',
+              'room-transition',
+              'unavailable',
+              'restart',
+            ].includes(String(reason)),
+          )))
     )
       return null;
     result[id] = {
       depleted: raw.depleted,
       encounteredAt: raw.encounteredAt as number | null,
       usedAt: raw.usedAt as number | null,
+      healthWhenUsed: (raw.healthWhenUsed ?? null) as number | null,
+      resonanceAwarded: raw.resonanceAwarded === true,
+      cancellationReasons: (raw.cancellationReasons ?? []) as NonNullable<
+        InteractableRuntimeStates[string]['cancellationReasons']
+      >,
     };
   }
-  for (const id of validIds) result[id] ??= { depleted: false, encounteredAt: null, usedAt: null };
+  for (const id of validIds)
+    result[id] ??= {
+      depleted: false,
+      encounteredAt: null,
+      usedAt: null,
+      healthWhenUsed: null,
+      resonanceAwarded: false,
+      cancellationReasons: [],
+    };
   return result;
 }
 
@@ -468,7 +510,7 @@ function parseGeneratedSave(value: unknown): GeneratedRoomSave | null {
       : null;
   if (
     !isObject(value) ||
-    (value.schemaVersion !== 1 && value.schemaVersion !== 2) ||
+    (value.schemaVersion !== 1 && value.schemaVersion !== 2 && value.schemaVersion !== 3) ||
     generatorVersion === null ||
     typeof value.runSeed !== 'string' ||
     !value.runSeed ||
@@ -876,7 +918,8 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
       value.version !== 5 &&
       value.version !== 6 &&
       value.version !== 7 &&
-      value.version !== 8) ||
+      value.version !== 8 &&
+      value.version !== 9) ||
     typeof value.runId !== 'string' ||
     !value.runId ||
     !isCharacterId(value.characterId) ||
@@ -884,6 +927,7 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
     !isCount(value.elapsedMs) ||
     !isCount(value.currentHealth) ||
     !isCount(value.maximumHealth) ||
+    (value.version === 9 && !isCount(value.resonance)) ||
     value.currentHealth > value.maximumHealth ||
     (value.status === 'defeated' && value.currentHealth !== 0) ||
     (value.status === 'active' && value.currentHealth === 0) ||
@@ -901,13 +945,14 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
     if (!room || !isRestorablePosition(room, playerPosition)) return null;
     const runSeed = `${value.runId}:migrated`;
     return {
-      version: 8,
+      version: 9,
       runId: value.runId,
       characterId: value.characterId,
       status: value.status,
       elapsedMs: value.elapsedMs,
       currentHealth: value.currentHealth,
       maximumHealth: value.maximumHealth,
+      resonance: 0,
       playerPosition,
       facing: value.facing,
       dungeonRoomsCleared: 0,
@@ -1004,13 +1049,14 @@ export function parseActiveRunRecord(value: unknown): ActiveRunRecord | null {
   )
     return null;
   return {
-    version: 8,
+    version: 9,
     runId: value.runId,
     characterId: value.characterId,
     status: value.status,
     elapsedMs: value.elapsedMs,
     currentHealth: value.currentHealth,
     maximumHealth: value.maximumHealth,
+    resonance: value.version >= 9 ? normalizeResonance(value.resonance) : 0,
     playerPosition: restoredPosition,
     facing: value.facing,
     dungeonRoomsCleared: value.dungeonRoomsCleared,
@@ -1083,13 +1129,14 @@ export function createActiveRunRecord(
     now,
   );
   return {
-    version: 8,
+    version: 9,
     runId: gameplay.runStats.runId,
     characterId,
     status: gameplay.status,
     elapsedMs: getTimeSurvived(gameplay.runStats, now, gameplay.pause),
     currentHealth: gameplay.currentHealth,
     maximumHealth: gameplay.maximumHealth,
+    resonance: serializeResonance(gameplay.resonance),
     playerPosition: gridPositionToCoordinate(gameplay.player.position),
     facing: gameplay.player.facing,
     dungeonRoomsCleared: gameplay.runStats.dungeonRoomsCleared,
@@ -1207,20 +1254,24 @@ export function toRestorableGameplayRun(record: ActiveRunRecord): RestorableGame
         );
   const storedInteraction = record.interaction;
   const storedInteractables = record.interactables ?? createInteractableRuntimeStates(room);
-  const targetFountain = storedInteraction?.targetId
-    ? getRestorationFountains(room).find((feature) => feature.id === storedInteraction.targetId)
+  const targetFeature = storedInteraction?.targetId
+    ? [...getRestorationFountains(room), ...getResonanceCaches(room)].find(
+        (feature) => feature.id === storedInteraction.targetId,
+      )
     : undefined;
+  const healthAllowsChannel =
+    targetFeature?.kind !== 'restoration-fountain' || record.currentHealth < record.maximumHealth;
   const validChannel =
     storedInteraction?.status !== 'channeling' ||
     Boolean(
-      targetFountain &&
+      targetFeature &&
       storedInteraction.remainingMs > 0 &&
-      record.currentHealth < record.maximumHealth &&
-      !storedInteractables[targetFountain.id]?.depleted &&
-      targetFountain.interactionTiles.some(
+      healthAllowsChannel &&
+      !storedInteractables[targetFeature.id]?.depleted &&
+      targetFeature.interactionTiles.some(
         (tile) => coordinateKey(tile) === coordinateKey(position),
       ) &&
-      directionBetweenAdjacent(position, targetFountain.tile) === record.facing &&
+      directionBetweenAdjacent(position, targetFeature.tile) === record.facing &&
       !enemies.rats.some(
         (rat) => rat.health > 0 && rat.state !== 'corpse' && rat.awareness === 'alerted',
       ),
@@ -1239,6 +1290,7 @@ export function toRestorableGameplayRun(record: ActiveRunRecord): RestorableGame
     runId: record.runId,
     elapsedMs: record.elapsedMs,
     currentHealth: record.currentHealth,
+    resonance: normalizeResonance(record.resonance),
     player: { position: coordinateToGridPosition(position), facing: record.facing },
     dungeonRoomsCleared: record.dungeonRoomsCleared ?? 0,
     enemiesDefeated: record.enemiesDefeated,

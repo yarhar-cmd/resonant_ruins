@@ -7,6 +7,7 @@ export function PauseMenu({
   open,
   pauseButtonRef,
   savedMessage,
+  resonance = 0,
   onResume,
   onSettings,
   onRestart,
@@ -15,6 +16,7 @@ export function PauseMenu({
   open: boolean;
   pauseButtonRef: RefObject<HTMLButtonElement | null>;
   savedMessage?: string;
+  resonance?: number;
   onResume: () => void;
   onSettings: () => void;
   onRestart: () => void;
@@ -125,6 +127,7 @@ export function PauseMenu({
           <>
             <p className="eyebrow">Resonant Ruins</p>
             <h2 id={titleId}>Paused</h2>
+            <p className="pause-menu__run-stat">Resonance: {resonance}</p>
             {savedMessage && <p className="pause-menu__save-status">{savedMessage}</p>}
             <div className="pause-menu__actions">
               <PrimaryButton ref={resumeRef} data-pause-focusable onClick={onResume}>

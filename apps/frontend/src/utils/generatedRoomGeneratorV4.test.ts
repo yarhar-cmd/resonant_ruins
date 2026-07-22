@@ -43,8 +43,8 @@ const extremeProfile = {
 };
 
 describe('generator-4 shared candidate pools', () => {
-  it('declares generated-room schema 2 while keeping frozen generator provenance', () => {
-    expect(GENERATED_ROOM_SAVE_SCHEMA_VERSION).toBe(2);
+  it('declares persisted schema 3 while keeping raw generator and frozen provenance intact', () => {
+    expect(GENERATED_ROOM_SAVE_SCHEMA_VERSION).toBe(3);
     expect(
       generateDungeonRoom(
         request({
@@ -60,7 +60,7 @@ describe('generator-4 shared candidate pools', () => {
     const current = generateDungeonRoomV4(request());
     expect(current.schemaVersion).toBe(2);
     expect(current.generatorVersion).toBe('generator-4');
-    expect(current.gameVersion).toBe('mvp-0.4');
+    expect(current.gameVersion).toBe('mvp-0.5');
   });
 
   it('keeps candidate construction identical when only behavioral traits or condition change', () => {
@@ -133,6 +133,29 @@ describe('generator-4 shared candidate pools', () => {
     expect(neutral.details.selectorProfileConsumed).toBe(false);
     expect(validateGeneratedRoomV3(adaptive.roomSnapshot).valid).toBe(true);
     expect(validateGeneratedRoomV3(neutral.roomSnapshot).valid).toBe(true);
+  });
+
+  it('keeps active selection byte-identical when shadow is absent, enabled, or throws', () => {
+    const absent = generateDungeonRoomV4(request({ selectorId: 'rules-adaptive' }));
+    let observedPoolId = '';
+    const enabled = generateDungeonRoomV4(
+      request({ selectorId: 'rules-adaptive' }),
+      undefined,
+      (observation) => {
+        observedPoolId = observation.sharedPoolId;
+        expect(observation.candidates).toHaveLength(10);
+      },
+    );
+    const failed = generateDungeonRoomV4(
+      request({ selectorId: 'rules-adaptive' }),
+      undefined,
+      () => {
+        throw new Error('synthetic shadow failure');
+      },
+    );
+    expect(observedPoolId).toBe(absent.details.sharedPoolId);
+    expect(enabled).toEqual(absent);
+    expect(failed).toEqual(absent);
   });
 
   it('preserves Fountain opportunity equality across conditions', () => {

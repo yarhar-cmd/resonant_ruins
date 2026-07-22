@@ -1,6 +1,7 @@
 import type { AdaptationVersion, GameVersion, GeneratorVersion } from '../config/version';
 import type { AdaptiveProfile, ExperiencePreset } from './adaptation';
 import type { ExitDirection, RoomDefinition, TileCoordinate } from './rooms';
+import type { RewardDecision } from './rewards';
 import type { EnemyCountPlan } from './enemies';
 import type {
   FountainPlacementStyle,
@@ -9,7 +10,7 @@ import type {
   RoomFeatureVector,
 } from './topology';
 
-export const GENERATED_ROOM_SAVE_SCHEMA_VERSION = 2;
+export const GENERATED_ROOM_SAVE_SCHEMA_VERSION = 3;
 
 export type GeneratedRoomMode = 'reinforce' | 'poke' | 'fallback';
 export type GeneratedRoomShape = 'rectangle' | 'l-shape';
@@ -64,6 +65,7 @@ export interface GeneratedRoomDetails {
   selectorProfileConsumed?: boolean;
   selectorExplanation?: string[];
   selectedFeatureVector?: RoomFeatureVector;
+  rewardDecision?: RewardDecision;
 }
 
 export interface RecoveryInputSnapshot {
@@ -138,6 +140,20 @@ export interface ValidatedRoomCandidate {
   featureVector: RoomFeatureVector;
 }
 
+export interface ShadowCandidateSnapshot {
+  id: string;
+  featureVector: RoomFeatureVector;
+  fountainPlacement: FountainPlacementStyle | 'none';
+}
+
+export interface Generator4ShadowObservation {
+  sharedPoolId: string;
+  candidates: readonly ShadowCandidateSnapshot[];
+  activeDecision: Readonly<RoomSelectionDecision>;
+}
+
+export type Generator4ShadowObserver = (observation: Generator4ShadowObservation) => void;
+
 export interface RoomSelectionDecision {
   selectorId: RoomSelectorId;
   selectorVersion: RoomSelectorVersion;
@@ -162,9 +178,9 @@ export interface RoomSelector<TContext> {
 }
 
 export interface GeneratedRoomSave {
-  schemaVersion: number;
+  schemaVersion: 1 | 2 | 3;
   generatorVersion: GeneratorVersion;
-  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'unknown';
+  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'mvp-0.4' | 'unknown';
   adaptationVersion?: AdaptationVersion;
   runSeed: string;
   roomSeed: string;
@@ -184,7 +200,7 @@ export interface GenerationRequest {
   mode: Exclude<GeneratedRoomMode, 'fallback'>;
   generatorVersion?: GeneratorVersion;
   adaptationVersion?: AdaptationVersion;
-  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3';
+  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'mvp-0.4';
   recovery?: RecoveryGenerationContext;
   selectorId?: RoomSelectorId;
   recentArchetypes?: RoomArchetype[];
@@ -252,6 +268,16 @@ export interface RoomDecisionRecord {
     gameVersion: string;
     generatorVersion: GeneratorVersion;
   };
+  rewardOutcome?: {
+    rewardSystemVersion: 'rewards-1';
+    eligible: boolean;
+    spawned: boolean;
+    spawnReason: RewardDecision['spawnReason'];
+    cacheId: string | null;
+    placementCategory: RewardDecision['placementCategory'];
+    opened: boolean;
+    resonanceAwarded: boolean;
+  };
 }
 
 export interface GeneratorTransitionRecord {
@@ -262,7 +288,7 @@ export interface GeneratorTransitionRecord {
 }
 
 export interface RunGenerationProvenance {
-  gameVersion: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'unknown';
+  gameVersion: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'mvp-0.4' | 'unknown';
   adaptationVersion: AdaptationVersion;
   startingGeneratorVersion: GeneratorVersion;
   activeGeneratorVersion: GeneratorVersion;

@@ -312,6 +312,10 @@ export function PlaytestDiagnostics({
                   <dt>Invulnerable</dt>
                   <dd>{String(snapshot.player.invulnerable)}</dd>
                 </div>
+                <div>
+                  <dt>Resonance</dt>
+                  <dd>{snapshot.player.resonance}</dd>
+                </div>
               </dl>
             </section>
 
@@ -376,6 +380,69 @@ export function PlaytestDiagnostics({
                 <div>
                   <dt>Reasons</dt>
                   <dd>{snapshot.fountain.reasons.join(', ') || 'none'}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section aria-labelledby={`${titleId}-reward`}>
+              <h3 id={`${titleId}-reward`}>Resonance Cache · rewards-1</h3>
+              <dl>
+                <div>
+                  <dt>Enabled / eligible</dt>
+                  <dd>
+                    {String(snapshot.reward.enabled)} / {String(snapshot.reward.eligible)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Placements / roll</dt>
+                  <dd>
+                    {snapshot.reward.eligiblePlacementCount} / {snapshot.reward.spawnRoll ?? 'n/a'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Spawned / reason</dt>
+                  <dd>
+                    {String(snapshot.reward.spawned)} / {snapshot.reward.spawnReason}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Coordinate / placement</dt>
+                  <dd>
+                    {formatDiagnosticTile(snapshot.reward.coordinate)} /{' '}
+                    {snapshot.reward.placementCategory}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Optional score / interaction tiles</dt>
+                  <dd>
+                    {snapshot.reward.optionalRouteScore ?? 'n/a'} /{' '}
+                    {snapshot.reward.interactionTiles.map(formatDiagnosticTile).join(' · ') ||
+                      'none'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Status / combat lock</dt>
+                  <dd>
+                    {snapshot.reward.status} / {String(snapshot.reward.combatLock)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Channel / latest cancellation</dt>
+                  <dd>
+                    {snapshot.reward.channelRemainingMs} ms /{' '}
+                    {snapshot.reward.latestCancellationReason}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Awarded</dt>
+                  <dd>{String(snapshot.reward.resonanceAwarded)}</dd>
+                </div>
+                <div>
+                  <dt>Model isolation</dt>
+                  <dd>
+                    features-1 excluded {String(snapshot.reward.excludedFromModelFeatures1)} /
+                    pool-shadow unchanged {String(snapshot.reward.sharedPoolAndShadowUnchanged)}
+                  </dd>
                 </div>
               </dl>
             </section>
@@ -510,6 +577,18 @@ export function PlaytestDiagnostics({
                       {SHADOW_MODEL_STATUS.availability} ({SHADOW_MODEL_STATUS.message}) /{' '}
                       {SHADOW_MODEL_STATUS.shadowMode}
                     </dd>
+                  </div>
+                  <div>
+                    <dt>Reward telemetry</dt>
+                    <dd>
+                      cache {snapshot.reward.status}; Resonance {snapshot.player.resonance}; spawned{' '}
+                      {String(snapshot.reward.spawned)}; awarded{' '}
+                      {String(snapshot.reward.resonanceAwarded)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Reward condition independence</dt>
+                    <dd>rewards-1 inputs exclude condition and profile</dd>
                   </div>
                   <div>
                     <dt>Write policy</dt>

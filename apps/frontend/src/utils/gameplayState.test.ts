@@ -177,7 +177,7 @@ describe('Resonant Ruins gameplay state', () => {
       amount: 2,
       timestamp: 2_000,
     });
-    const roomReset = gameplayReducer(damaged, { type: 'reset-room' });
+    const roomReset = gameplayReducer({ ...damaged, resonance: 2 }, { type: 'reset-room' });
     const newRun = gameplayReducer(roomReset, {
       type: 'start-run',
       maximumHealth: 6,
@@ -186,8 +186,10 @@ describe('Resonant Ruins gameplay state', () => {
     });
 
     expect(roomReset.currentHealth).toBe(4);
+    expect(roomReset.resonance).toBe(2);
     expect(newRun.currentHealth).toBe(6);
     expect(newRun.maximumHealth).toBe(6);
+    expect(newRun.resonance).toBe(0);
   });
 
   it('clamps fatal damage to zero, snapshots survival, and ignores future player input', () => {
@@ -361,7 +363,12 @@ describe('Resonant Ruins gameplay state', () => {
       currentRoomId: EVALUATION_ROOM_1_ID,
       spawn: { row: 5, column: 1 },
     });
-    state = { ...state, currentHealth: 4, player: { ...state.player, facing: 'down' } };
+    state = {
+      ...state,
+      currentHealth: 4,
+      resonance: 3,
+      player: { ...state.player, facing: 'down' },
+    };
 
     const transitioned = gameplayReducer(state, {
       type: 'commit-room-transition',
@@ -385,6 +392,7 @@ describe('Resonant Ruins gameplay state', () => {
     expect(transitioned).toMatchObject({
       status: 'active',
       currentHealth: 4,
+      resonance: 3,
       player: { position: { row: 5, column: 1 }, facing: 'down', isShielding: false },
       runStats: {
         runId: 'progression-run',

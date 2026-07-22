@@ -9,6 +9,7 @@ interface GameOverResultsProps {
   timeSurvived: string;
   roomsCleared: number;
   enemiesDefeated: number;
+  resonance?: number;
   onHide: () => void;
   onReopen: () => void;
   onRestart: () => void;
@@ -21,6 +22,7 @@ export function GameOverResults({
   timeSurvived,
   roomsCleared,
   enemiesDefeated,
+  resonance = 0,
   onHide,
   onReopen,
   onRestart,
@@ -69,7 +71,7 @@ export function GameOverResults({
             onReopen();
           }
         }}
-        aria-label={`Show game-over results. Time ${timeSurvived}, rooms cleared ${roomsCleared}, enemies defeated ${enemiesDefeated}.`}
+        aria-label={`Show game-over results. Time ${timeSurvived}, rooms cleared ${roomsCleared}, enemies defeated ${enemiesDefeated}, Resonance ${resonance}.`}
       >
         <span>
           <small>Time</small>
@@ -82,6 +84,10 @@ export function GameOverResults({
         <span>
           <small>Enemies</small>
           <strong>{enemiesDefeated}</strong>
+        </span>
+        <span>
+          <small>Resonance</small>
+          <strong>{resonance}</strong>
         </span>
       </button>
     );
@@ -132,6 +138,10 @@ export function GameOverResults({
           <div>
             <dt>Enemies defeated</dt>
             <dd>{enemiesDefeated}</dd>
+          </div>
+          <div>
+            <dt>Resonance</dt>
+            <dd>{resonance}</dd>
           </div>
         </dl>
         <div className="game-over-dialog__actions">

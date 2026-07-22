@@ -19,7 +19,17 @@
     "lint": "eslint apps --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "analyze:research": "node scripts/analyze-research.mjs"
+    "analyze:research": "node scripts/analyze-research.mjs",
+    "prepare:model-data": "node node_modules/tsx/dist/cli.mjs tools/model_data/prepare.ts",
+    "train:model": "python tools/model_training/train_model.py",
+    "evaluate:model": "python tools/model_training/evaluate_model.py",
+    "inspect:model": "python tools/model_training/inspect_model.py",
+    "verify:model-parity": "node node_modules/vitest/vitest.mjs run --root apps/frontend src/model/parity.test.ts",
+    "verify:model-safety": "node scripts/verify-model-safety.mjs --all-tracked",
+    "verify:model-safety:staged": "node scripts/verify-model-safety.mjs",
+    "test:model-safety": "node --test scripts/verify-model-safety.test.mjs",
+    "test:model-training": "python -m unittest discover -s tools/model_training/tests -t tools/model_training",
+    "typecheck:model-tools": "node node_modules/typescript/bin/tsc -p tools/model_data/tsconfig.json --pretty false"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

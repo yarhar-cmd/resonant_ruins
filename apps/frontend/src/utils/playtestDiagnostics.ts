@@ -6,7 +6,7 @@ import type { RatAwareness, RatState } from '../types/enemies';
 import type { RoomDefinition, TileCoordinate } from '../types/rooms';
 import { coordinateKey, gridPositionToCoordinate } from './roomGeometry';
 import { playerLegalEscapeTiles } from './enemySystem';
-import { getRestorationFountains } from './interactions';
+import { getResonanceCaches, getRestorationFountains } from './interactions';
 
 export interface PlaytestRatDiagnostic {
   id: string;
@@ -61,6 +61,7 @@ export interface PlaytestDiagnosticsSnapshot {
     currentHealth: number;
     maximumHealth: number;
     invulnerable: boolean;
+    resonance: number;
   };
   combat: {
     alertedRats: number;
@@ -96,6 +97,26 @@ export interface PlaytestDiagnosticsSnapshot {
     channelStatus: string;
     channelRemainingMs: number;
     cancellationReason: string;
+  };
+  reward: {
+    rewardSystemVersion: string;
+    enabled: boolean;
+    eligible: boolean;
+    eligiblePlacementCount: number;
+    spawnRoll: number | null;
+    spawned: boolean;
+    spawnReason: string;
+    coordinate: TileCoordinate | null;
+    placementCategory: string;
+    optionalRouteScore: number | null;
+    interactionTiles: TileCoordinate[];
+    status: 'absent' | 'unopened' | 'opening' | 'opened';
+    combatLock: boolean;
+    channelRemainingMs: number;
+    latestCancellationReason: string;
+    resonanceAwarded: boolean;
+    excludedFromModelFeatures1: true;
+    sharedPoolAndShadowUnchanged: true;
   };
   effects: {
     setting: 'full' | 'reduced' | 'off';
@@ -133,6 +154,9 @@ export function selectPlaytestDiagnostics(
   const provenance = gameplay.dungeonProgress?.provenance;
   const fountain = getRestorationFountains(room)[0];
   const recovery = details?.recoveryDecision;
+  const reward = details?.rewardDecision;
+  const cache = getResonanceCaches(room)[0];
+  const cacheRuntime = cache ? gameplay.interactables[cache.id] : undefined;
 
   return {
     room: {
@@ -184,6 +208,7 @@ export function selectPlaytestDiagnostics(
       currentHealth: gameplay.currentHealth,
       maximumHealth: gameplay.maximumHealth,
       invulnerable: transitionInvulnerable || gameplay.invulnerability.expiresAt !== null,
+      resonance: gameplay.resonance,
     },
     combat: {
       alertedRats: livingRats.filter((rat) => rat.awareness === 'alerted').length,
@@ -238,6 +263,41 @@ export function selectPlaytestDiagnostics(
           : gameplay.interaction.remainingMs,
       cancellationReason: gameplay.interaction.cancellationReason ?? 'none',
     },
+    reward: {
+      rewardSystemVersion: reward?.rewardSystemVersion ?? VERSION_INFO.rewardSystemVersion,
+      enabled: reward?.enabled ?? false,
+      eligible: reward?.eligible ?? false,
+      eligiblePlacementCount: reward?.eligiblePlacementCount ?? 0,
+      spawnRoll: reward?.spawnRoll ?? null,
+      spawned: reward?.spawned ?? false,
+      spawnReason: reward?.spawnReason ?? 'authored-room',
+      coordinate: reward?.coordinate ?? null,
+      placementCategory: reward?.placementCategory ?? 'none',
+      optionalRouteScore: reward?.optionalRouteScore ?? null,
+      interactionTiles: reward?.interactionTiles ?? [],
+      status: !cache
+        ? 'absent'
+        : cacheRuntime?.depleted
+          ? 'opened'
+          : gameplay.interaction.type === 'resonance-cache' &&
+              gameplay.interaction.status === 'channeling'
+            ? 'opening'
+            : 'unopened',
+      combatLock: livingRats.some((rat) => rat.awareness === 'alerted'),
+      channelRemainingMs:
+        gameplay.interaction.type === 'resonance-cache' &&
+        gameplay.interaction.status === 'channeling'
+          ? remainingDiagnosticTime(gameplay.interaction.deadline, now)
+          : 0,
+      latestCancellationReason:
+        cacheRuntime?.cancellationReasons?.at(-1) ??
+        (gameplay.interaction.type === 'resonance-cache'
+          ? (gameplay.interaction.cancellationReason ?? 'none')
+          : 'none'),
+      resonanceAwarded: cacheRuntime?.resonanceAwarded ?? false,
+      excludedFromModelFeatures1: true,
+      sharedPoolAndShadowUnchanged: true,
+    },
     effects: {
       setting: effectsSetting,
       reducedMotion,
@@ -258,6 +318,8 @@ export function formatPlaytestDiagnosticSummary(snapshot: PlaytestDiagnosticsSna
     `Topology archetype=${snapshot.room.archetype} boundary=${snapshot.room.boundaryFamily} candidates=${snapshot.room.validCandidates}/${snapshot.room.requestedCandidates} rejected=${snapshot.room.rejectedCandidates} reduced=${snapshot.room.reducedDiversity} fallback=${snapshot.room.fallbackUsed}`,
     `Directions available=${snapshot.room.availableExitDirections.join(',')} chosen=${snapshot.room.chosenExitDirection ?? 'none'} previousEntrance=${snapshot.room.previousEntranceDirection ?? 'none'} nextEntrance=${snapshot.room.nextEntranceDirection ?? 'none'} mixed=${snapshot.room.mixedGeneratorProvenance}`,
     `Fountain spawned=${snapshot.fountain.spawned} source=${snapshot.fountain.source} tile=${formatDiagnosticTile(snapshot.fountain.coordinate)} style=${snapshot.fountain.placementStyle} variant=${snapshot.fountain.variant} depleted=${snapshot.fountain.depleted} channel=${snapshot.fountain.channelStatus}/${snapshot.fountain.channelRemainingMs}ms cancel=${snapshot.fountain.cancellationReason}`,
+    `Reward version=${snapshot.reward.rewardSystemVersion} enabled=${snapshot.reward.enabled} resonance=${snapshot.player.resonance} eligible=${snapshot.reward.eligible}/${snapshot.reward.eligiblePlacementCount} spawned=${snapshot.reward.spawned} reason=${snapshot.reward.spawnReason} tile=${formatDiagnosticTile(snapshot.reward.coordinate)} placement=${snapshot.reward.placementCategory} score=${snapshot.reward.optionalRouteScore ?? 'none'} status=${snapshot.reward.status} channel=${snapshot.reward.channelRemainingMs}ms combatLock=${snapshot.reward.combatLock} cancel=${snapshot.reward.latestCancellationReason} awarded=${snapshot.reward.resonanceAwarded}`,
+    `Model isolation cacheExcludedFromModelFeatures1=${snapshot.reward.excludedFromModelFeatures1} sharedPoolAndShadowUnchanged=${snapshot.reward.sharedPoolAndShadowUnchanged}`,
     `Effects setting=${snapshot.effects.setting} reducedMotion=${snapshot.effects.reducedMotion} effective=${snapshot.effects.effectiveMode}`,
     ...snapshot.room.exitDecisions.map(
       (exit) =>
@@ -291,6 +353,12 @@ export function formatAsciiRoom(room: RoomDefinition, gameplay: GameplayState): 
       gameplay.interactables[feature.id]?.depleted ? 'f' : 'F',
     ]),
   );
+  const caches = new Map(
+    getResonanceCaches(room).map((feature) => [
+      coordinateKey(feature.tile),
+      gameplay.interactables[feature.id]?.depleted ? 'c' : 'C',
+    ]),
+  );
   const torches = new Set(
     (room.features ?? [])
       .filter((feature) => feature.kind === 'ruin-torch')
@@ -304,25 +372,27 @@ export function formatAsciiRoom(room: RoomDefinition, gameplay: GameplayState): 
       line +=
         key === player
           ? 'P'
-          : fountains.has(key)
-            ? fountains.get(key)!
-            : torches.has(key)
-              ? 'T'
-              : rats.has(key)
-                ? 'R'
-                : runes.has(key)
-                  ? '^'
-                  : exits.has(key)
-                    ? 'E'
-                    : key === entrance
-                      ? 'S'
-                      : internal.has(key)
-                        ? 'W'
-                        : outer.has(key)
-                          ? '#'
-                          : floor.has(key)
-                            ? '.'
-                            : ' ';
+          : caches.has(key)
+            ? caches.get(key)!
+            : fountains.has(key)
+              ? fountains.get(key)!
+              : torches.has(key)
+                ? 'T'
+                : rats.has(key)
+                  ? 'R'
+                  : runes.has(key)
+                    ? '^'
+                    : exits.has(key)
+                      ? 'E'
+                      : key === entrance
+                        ? 'S'
+                        : internal.has(key)
+                          ? 'W'
+                          : outer.has(key)
+                            ? '#'
+                            : floor.has(key)
+                              ? '.'
+                              : ' ';
     }
     lines.push(line.trimEnd());
   }

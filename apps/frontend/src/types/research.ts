@@ -1,6 +1,8 @@
 import type { AdaptiveProfile, ExperiencePreset } from './adaptation';
 import type { RoomCandidateSummary, RoomSelectorId, RoomSelectorVersion } from './generation';
-import type { ExitDirection } from './rooms';
+import type { ExitDirection, TileCoordinate } from './rooms';
+import type { CachePlacementCategory, CacheSpawnReason } from './rewards';
+import type { InteractionCancellationReason } from './interactions';
 import type { RoomArchetype, RoomFeatureVector } from './topology';
 
 export type ResearchCondition = 'RULES_ADAPTIVE' | 'NEUTRAL_PROCEDURAL';
@@ -65,6 +67,15 @@ export interface RoomResearchOutcome {
   fountainSkipped: boolean;
   fountainHealthBefore: number | null;
   fountainHealthAfter: number | null;
+  cacheEncountered?: boolean;
+  cacheOpened?: boolean;
+  cacheSkipped?: boolean;
+  timeFromRoomStartToOpeningMs?: number | null;
+  healthWhenCacheOpened?: number | null;
+  resonanceBefore?: number;
+  resonanceAfter?: number;
+  resonanceEarned?: number;
+  cacheChannelCancellationReasons?: InteractionCancellationReason[];
 }
 
 export interface ResearchRoomStartSnapshot {
@@ -75,9 +86,48 @@ export interface ResearchRoomStartSnapshot {
   enteredAtMs: number;
   capturedAt: string;
   healthBefore: number;
+  resonanceBefore?: number;
   profileBefore: AdaptiveProfile;
   performance: ResearchPerformanceSummary;
   roomsClearedBefore: number;
+}
+
+export interface ShadowContributionEvidence {
+  targetClass: DifficultyRating;
+  feature: string;
+  contribution: number;
+  phrase: string;
+}
+
+export interface ShadowCandidateEvidence {
+  candidateId: string;
+  probabilities: Record<DifficultyRating, number>;
+  predictedClass: DifficultyRating;
+  confidence: number;
+  rank: number;
+  topContributions: ShadowContributionEvidence[];
+}
+
+export interface ShadowRoomEvidence {
+  schemaVersion: 'shadow-1';
+  status: 'scored' | 'incompatible' | 'failed';
+  roomDecisionId: string;
+  sharedPoolId: string;
+  artifactId: string | null;
+  modelId: string | null;
+  modelVersion: string | null;
+  featureSchemaVersion: 'model-features-1';
+  activeSelectorId: RoomSelectorId;
+  activeSelectedCandidateId: string;
+  candidates: ShadowCandidateEvidence[];
+  modelPreferredCandidateId: string | null;
+  agreesWithActiveSelector: boolean | null;
+  priorRatingAvailable: boolean;
+  scoringDurationMs: number | null;
+  failure: { stage: string; reasonCode: string } | null;
+  observedRating: DifficultyRating | null;
+  predictedObservedClass: DifficultyRating | null;
+  predictionCorrect: boolean | null;
 }
 
 export interface RoomResearchRecord {
@@ -93,7 +143,7 @@ export interface RoomResearchRecord {
   capturedAt: string;
   condition: ResearchCondition;
   assignmentMethodId: 'balanced-two-run-blocks-1';
-  gameVersion: 'mvp-0.4';
+  gameVersion: 'mvp-0.4' | 'mvp-0.5';
   generatorVersion: 'generator-4';
   adaptationVersion: 'rules-2';
   selectorId: RoomSelectorId;
@@ -129,6 +179,17 @@ export interface RoomResearchRecord {
   fountainSpawned: boolean;
   fountainPlacement: 'safe' | 'risky' | null;
   safeRouteExists: boolean;
+  rewardSystemVersion?: 'rewards-1';
+  cacheEligible?: boolean;
+  eligiblePlacementCount?: number;
+  cacheSpawnRoll?: number | null;
+  cacheSpawned?: boolean;
+  cacheSpawnReason?: CacheSpawnReason;
+  cacheCoordinate?: TileCoordinate | null;
+  cachePlacementCategory?: CachePlacementCategory | null;
+  cacheOptionalRouteScore?: number | null;
+  cacheInteractionTileCount?: number;
+  shadow?: ShadowRoomEvidence;
   outcome: RoomResearchOutcome;
   feedback: RoomFeedback;
 }

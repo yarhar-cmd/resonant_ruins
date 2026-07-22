@@ -7,6 +7,7 @@ const defaultProps = {
   timeSurvived: '01:23',
   roomsCleared: 2,
   enemiesDefeated: 4,
+  resonance: 3,
   onHide: vi.fn(),
   onReopen: vi.fn(),
   onRestart: vi.fn(),
@@ -24,6 +25,8 @@ describe('Resonant Ruins game-over results', () => {
     expect(screen.getByText('The ruins remember your attempt.')).toBeVisible();
     expect(screen.getByText('Warden')).toBeVisible();
     expect(screen.getByText('01:23')).toBeVisible();
+    expect(screen.getByText('Resonance')).toBeVisible();
+    expect(screen.getByText('3')).toBeVisible();
     expect(screen.queryByText(/best|recent|leaderboard|cause/i)).not.toBeInTheDocument();
   });
 
@@ -59,7 +62,7 @@ describe('Resonant Ruins game-over results', () => {
     expect(menu).toHaveFocus();
   });
 
-  it('renders a compact focusable button with only the three result stats', () => {
+  it('renders a compact focusable button with all four result stats', () => {
     const onReopen = vi.fn();
     render(<GameOverResults visible={false} {...defaultProps} onReopen={onReopen} />);
     const strip = screen.getByRole('button', { name: /Show game-over results/ });
@@ -68,6 +71,8 @@ describe('Resonant Ruins game-over results', () => {
     expect(screen.getByText('Time')).toBeVisible();
     expect(screen.getByText('Dungeon rooms')).toBeVisible();
     expect(screen.getByText('Enemies')).toBeVisible();
+    expect(screen.getByText('Resonance')).toBeVisible();
+    expect(strip).toHaveAccessibleName(/Resonance 3/);
     expect(screen.queryByText('Warden')).not.toBeInTheDocument();
     expect(screen.queryByText('Restart Run')).not.toBeInTheDocument();
     fireEvent.keyDown(strip, { key: 'Enter' });

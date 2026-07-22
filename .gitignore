@@ -31,3 +31,13 @@ Desktop.ini
 *.swp
 *.swo
 *.tsbuildinfo
+
+# Local model development and private research inputs
+.venv-model/
+**/__pycache__/
+*.py[cod]
+research-exports/
+model-data/private/
+model-reports/local/
+model-artifacts/local/
+model-experiments/

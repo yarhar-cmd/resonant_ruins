@@ -15,6 +15,12 @@ import {
 import { gameplayReducer, getTimeSurvived, restoreGameplayState } from '../utils/gameplayState';
 import { createCombatMetrics, type StoredRatEnemy } from '../types/enemies';
 import { RAT_COMBAT_CONFIG } from '../config/combat';
+import { applyRewardLayer, findRewardPlacementCandidates } from '../utils/rewardGeneration';
+import {
+  createInteractableRuntimeStates,
+  directionBetweenAdjacent,
+  getResonanceCaches,
+} from '../utils/interactions';
 
 function record(overrides: Partial<ActiveRunRecord> = {}): ActiveRunRecord {
   return {
@@ -25,6 +31,7 @@ function record(overrides: Partial<ActiveRunRecord> = {}): ActiveRunRecord {
     elapsedMs: 12_345,
     currentHealth: 4,
     maximumHealth: 6,
+    resonance: 0,
     playerPosition: { x: 4, y: 5 },
     facing: 'right',
     dungeonRoomsCleared: 0,
@@ -139,7 +146,27 @@ function storedRat(overrides: Partial<StoredRatEnemy> = {}): StoredRatEnemy {
   };
 }
 
-describe('Resonant Ruins active-run storage v8', () => {
+function cacheRoom() {
+  for (let index = 0; index < 40; index += 1) {
+    const generated = generateDungeonRoom({
+      runSeed: `active-cache-${index}`,
+      dungeonRoomNumber: 10,
+      chosenExitId: 'active-cache-entry',
+      entranceDirection: 'west',
+      experiencePreset: 'seasoned-adventurer',
+      effectiveProfile: NEUTRAL_ADAPTIVE_PROFILE,
+      mode: 'reinforce',
+      generatorVersion: 'generator-4',
+      adaptationVersion: 'rules-2',
+      gameVersion: 'mvp-0.5',
+    });
+    if (findRewardPlacementCandidates(generated).candidates.length > 0)
+      return applyRewardLayer(generated, { override: 'force' });
+  }
+  throw new Error('No deterministic active-run Cache fixture was eligible.');
+}
+
+describe('Resonant Ruins active-run storage v9', () => {
   beforeEach(() => localStorage.clear());
   it('round-trips preset, run seed, profile signals, Chamber analytics, and exact position', () => {
     const active = record();
@@ -540,7 +567,7 @@ describe('Resonant Ruins active-run storage v8', () => {
     const legacy = { ...record(), version: 7 as const };
     const migrated = parseActiveRunRecord(legacy);
     expect(migrated).toMatchObject({
-      version: 8,
+      version: 9,
       dungeonProgress: {
         recovery: {
           cooldownRemaining: 0,
@@ -550,6 +577,114 @@ describe('Resonant Ruins active-run storage v8', () => {
         },
       },
     });
+  });
+
+  it('migrates schema-v8 saves to zero Resonance without inventing Cache state', () => {
+    const legacy = { ...record(), version: 8 as const };
+    delete legacy.resonance;
+    const migrated = parseActiveRunRecord(legacy);
+    expect(migrated).toMatchObject({ version: 9, resonance: 0 });
+    expect(migrated?.interactables).toBeUndefined();
+  });
+
+  it('round-trips unopened and opened Cache state with exact run Resonance', () => {
+    const generated = cacheRoom();
+    const cache = getResonanceCaches(generated.roomSnapshot)[0]!;
+    const approach = cache.interactionTiles[0]!;
+    const facing = directionBetweenAdjacent(approach, cache.tile)!;
+    const base = record();
+    const runtime = createInteractableRuntimeStates(generated.roomSnapshot);
+    runtime[cache.id] = {
+      ...runtime[cache.id]!,
+      depleted: true,
+      encounteredAt: 12_000,
+      usedAt: 12_400,
+      healthWhenUsed: 4,
+      resonanceAwarded: true,
+    };
+    const active = record({
+      resonance: 3,
+      playerPosition: approach,
+      facing,
+      evaluationProgress: {
+        ...base.evaluationProgress,
+        currentRoomIndex: 5,
+        currentRoomId: generated.roomSnapshot.id,
+        evaluationComplete: true,
+      },
+      dungeonProgress: {
+        ...base.dungeonProgress!,
+        dungeonRoomNumber: 10,
+        currentRoom: generated,
+        enteredFrom: 'west',
+        provenance: {
+          gameVersion: 'mvp-0.5',
+          adaptationVersion: 'rules-2',
+          startingGeneratorVersion: 'generator-4',
+          activeGeneratorVersion: 'generator-4',
+          mixed: false,
+          transitions: [],
+        },
+      },
+      enemies: { ...base.enemies!, roomId: generated.roomSnapshot.id },
+      interactables: runtime,
+    });
+
+    saveActiveRun(active);
+    const restored = loadActiveRun().record;
+    expect(restored).toMatchObject({ version: 9, resonance: 3 });
+    expect(restored?.dungeonProgress?.currentRoom?.roomSnapshot.features).toContainEqual(cache);
+    expect(restored?.interactables?.[cache.id]).toMatchObject({
+      depleted: true,
+      resonanceAwarded: true,
+      usedAt: 12_400,
+    });
+  });
+
+  it('restores a valid Cache channel by remaining time and cancels an invalid one safely', () => {
+    const generated = cacheRoom();
+    const cache = getResonanceCaches(generated.roomSnapshot)[0]!;
+    const approach = cache.interactionTiles[0]!;
+    const facing = directionBetweenAdjacent(approach, cache.tile)!;
+    const base = record();
+    const channelRecord = record({
+      playerPosition: approach,
+      facing,
+      evaluationProgress: {
+        ...base.evaluationProgress,
+        currentRoomIndex: 5,
+        currentRoomId: generated.roomSnapshot.id,
+        evaluationComplete: true,
+      },
+      dungeonProgress: {
+        ...base.dungeonProgress!,
+        dungeonRoomNumber: 10,
+        currentRoom: generated,
+        enteredFrom: 'west',
+      },
+      enemies: { ...base.enemies!, roomId: generated.roomSnapshot.id },
+      interaction: {
+        targetId: cache.id,
+        type: 'resonance-cache',
+        startedAt: 12_000,
+        deadline: null,
+        remainingMs: 275,
+        status: 'channeling',
+        cancellationReason: null,
+        result: null,
+      },
+      interactables: createInteractableRuntimeStates(generated.roomSnapshot),
+    });
+
+    const restored = restoreGameplayState(toRestorableGameplayRun(channelRecord), 6, 100_000);
+    expect(restored.interaction).toMatchObject({ status: 'channeling', deadline: 100_275 });
+
+    const invalid = toRestorableGameplayRun({ ...channelRecord, facing: 'left' });
+    expect(invalid.interaction).toMatchObject({
+      status: 'cancelled',
+      cancellationReason: 'unavailable',
+    });
+    expect(invalid.resonance).toBe(0);
   });
 
   it('round-trips a Fountain channel by remaining duration and restores one deadline', () => {
@@ -577,6 +712,9 @@ describe('Resonant Ruins active-run storage v8', () => {
           depleted: false,
           encounteredAt: 12_000,
           usedAt: null,
+          healthWhenUsed: null,
+          resonanceAwarded: false,
+          cancellationReasons: [],
         },
       },
     });

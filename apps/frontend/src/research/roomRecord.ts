@@ -9,10 +9,11 @@ import type {
   RoomFeedback,
   RoomOutcomeStatus,
   RoomResearchRecord,
+  ShadowRoomEvidence,
 } from '../types/research';
 import type { RoomExit } from '../types/rooms';
 import type { GameplayState } from '../utils/gameplayState';
-import { getRestorationFountains } from '../utils/interactions';
+import { getResonanceCaches, getRestorationFountains } from '../utils/interactions';
 
 function trailingDamage(snapshots: GameplayState['adaptation']['generatedRoomSignals']): number {
   let count = 0;
@@ -42,6 +43,7 @@ export function createResearchRoomStart(input: {
     enteredAtMs: input.gameplay.evaluationProgress?.roomEnteredAtMs ?? 0,
     capturedAt: input.capturedAt ?? new Date().toISOString(),
     healthBefore: input.gameplay.currentHealth,
+    resonanceBefore: input.gameplay.resonance,
     profileBefore: { ...input.sessionProfile },
     performance: {
       recentDamage: input.gameplay.adaptation.generatedRoomSignals
@@ -84,6 +86,7 @@ export function buildRoomResearchRecord(input: {
   exit?: RoomExit;
   capturedAt?: string;
   feedback?: RoomFeedback;
+  shadow?: ShadowRoomEvidence | null;
 }): RoomResearchRecord {
   const { generated, gameplay, roomStart } = input;
   const details = generated.details;
@@ -91,6 +94,9 @@ export function buildRoomResearchRecord(input: {
   if (!feature) throw new Error('Generated research room is missing its selected feature vector.');
   const fountain = getRestorationFountains(generated.roomSnapshot)[0];
   const fountainRuntime = fountain ? gameplay.interactables[fountain.id] : undefined;
+  const cache = getResonanceCaches(generated.roomSnapshot)[0];
+  const cacheRuntime = cache ? gameplay.interactables[cache.id] : undefined;
+  const reward = details.rewardDecision;
   const signals = gameplay.adaptation.signals;
   const capturedAt = input.capturedAt ?? new Date().toISOString();
   const elapsed =
@@ -117,7 +123,7 @@ export function buildRoomResearchRecord(input: {
     capturedAt,
     condition: input.condition,
     assignmentMethodId: input.run.assignment.methodId,
-    gameVersion: 'mvp-0.4',
+    gameVersion: 'mvp-0.5',
     generatorVersion: 'generator-4',
     adaptationVersion: 'rules-2',
     selectorId: details.selectorId!,
@@ -153,6 +159,21 @@ export function buildRoomResearchRecord(input: {
     fountainSpawned: Boolean(fountain),
     fountainPlacement: fountain?.placementStyle ?? null,
     safeRouteExists: generated.roomSnapshot.topology?.safeRouteExists ?? true,
+    ...(reward
+      ? {
+          rewardSystemVersion: reward.rewardSystemVersion,
+          cacheEligible: reward.eligible,
+          eligiblePlacementCount: reward.eligiblePlacementCount,
+          cacheSpawnRoll: reward.spawnRoll,
+          cacheSpawned: reward.spawned,
+          cacheSpawnReason: reward.spawnReason,
+          cacheCoordinate: reward.coordinate,
+          cachePlacementCategory: reward.placementCategory,
+          cacheOptionalRouteScore: reward.optionalRouteScore,
+          cacheInteractionTileCount: reward.interactionTiles.length,
+        }
+      : {}),
+    ...(input.shadow ? { shadow: input.shadow } : {}),
     outcome: {
       status: input.status,
       durationMs: Math.max(0, elapsed - roomStart.enteredAtMs),
@@ -175,6 +196,28 @@ export function buildRoomResearchRecord(input: {
       fountainSkipped: Boolean(fountain && !fountainRuntime?.depleted),
       fountainHealthBefore: fountainRuntime?.encounteredAt != null ? roomStart.healthBefore : null,
       fountainHealthAfter: fountainRuntime?.depleted ? gameplay.currentHealth : null,
+      ...(reward
+        ? {
+            cacheEncountered: cacheRuntime?.encounteredAt != null,
+            cacheOpened: cacheRuntime?.depleted ?? false,
+            cacheSkipped: Boolean(cache && !cacheRuntime?.depleted),
+            timeFromRoomStartToOpeningMs:
+              cacheRuntime?.usedAt != null
+                ? Math.max(
+                    0,
+                    cacheRuntime.usedAt -
+                      ((gameplay.runStats.startedAt ?? cacheRuntime.usedAt) +
+                        roomStart.enteredAtMs +
+                        gameplay.pause.totalPausedMs),
+                  )
+                : null,
+            healthWhenCacheOpened: cacheRuntime?.healthWhenUsed ?? null,
+            resonanceBefore: roomStart.resonanceBefore ?? 0,
+            resonanceAfter: gameplay.resonance,
+            resonanceEarned: Math.max(0, gameplay.resonance - (roomStart.resonanceBefore ?? 0)),
+            cacheChannelCancellationReasons: cacheRuntime?.cancellationReasons ?? [],
+          }
+        : {}),
     },
     feedback,
   };

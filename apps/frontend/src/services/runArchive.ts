@@ -2,12 +2,12 @@ import { isExperiencePreset, type StoredExperiencePreset } from '../types/adapta
 import type { AdaptationVersion, GeneratorVersion } from '../config/version';
 
 export const RUN_ARCHIVE_KEY = 'mirrorvault:run-archive:v1';
-export const RUN_ARCHIVE_VERSION = 3 as const;
+export const RUN_ARCHIVE_VERSION = 4 as const;
 export const RUN_HISTORY_LIMIT = 5;
 export type CharacterId = 'warden' | 'seeker' | 'ember';
 
 export interface CompletedRunRecord {
-  version: 3;
+  version: 4;
   id: string;
   characterId: CharacterId;
   experiencePreset: StoredExperiencePreset;
@@ -17,6 +17,8 @@ export interface CompletedRunRecord {
   /** Migration compatibility alias. */
   roomsCleared?: number;
   enemiesDefeated: number;
+  resonanceCollected: number;
+  rewardSystemVersion: string | null;
   gameVersion: string;
   generatorVersions: GeneratorVersion[];
   adaptationVersions: AdaptationVersion[];
@@ -30,11 +32,13 @@ export interface CharacterBestStats {
   bestRoomsRunId: string | null;
   bestEnemiesDefeated: number;
   bestEnemiesRunId: string | null;
+  bestResonance: number;
+  bestResonanceRunId: string | null;
 }
 export type PresetBestStats = Record<StoredExperiencePreset, CharacterBestStats> &
   Partial<CharacterBestStats>;
 export interface RunArchiveData {
-  version: 3;
+  version: 4;
   histories: Record<CharacterId, CompletedRunRecord[]>;
   bestStats: Record<CharacterId, PresetBestStats>;
 }
@@ -81,6 +85,8 @@ function emptyBest(): CharacterBestStats {
     bestRoomsRunId: null,
     bestEnemiesDefeated: 0,
     bestEnemiesRunId: null,
+    bestResonance: 0,
+    bestResonanceRunId: null,
   };
 }
 function emptyPresetBests(): PresetBestStats {
@@ -135,7 +141,7 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
     return null;
   if (value.version === 1 && isCount(value.roomsCleared)) {
     return {
-      version: 3,
+      version: 4,
       id: value.id,
       characterId: value.characterId,
       experiencePreset: 'unknown',
@@ -143,6 +149,8 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
       timeSurvivedMs: value.timeSurvivedMs,
       dungeonRoomsCleared: value.roomsCleared,
       enemiesDefeated: value.enemiesDefeated,
+      resonanceCollected: 0,
+      rewardSystemVersion: null,
       gameVersion: 'unknown',
       generatorVersions: [],
       adaptationVersions: [],
@@ -150,13 +158,13 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
     };
   }
   if (
-    (value.version !== 2 && value.version !== 3) ||
+    (value.version !== 2 && value.version !== 3 && value.version !== 4) ||
     !isStoredPreset(value.experiencePreset) ||
     !isCount(value.dungeonRoomsCleared)
   )
     return null;
   const generatorVersions =
-    value.version === 3 &&
+    (value.version === 3 || value.version === 4) &&
     Array.isArray(value.generatorVersions) &&
     value.generatorVersions.every(
       (item) =>
@@ -168,13 +176,13 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
       ? (value.generatorVersions as GeneratorVersion[])
       : [];
   const adaptationVersions =
-    value.version === 3 &&
+    (value.version === 3 || value.version === 4) &&
     Array.isArray(value.adaptationVersions) &&
     value.adaptationVersions.every((item) => item === 'rules-1' || item === 'rules-2')
       ? (value.adaptationVersions as AdaptationVersion[])
       : [];
   return {
-    version: 3,
+    version: 4,
     id: value.id,
     characterId: value.characterId,
     experiencePreset: value.experiencePreset,
@@ -182,12 +190,21 @@ function parseRecord(value: unknown): CompletedRunRecord | null {
     timeSurvivedMs: value.timeSurvivedMs,
     dungeonRoomsCleared: value.dungeonRoomsCleared,
     enemiesDefeated: value.enemiesDefeated,
+    resonanceCollected:
+      value.version === 4 && isCount(value.resonanceCollected) ? value.resonanceCollected : 0,
+    rewardSystemVersion:
+      value.version === 4 && typeof value.rewardSystemVersion === 'string'
+        ? value.rewardSystemVersion
+        : null,
     gameVersion:
-      value.version === 3 && typeof value.gameVersion === 'string' ? value.gameVersion : 'unknown',
+      (value.version === 3 || value.version === 4) && typeof value.gameVersion === 'string'
+        ? value.gameVersion
+        : 'unknown',
     generatorVersions,
     adaptationVersions,
     mixedGeneratorProvenance:
-      value.version === 3 && typeof value.mixedGeneratorProvenance === 'boolean'
+      (value.version === 3 || value.version === 4) &&
+      typeof value.mixedGeneratorProvenance === 'boolean'
         ? value.mixedGeneratorProvenance
         : generatorVersions.length > 1,
   };
@@ -209,6 +226,11 @@ function parseBest(value: unknown): CharacterBestStats | null {
     bestRoomsRunId: value.bestRoomsRunId as string | null,
     bestEnemiesDefeated: value.bestEnemiesDefeated,
     bestEnemiesRunId: value.bestEnemiesRunId as string | null,
+    bestResonance: isCount(value.bestResonance) ? value.bestResonance : 0,
+    bestResonanceRunId:
+      typeof value.bestResonanceRunId === 'string' && value.bestResonanceRunId
+        ? value.bestResonanceRunId
+        : null,
   };
 }
 function updateBest(best: CharacterBestStats, record: CompletedRunRecord): CharacterBestStats {
@@ -230,6 +252,14 @@ function updateBest(best: CharacterBestStats, record: CompletedRunRecord): Chara
         : best.bestEnemiesDefeated,
     bestEnemiesRunId:
       record.enemiesDefeated >= best.bestEnemiesDefeated ? record.id : best.bestEnemiesRunId,
+    bestResonance:
+      record.rewardSystemVersion && record.resonanceCollected >= best.bestResonance
+        ? record.resonanceCollected
+        : best.bestResonance,
+    bestResonanceRunId:
+      record.rewardSystemVersion && record.resonanceCollected >= best.bestResonance
+        ? record.id
+        : best.bestResonanceRunId,
   };
 }
 
@@ -255,7 +285,7 @@ export function parseRunArchive(value: unknown): RunArchiveData | null {
   if (!isObject(value)) return null;
   if (value.version === 1) return migrateVersionOne(value);
   if (
-    (value.version !== 2 && value.version !== 3) ||
+    (value.version !== 2 && value.version !== 3 && value.version !== 4) ||
     !isObject(value.histories) ||
     !isObject(value.bestStats)
   )
@@ -307,6 +337,8 @@ export function createCompletedRunRecord(record: {
   dungeonRoomsCleared?: number;
   roomsCleared?: number;
   enemiesDefeated: number;
+  resonanceCollected?: number;
+  rewardSystemVersion?: string | null;
   gameVersion?: string;
   generatorVersions?: GeneratorVersion[];
   adaptationVersions?: AdaptationVersion[];
@@ -314,7 +346,7 @@ export function createCompletedRunRecord(record: {
 }): CompletedRunRecord {
   const count = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0);
   return {
-    version: 3,
+    version: 4,
     id: record.id,
     characterId: record.characterId,
     experiencePreset: record.experiencePreset ?? 'unknown',
@@ -322,6 +354,8 @@ export function createCompletedRunRecord(record: {
     timeSurvivedMs: count(record.timeSurvivedMs),
     dungeonRoomsCleared: count(record.dungeonRoomsCleared ?? record.roomsCleared ?? 0),
     enemiesDefeated: count(record.enemiesDefeated),
+    resonanceCollected: count(record.resonanceCollected ?? 0),
+    rewardSystemVersion: record.rewardSystemVersion ?? null,
     gameVersion: record.gameVersion ?? 'unknown',
     generatorVersions: [...new Set(record.generatorVersions ?? [])],
     adaptationVersions: [...new Set(record.adaptationVersions ?? [])],
@@ -417,6 +451,10 @@ export function getFilteredRunArchiveView(
       if (partition.bestEnemiesDefeated >= best.bestEnemiesDefeated) {
         best.bestEnemiesDefeated = partition.bestEnemiesDefeated;
         best.bestEnemiesRunId = partition.bestEnemiesRunId;
+      }
+      if (partition.bestResonance >= best.bestResonance) {
+        best.bestResonance = partition.bestResonance;
+        best.bestResonanceRunId = partition.bestResonanceRunId;
       }
     }
   }

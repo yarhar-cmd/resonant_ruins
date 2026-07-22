@@ -736,6 +736,82 @@
 .effects-off .fountain {
   filter: none;
 }
+.tile--resonance-cache,
+.tile--resonance-cache-opened {
+  background: #0c1d16;
+  border-color: rgba(211, 169, 76, 0.42);
+}
+.resonance-cache {
+  position: absolute;
+  z-index: 4;
+  inset: 7%;
+  pointer-events: none;
+}
+.resonance-cache__glow {
+  position: absolute;
+  inset: 18% 10% 8%;
+  border-radius: 45%;
+  background: rgba(255, 243, 212, 0.2);
+  box-shadow: 0 0 0.45rem rgba(255, 243, 212, 0.48);
+  animation: cache-glow 1.8s ease-in-out infinite alternate;
+}
+.resonance-cache__coffer {
+  position: absolute;
+  inset: 15% 8% 8%;
+}
+.resonance-cache__body,
+.resonance-cache__lid {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  border: 1px solid #8c897f;
+  background: linear-gradient(145deg, #85857d, #4b504c 58%, #2c3530);
+}
+.resonance-cache__body {
+  bottom: 4%;
+  height: 48%;
+  clip-path: polygon(4% 0, 96% 0, 90% 100%, 10% 100%);
+}
+.resonance-cache__lid {
+  top: 14%;
+  height: 31%;
+  border-radius: 28% 28% 5% 5%;
+  transform-origin: 50% 100%;
+}
+.resonance-cache__brass {
+  position: absolute;
+  z-index: 2;
+  left: 43%;
+  bottom: 24%;
+  width: 14%;
+  height: 25%;
+  border: 1px solid #f0d184;
+  background: #a47d2d;
+}
+.resonance-cache--opened .resonance-cache__glow {
+  display: none;
+}
+.resonance-cache--opened .resonance-cache__lid {
+  top: -2%;
+  transform: rotate(-24deg) translateY(-14%);
+  background: linear-gradient(145deg, #6f706a, #343c37);
+}
+.resonance-cache--opened .resonance-cache__body::after {
+  content: '';
+  position: absolute;
+  inset: 10% 12% 48%;
+  background: #111914;
+  border-bottom: 1px solid #8c897f;
+}
+.effects-reduced .resonance-cache__glow,
+.effects-off .resonance-cache__glow,
+.reduce-motion .resonance-cache__glow {
+  animation: none;
+}
+.effects-off .resonance-cache__glow {
+  box-shadow: none;
+  background: rgba(255, 243, 212, 0.12);
+}
 .ruin-torch {
   position: absolute;
   z-index: 4;
@@ -1803,6 +1879,14 @@
     opacity: 1;
   }
 }
+@keyframes cache-glow {
+  from {
+    opacity: 0.62;
+  }
+  to {
+    opacity: 1;
+  }
+}
 @keyframes torch-flicker {
   from {
     transform: scale(0.94) rotate(-2deg);
@@ -2243,7 +2327,7 @@
 }
 .game-shell .run-status {
   flex: 0 0 auto;
-  grid-template-columns: minmax(12rem, 2fr) minmax(10rem, 1.35fr) repeat(3, minmax(6.5rem, 1fr));
+  grid-template-columns: minmax(12rem, 2fr) minmax(10rem, 1.35fr) repeat(5, minmax(6.5rem, 1fr));
   width: min(100%, 78rem);
   margin: 0 auto;
 }
@@ -2627,6 +2711,192 @@
 
 @media (max-width: 720px) {
   .research-session-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.model-lab-panel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink-800) 82%, transparent);
+}
+
+.model-lab-heading,
+.model-lab-actions {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.model-lab-heading h2,
+.model-lab-output h3 {
+  margin: 0;
+}
+
+.model-lab-heading > span,
+.model-file-input,
+.model-seed-input {
+  font: 0.72rem var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.model-file-input,
+.model-seed-input {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.model-file-input input,
+.model-seed-input input,
+.model-lab-heading select {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  background: var(--ink-950);
+  color: var(--parchment);
+  font: 0.8rem var(--mono);
+}
+
+.model-lab-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.model-lab-metrics > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line-soft);
+  background: var(--ink-950);
+}
+
+.model-lab-metrics dt {
+  color: var(--parchment-muted);
+  font: 0.65rem var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.model-lab-metrics dd {
+  overflow-wrap: anywhere;
+  margin: 0.35rem 0 0;
+}
+
+.model-lab-metrics pre {
+  max-height: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.model-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line-soft);
+}
+
+.model-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 0.72rem var(--mono);
+}
+
+.model-comparison-table th,
+.model-comparison-table td {
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.model-comparison-table th {
+  color: var(--brass);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.model-candidate-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--parchment);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.model-lab-output {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(16rem, 1fr);
+  gap: 1rem;
+}
+
+.model-lab-output pre {
+  min-height: 24rem;
+  overflow: auto;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--brass-dim);
+  background: var(--ink-950);
+  color: var(--brass);
+  line-height: 1.1;
+}
+
+.model-explanation,
+.model-shadow-inspector {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-left: 3px solid var(--oxidized-red);
+  background: var(--ink-950);
+}
+
+.model-coefficients {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.45rem 1rem;
+  padding-left: 1.5rem;
+}
+
+.model-coefficients li {
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.model-coefficients strong {
+  float: right;
+  color: var(--brass);
+  font-family: var(--mono);
+}
+
+.model-sandbox-shell {
+  min-height: 100vh;
+  background: var(--ink-950);
+}
+
+.model-sandbox-warning {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--oxidized-red);
+  background: color-mix(in srgb, var(--ink-950) 94%, var(--oxidized-red));
+  color: var(--parchment);
+  font: 0.72rem var(--mono);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 760px) {
+  .model-lab-output {
     grid-template-columns: 1fr;
   }
 }

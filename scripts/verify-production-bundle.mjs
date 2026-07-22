@@ -39,10 +39,19 @@ const topologyLabText = [
   'SANDBOX · persistence guards active',
   'No research records are written',
 ];
+const modelLabText = [
+  'Model Comparison Lab',
+  'Synthetic development fixture',
+  'Counterfactual Sandbox',
+  'fixture-logistic-development-1',
+  'Import ResearchExport JSON',
+  'Launch with forced Resonance Cache',
+  'Launch with rewards disabled',
+];
 const forbiddenText =
   scanMode === 'preview'
     ? forbiddenDevelopmentText
-    : [...forbiddenDevelopmentText, ...diagnosticText, ...topologyLabText];
+    : [...forbiddenDevelopmentText, ...diagnosticText, ...topologyLabText, ...modelLabText];
 
 const files = (await readdir(assetsDirectory)).filter(
   (file) => file.endsWith('.js') || file.endsWith('.css'),
@@ -60,7 +69,7 @@ if (exposed.length > 0) {
   throw new Error(`Unsafe UI leaked into the ${scanMode} bundle: ${exposed.join(', ')}`);
 }
 if (scanMode === 'preview') {
-  const missing = [...diagnosticText, ...topologyLabText].filter(
+  const missing = [...diagnosticText, ...topologyLabText, ...modelLabText].filter(
     (text) => !bundles.some(({ source }) => source.includes(text)),
   );
   if (missing.length > 0) {
