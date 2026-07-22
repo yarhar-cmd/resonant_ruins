@@ -164,7 +164,7 @@ export interface RoomSelector<TContext> {
 export interface GeneratedRoomSave {
   schemaVersion: number;
   generatorVersion: GeneratorVersion;
-  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'unknown';
+  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'mvp-0.4' | 'unknown';
   adaptationVersion?: AdaptationVersion;
   runSeed: string;
   roomSeed: string;
@@ -184,7 +184,7 @@ export interface GenerationRequest {
   mode: Exclude<GeneratedRoomMode, 'fallback'>;
   generatorVersion?: GeneratorVersion;
   adaptationVersion?: AdaptationVersion;
-  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3';
+  gameVersion?: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'mvp-0.4';
   recovery?: RecoveryGenerationContext;
   selectorId?: RoomSelectorId;
   recentArchetypes?: RoomArchetype[];
@@ -262,7 +262,7 @@ export interface GeneratorTransitionRecord {
 }
 
 export interface RunGenerationProvenance {
-  gameVersion: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'unknown';
+  gameVersion: GameVersion | 'mvp-0.2' | 'mvp-0.3' | 'mvp-0.4' | 'unknown';
   adaptationVersion: AdaptationVersion;
   startingGeneratorVersion: GeneratorVersion;
   activeGeneratorVersion: GeneratorVersion;

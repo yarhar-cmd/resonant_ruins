@@ -117,7 +117,7 @@ export function buildRoomResearchRecord(input: {
     capturedAt,
     condition: input.condition,
     assignmentMethodId: input.run.assignment.methodId,
-    gameVersion: 'mvp-0.4',
+    gameVersion: 'mvp-0.5',
     generatorVersion: 'generator-4',
     adaptationVersion: 'rules-2',
     selectorId: details.selectorId!,

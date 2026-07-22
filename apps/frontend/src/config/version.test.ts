@@ -11,7 +11,7 @@ import {
 describe('Resonant Ruins version metadata', () => {
   it('provides the centralized MVP versions for future telemetry records', () => {
     expect(VERSION_INFO).toEqual({
-      gameVersion: 'mvp-0.4',
+      gameVersion: 'mvp-0.5',
       generatorVersion: 'generator-4',
       adaptationVersion: 'rules-2',
       telemetrySchemaVersion: 1,

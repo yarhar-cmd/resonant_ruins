@@ -60,7 +60,7 @@ describe('generator-4 shared candidate pools', () => {
     const current = generateDungeonRoomV4(request());
     expect(current.schemaVersion).toBe(2);
     expect(current.generatorVersion).toBe('generator-4');
-    expect(current.gameVersion).toBe('mvp-0.4');
+    expect(current.gameVersion).toBe('mvp-0.5');
   });
 
   it('keeps candidate construction identical when only behavioral traits or condition change', () => {

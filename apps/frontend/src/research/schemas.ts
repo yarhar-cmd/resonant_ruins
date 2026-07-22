@@ -104,7 +104,7 @@ export const RoomResearchRecordSchema = z.object({
   capturedAt: timestamp,
   condition,
   assignmentMethodId: z.literal('balanced-two-run-blocks-1'),
-  gameVersion: z.literal('mvp-0.4'),
+  gameVersion: z.enum(['mvp-0.4', 'mvp-0.5']),
   generatorVersion: z.literal('generator-4'),
   adaptationVersion: z.literal('rules-2'),
   selectorId: z.enum(['rules-adaptive', 'neutral-procedural']),

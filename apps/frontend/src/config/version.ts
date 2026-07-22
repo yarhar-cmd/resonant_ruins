@@ -1,5 +1,5 @@
 export const VERSION_INFO = {
-  gameVersion: 'mvp-0.4',
+  gameVersion: 'mvp-0.5',
   generatorVersion: 'generator-4',
   adaptationVersion: 'rules-2',
   telemetrySchemaVersion: 1,

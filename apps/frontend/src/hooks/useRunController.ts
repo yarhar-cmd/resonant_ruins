@@ -467,7 +467,7 @@ export function useRunController(
       adaptationVersion,
       gameVersion:
         generatorVersion === 'generator-4'
-          ? 'mvp-0.4'
+          ? 'mvp-0.5'
           : generatorVersion === 'generator-3'
             ? 'mvp-0.3'
             : 'mvp-0.2',

@@ -334,7 +334,7 @@ function placeDecorativeTorches(room: RoomDefinition, seed: string): void {
 export interface TopologyCandidateOptions {
   roomSeed?: string;
   generatorVersion?: Extract<GeneratorVersion, 'generator-3' | 'generator-4'>;
-  gameVersion?: 'mvp-0.3' | 'mvp-0.4';
+  gameVersion?: 'mvp-0.3' | 'mvp-0.4' | 'mvp-0.5';
   constructionProfile?: AdaptiveProfile;
   constructionMode?: 'reinforce' | 'poke';
   fountainPlacementPreference?: 'safe' | 'risky';

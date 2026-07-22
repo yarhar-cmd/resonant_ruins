@@ -93,7 +93,7 @@ export function buildSharedCandidatePoolV4(
       const candidate = generateTopologyCandidate(request, archetype, attempt, {
         roomSeed,
         generatorVersion: 'generator-4',
-        gameVersion: 'mvp-0.4',
+        gameVersion: 'mvp-0.5',
         constructionProfile: GENERATOR_4_CONSTRUCTION_PROFILE,
         constructionMode: 'reinforce',
         fountainPlacementPreference: attempt % 2 === 0 ? 'safe' : 'risky',
@@ -125,7 +125,7 @@ export function buildSharedCandidatePoolV4(
     const fallback = generateTopologyCandidate(request, 'safe-fallback', 10_000, {
       roomSeed,
       generatorVersion: 'generator-4',
-      gameVersion: 'mvp-0.4',
+      gameVersion: 'mvp-0.5',
       constructionProfile: GENERATOR_4_CONSTRUCTION_PROFILE,
       constructionMode: 'reinforce',
       fountainPlacementPreference: 'safe',

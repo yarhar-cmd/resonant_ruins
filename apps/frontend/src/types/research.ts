@@ -93,7 +93,7 @@ export interface RoomResearchRecord {
   capturedAt: string;
   condition: ResearchCondition;
   assignmentMethodId: 'balanced-two-run-blocks-1';
-  gameVersion: 'mvp-0.4';
+  gameVersion: 'mvp-0.4' | 'mvp-0.5';
   generatorVersion: 'generator-4';
   adaptationVersion: 'rules-2';
   selectorId: RoomSelectorId;
