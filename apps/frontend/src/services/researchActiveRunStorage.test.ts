@@ -5,6 +5,7 @@ import { createActiveRunRecord, loadActiveRun, saveActiveRun } from './activeRun
 import {
   clearResearchActiveRun,
   loadResearchActiveRun,
+  parseResearchActiveRun,
   saveResearchActiveRun,
 } from './researchActiveRunStorage';
 
@@ -43,6 +44,7 @@ describe('research active-run isolation', () => {
         gameplay: research,
         pendingFeedback: null,
         roomStart: null,
+        pendingShadow: null,
       }),
     ).toBeNull();
     expect(loadActiveRun().record?.runId).toBe('normal-run');
@@ -66,8 +68,25 @@ describe('research active-run isolation', () => {
       gameplay,
       pendingFeedback: fixture.pending,
       roomStart: fixture.roomStart,
+      pendingShadow: null,
     };
     expect(saveResearchActiveRun(active)).toBeNull();
     expect(loadResearchActiveRun()).toEqual({ record: active, issue: null });
+  });
+
+  it('discards invalid optional shadow evidence without destroying the run', () => {
+    const fixture = researchFixture();
+    const gameplay = createActiveRunRecord(fixture.gameplay, 'warden', 20_000)!;
+    const parsed = parseResearchActiveRun({
+      researchSchemaVersion: 'research-1',
+      researchSessionId: fixture.session.id,
+      researchRunId: fixture.run.id,
+      gameplay,
+      pendingFeedback: null,
+      roomStart: null,
+      pendingShadow: { schemaVersion: 'shadow-1', status: 'invented' },
+    });
+    expect(parsed).not.toBeNull();
+    expect(parsed?.pendingShadow).toBeNull();
   });
 });

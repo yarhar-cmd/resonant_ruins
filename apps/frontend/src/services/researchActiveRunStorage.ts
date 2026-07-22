@@ -1,6 +1,14 @@
 import { RESEARCH_ACTIVE_RUN_KEY, RESEARCH_SCHEMA_VERSION } from '../config/research';
-import { PendingRoomFeedbackSchema, ResearchRoomStartSnapshotSchema } from '../research/schemas';
-import type { PendingRoomFeedback, ResearchRoomStartSnapshot } from '../types/research';
+import {
+  PendingRoomFeedbackSchema,
+  ResearchRoomStartSnapshotSchema,
+  ShadowRoomEvidenceSchema,
+} from '../research/schemas';
+import type {
+  PendingRoomFeedback,
+  ResearchRoomStartSnapshot,
+  ShadowRoomEvidence,
+} from '../types/research';
 import { parseActiveRunRecord, type ActiveRunRecord } from './activeRunStorage';
 
 export interface ResearchActiveRunRecord {
@@ -10,6 +18,7 @@ export interface ResearchActiveRunRecord {
   gameplay: ActiveRunRecord;
   pendingFeedback: PendingRoomFeedback | null;
   roomStart: ResearchRoomStartSnapshot | null;
+  pendingShadow: ShadowRoomEvidence | null;
 }
 
 export type ResearchActiveRunStorageIssue = 'invalid' | 'unavailable' | 'write-failed';
@@ -30,6 +39,10 @@ export function parseResearchActiveRun(value: unknown): ResearchActiveRunRecord 
     candidate.roomStart === undefined || candidate.roomStart === null
       ? null
       : ResearchRoomStartSnapshotSchema.safeParse(candidate.roomStart);
+  const pendingShadow =
+    candidate.pendingShadow === undefined || candidate.pendingShadow === null
+      ? null
+      : ShadowRoomEvidenceSchema.safeParse(candidate.pendingShadow);
   if (
     candidate.researchSchemaVersion !== RESEARCH_SCHEMA_VERSION ||
     typeof candidate.researchSessionId !== 'string' ||
@@ -48,6 +61,10 @@ export function parseResearchActiveRun(value: unknown): ResearchActiveRunRecord 
     gameplay,
     pendingFeedback: pending === null ? null : (pending.data as PendingRoomFeedback),
     roomStart: roomStart === null ? null : (roomStart.data as ResearchRoomStartSnapshot),
+    pendingShadow:
+      pendingShadow === null || !pendingShadow.success
+        ? null
+        : (pendingShadow.data as ShadowRoomEvidence),
   };
 }
 

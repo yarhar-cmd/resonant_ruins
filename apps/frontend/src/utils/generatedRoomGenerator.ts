@@ -1,6 +1,7 @@
 import type { ExitDirection, RoomDefinition, RoomExit, TileCoordinate } from '../types/rooms';
 import {
   type GeneratedRoomSave,
+  type Generator4ShadowObserver,
   type GenerationRequest,
   type HazardPattern,
 } from '../types/generation';
@@ -345,10 +346,11 @@ export function deriveRoomSeed(request: GenerationRequest): string {
 export function generateDungeonRoom(
   request: GenerationRequest,
   validator?: typeof validateGeneratedRoom,
+  shadowObserver?: Generator4ShadowObserver,
 ): GeneratedRoomSave {
   const generatorVersion = request.generatorVersion ?? 'generator-4';
   if (generatorVersion === 'generator-4') {
-    return generateDungeonRoomV4(request, validator);
+    return generateDungeonRoomV4(request, validator, shadowObserver);
   }
   if (generatorVersion === 'generator-3') {
     return generateDungeonRoomV3(request, validator);

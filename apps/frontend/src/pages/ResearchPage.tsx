@@ -73,6 +73,7 @@ export function ResearchPage() {
       gameplay: record,
       pendingFeedback: null,
       roomStart: null,
+      pendingShadow: null,
     });
     if (activeIssue) {
       setMessage('The research run could not be stored in this browser.');

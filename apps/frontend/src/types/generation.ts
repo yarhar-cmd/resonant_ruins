@@ -138,6 +138,20 @@ export interface ValidatedRoomCandidate {
   featureVector: RoomFeatureVector;
 }
 
+export interface ShadowCandidateSnapshot {
+  id: string;
+  featureVector: RoomFeatureVector;
+  fountainPlacement: FountainPlacementStyle | 'none';
+}
+
+export interface Generator4ShadowObservation {
+  sharedPoolId: string;
+  candidates: readonly ShadowCandidateSnapshot[];
+  activeDecision: Readonly<RoomSelectionDecision>;
+}
+
+export type Generator4ShadowObserver = (observation: Generator4ShadowObservation) => void;
+
 export interface RoomSelectionDecision {
   selectorId: RoomSelectorId;
   selectorVersion: RoomSelectorVersion;

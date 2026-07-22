@@ -41,6 +41,11 @@ export function ResearchRunPage() {
         researchRun: run,
         pendingResearchFeedback: active.pendingFeedback,
         researchRoomStart: active.roomStart,
+        pendingResearchShadow: active.pendingShadow,
+        getResearchSessionSnapshot: () => {
+          const current = loadResearchStorage().data;
+          return current.sessions.find((candidate) => candidate.id === session.id) ?? null;
+        },
         researchStorageDiagnostics: {
           recordCount: research.sessions.reduce(
             (sessionTotal, storedSession) =>
@@ -63,6 +68,10 @@ export function ResearchRunPage() {
         onResearchPendingChange: (pendingFeedback) => {
           const current = loadResearchActiveRun().record;
           return Boolean(current && !saveResearchActiveRun({ ...current, pendingFeedback }));
+        },
+        onResearchShadowChange: (pendingShadow) => {
+          const current = loadResearchActiveRun().record;
+          return Boolean(current && !saveResearchActiveRun({ ...current, pendingShadow }));
         },
         onFinalizeResearchRecord: (record) => !finalizeRoomResearchRecord(record).issue,
         saveActiveRecord: saveRecord,

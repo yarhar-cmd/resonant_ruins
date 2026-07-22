@@ -80,6 +80,44 @@ export interface ResearchRoomStartSnapshot {
   roomsClearedBefore: number;
 }
 
+export interface ShadowContributionEvidence {
+  targetClass: DifficultyRating;
+  feature: string;
+  contribution: number;
+  phrase: string;
+}
+
+export interface ShadowCandidateEvidence {
+  candidateId: string;
+  probabilities: Record<DifficultyRating, number>;
+  predictedClass: DifficultyRating;
+  confidence: number;
+  rank: number;
+  topContributions: ShadowContributionEvidence[];
+}
+
+export interface ShadowRoomEvidence {
+  schemaVersion: 'shadow-1';
+  status: 'scored' | 'incompatible' | 'failed';
+  roomDecisionId: string;
+  sharedPoolId: string;
+  artifactId: string | null;
+  modelId: string | null;
+  modelVersion: string | null;
+  featureSchemaVersion: 'model-features-1';
+  activeSelectorId: RoomSelectorId;
+  activeSelectedCandidateId: string;
+  candidates: ShadowCandidateEvidence[];
+  modelPreferredCandidateId: string | null;
+  agreesWithActiveSelector: boolean | null;
+  priorRatingAvailable: boolean;
+  scoringDurationMs: number | null;
+  failure: { stage: string; reasonCode: string } | null;
+  observedRating: DifficultyRating | null;
+  predictedObservedClass: DifficultyRating | null;
+  predictionCorrect: boolean | null;
+}
+
 export interface RoomResearchRecord {
   researchSchemaVersion: 'research-1';
   feedbackSchemaVersion: 'feedback-1';
@@ -129,6 +167,7 @@ export interface RoomResearchRecord {
   fountainSpawned: boolean;
   fountainPlacement: 'safe' | 'risky' | null;
   safeRouteExists: boolean;
+  shadow?: ShadowRoomEvidence;
   outcome: RoomResearchOutcome;
   feedback: RoomFeedback;
 }

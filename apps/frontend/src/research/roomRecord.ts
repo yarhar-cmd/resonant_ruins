@@ -9,6 +9,7 @@ import type {
   RoomFeedback,
   RoomOutcomeStatus,
   RoomResearchRecord,
+  ShadowRoomEvidence,
 } from '../types/research';
 import type { RoomExit } from '../types/rooms';
 import type { GameplayState } from '../utils/gameplayState';
@@ -84,6 +85,7 @@ export function buildRoomResearchRecord(input: {
   exit?: RoomExit;
   capturedAt?: string;
   feedback?: RoomFeedback;
+  shadow?: ShadowRoomEvidence | null;
 }): RoomResearchRecord {
   const { generated, gameplay, roomStart } = input;
   const details = generated.details;
@@ -153,6 +155,7 @@ export function buildRoomResearchRecord(input: {
     fountainSpawned: Boolean(fountain),
     fountainPlacement: fountain?.placementStyle ?? null,
     safeRouteExists: generated.roomSnapshot.topology?.safeRouteExists ?? true,
+    ...(input.shadow ? { shadow: input.shadow } : {}),
     outcome: {
       status: input.status,
       durationMs: Math.max(0, elapsed - roomStart.enteredAtMs),

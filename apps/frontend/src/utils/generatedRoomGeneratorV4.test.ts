@@ -135,6 +135,29 @@ describe('generator-4 shared candidate pools', () => {
     expect(validateGeneratedRoomV3(neutral.roomSnapshot).valid).toBe(true);
   });
 
+  it('keeps active selection byte-identical when shadow is absent, enabled, or throws', () => {
+    const absent = generateDungeonRoomV4(request({ selectorId: 'rules-adaptive' }));
+    let observedPoolId = '';
+    const enabled = generateDungeonRoomV4(
+      request({ selectorId: 'rules-adaptive' }),
+      undefined,
+      (observation) => {
+        observedPoolId = observation.sharedPoolId;
+        expect(observation.candidates).toHaveLength(10);
+      },
+    );
+    const failed = generateDungeonRoomV4(
+      request({ selectorId: 'rules-adaptive' }),
+      undefined,
+      () => {
+        throw new Error('synthetic shadow failure');
+      },
+    );
+    expect(observedPoolId).toBe(absent.details.sharedPoolId);
+    expect(enabled).toEqual(absent);
+    expect(failed).toEqual(absent);
+  });
+
   it('preserves Fountain opportunity equality across conditions', () => {
     const adaptive = buildSharedCandidatePoolV4(request({ selectorId: 'rules-adaptive' }));
     const neutral = buildSharedCandidatePoolV4(request({ selectorId: 'neutral-procedural' }));
