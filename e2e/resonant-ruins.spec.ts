@@ -544,6 +544,7 @@ test('Awakening tips stay above the grid on mobile, dismiss contextually, and sk
 
 test('Research page requires opt-in and starts labeled Pilot and Official sessions locally', async ({
   page,
+  context,
 }) => {
   await seedActiveRun(page);
   const normalBefore = await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY);
@@ -552,6 +553,7 @@ test('Research page requires opt-in and starts labeled Pilot and Official sessio
   await expect(page.getByText(/Nothing is automatically uploaded/i)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Start Pilot Session' })).toBeDisabled();
   await page.getByLabel('Optional participant code').fill('PILOT_BROWSER_01');
+  await page.getByLabel('Participant sequence number').fill('1');
   await page.getByLabel(/I have read this notice and choose to start/i).check();
   await page.getByRole('button', { name: 'Start Pilot Session' }).click();
   await expect(page).toHaveURL(/\/research\/run$/);
@@ -559,12 +561,25 @@ test('Research page requires opt-in and starts labeled Pilot and Official sessio
     (key) => JSON.parse(localStorage.getItem(key)!),
     RESEARCH_STORAGE_KEY,
   );
-  expect(pilot.sessions[0]).toMatchObject({ pilot: true, participantCode: 'PILOT_BROWSER_01' });
+  expect(pilot.sessions[0]).toMatchObject({
+    pilot: true,
+    participantCode: 'PILOT_BROWSER_01',
+    protocolId: 'fixed-pilot-1',
+    participantSequence: 1,
+  });
   expect(await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY)).toBe(
     normalBefore,
   );
   await expect(page.locator('body')).not.toContainText('RULES_ADAPTIVE');
   await expect(page.locator('body')).not.toContainText('NEUTRAL_PROCEDURAL');
+  await expect(page.locator('body')).not.toContainText('selector');
+  const secondTab = await context.newPage();
+  await secondTab.goto('/research/run');
+  await expect(
+    secondTab.getByRole('heading', { name: 'Session open in another tab' }),
+  ).toBeVisible();
+  await expect(secondTab.getByText(/read-only/i)).toBeVisible();
+  await secondTab.close();
 
   await page.evaluate(
     ({ storageKey, activeKey }) => {

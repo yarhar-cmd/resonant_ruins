@@ -6,6 +6,30 @@ import type { InteractionCancellationReason } from './interactions';
 import type { RoomArchetype, RoomFeatureVector } from './topology';
 
 export type ResearchCondition = 'RULES_ADAPTIVE' | 'NEUTRAL_PROCEDURAL';
+export type ResearchAssignmentMethodId =
+  'balanced-two-run-blocks-1' | 'pilot-sequence-alternation-1';
+export type ResearchProtocolId = 'fixed-pilot-1';
+export type PilotRunLabel = 'Run A' | 'Run B';
+export type PilotPhase =
+  | 'setup'
+  | 'practice'
+  | 'run_a_active'
+  | 'run_a_feedback'
+  | 'run_a_complete'
+  | 'break'
+  | 'run_b_active'
+  | 'run_b_feedback'
+  | 'session_complete'
+  | 'session_incomplete'
+  | 'recoverable_error';
+export type PilotIncompleteReason =
+  | 'participant_withdrew'
+  | 'researcher_ended'
+  | 'storage_failure'
+  | 'invalid_recovery'
+  | 'duplicate_tab_conflict'
+  | 'other';
+export type PilotCompletionStatus = 'active' | 'complete' | 'incomplete';
 export type ResearchAssignmentUnit = 'per-run' | 'per-session';
 export type ResearchSessionStatus = 'active' | 'ended';
 export type ResearchRunStatus = 'active' | 'completed' | 'defeated' | 'interrupted';
@@ -15,7 +39,7 @@ export type FeedbackStatus = 'pending' | 'submitted' | 'skipped' | 'not_requeste
 
 export interface ResearchConditionAssignment {
   unit: ResearchAssignmentUnit;
-  methodId: 'balanced-two-run-blocks-1';
+  methodId: ResearchAssignmentMethodId;
   sessionSeed: string;
   runIndex: number;
   blockIndex: number;
@@ -143,7 +167,14 @@ export interface RoomResearchRecord {
   roomSequence: number;
   capturedAt: string;
   condition: ResearchCondition;
-  assignmentMethodId: 'balanced-two-run-blocks-1';
+  assignmentMethodId: ResearchAssignmentMethodId;
+  protocolId?: ResearchProtocolId;
+  runLabel?: PilotRunLabel;
+  conditionBlockIndex?: 0 | 1;
+  gameplayAttemptId?: string;
+  gameplayAttemptIndex?: number;
+  roomOpportunityId?: string;
+  roomOpportunityIndex?: number;
   gameVersion: 'mvp-0.4' | 'mvp-0.5';
   generatorVersion: 'generator-4';
   adaptationVersion: 'rules-2';
@@ -217,7 +248,26 @@ export interface ResearchRun {
   status: ResearchRunStatus;
   characterId: string;
   experiencePreset: ExperiencePreset;
+  protocolId?: ResearchProtocolId;
+  runLabel?: PilotRunLabel;
+  conditionBlockIndex?: 0 | 1;
+  targetOutcomeCount?: 10;
+  startingProfile?: AdaptiveProfile;
+  conditionProfile?: AdaptiveProfile;
+  gameplayAttemptIds?: string[];
   rooms: RoomResearchRecord[];
+}
+
+export interface PilotSessionExit {
+  schemaVersion: 'pilot-exit-1';
+  instructionClarity: 1 | 2 | 3 | 4 | 5;
+  surveyFatigue: 1 | 2 | 3 | 4 | 5;
+  sessionLength: 'too_short' | 'about_right' | 'too_long';
+  technicalProblem: 'yes' | 'no';
+  technicalProblemDescription: string | null;
+  overallPreference: 'run_a' | 'run_b' | 'no_preference';
+  comment: string | null;
+  submittedAt: string;
 }
 
 export interface ResearchSession {
@@ -227,12 +277,27 @@ export interface ResearchSession {
   participantCode: string | null;
   sessionSeed: string;
   assignmentUnit: ResearchAssignmentUnit;
-  assignmentMethodId: 'balanced-two-run-blocks-1';
+  assignmentMethodId: ResearchAssignmentMethodId;
   startedAt: string;
   endedAt: string | null;
   status: ResearchSessionStatus;
   startingProfileSource: 'neutral-session-baseline';
   sessionProfile: AdaptiveProfile;
+  protocolId?: ResearchProtocolId;
+  participantSequence?: number;
+  lockedExperiencePreset?: ExperiencePreset;
+  lockedCharacterId?: 'warden';
+  hiddenConditionOrder?: [ResearchCondition, ResearchCondition];
+  participantPhase?: PilotPhase;
+  practiceCompletedAt?: string | null;
+  practiceChambersCompleted?: number;
+  sharedPracticeBaseline?: AdaptiveProfile | null;
+  completionStatus?: PilotCompletionStatus;
+  completedAt?: string | null;
+  incompleteAt?: string | null;
+  incompleteReason?: PilotIncompleteReason | null;
+  breakStartedAt?: string | null;
+  sessionExit?: PilotSessionExit | null;
   runs: ResearchRun[];
 }
 

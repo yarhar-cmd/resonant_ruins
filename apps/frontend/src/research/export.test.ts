@@ -3,6 +3,7 @@ import { researchFixture } from '../test/researchFixtures';
 import { ResearchExportSchema } from './schemas';
 import {
   createResearchExport,
+  pilotResearchExportFilename,
   RESEARCH_CSV_COLUMNS,
   researchExportCsv,
   researchExportFilename,
@@ -46,12 +47,13 @@ describe('research JSON and CSV export', () => {
     expect(csv).toContain(',false,');
   });
 
-  it('exports the stable 104-column reliability extension without changing research-1', () => {
+  it('exports the 111-column Pilot extension without changing research-1', () => {
     const csv = researchExportCsv(exportFixture(true));
-    expect(RESEARCH_CSV_COLUMNS).toHaveLength(104);
+    expect(RESEARCH_CSV_COLUMNS).toHaveLength(111);
     expect(RESEARCH_CSV_COLUMNS).toContain('reward_system_version');
     expect(RESEARCH_CSV_COLUMNS).toContain('cache_channel_cancellation_reasons_json');
     expect(RESEARCH_CSV_COLUMNS).toContain('shield_activations');
+    expect(RESEARCH_CSV_COLUMNS).toContain('room_opportunity_index');
     expect(csv).toContain('rewards-1');
     expect(csv).toContain('sandbox-forced');
   });
@@ -64,6 +66,22 @@ describe('research JSON and CSV export', () => {
     });
     expect(filename).toBe('resonant-ruins-research-2026-01-02-session-___session_01.csv');
     expect(filename).not.toContain('TEST_01');
+  });
+
+  it('uses the required condition-masked Pilot stem for JSON and CSV', () => {
+    const input = {
+      exportedAt: '2026-01-02T03:04:05.000Z',
+      participantCode: 'PILOT_01',
+      participantSequence: 7,
+    };
+    const json = pilotResearchExportFilename({ ...input, format: 'json' });
+    const csv = pilotResearchExportFilename({ ...input, format: 'csv' });
+
+    expect(json).toBe('RR_Pilot_PILOT_01_seq-7_20260102-0304.json');
+    expect(csv).toBe('RR_Pilot_PILOT_01_seq-7_20260102-0304.csv');
+    expect(json.replace(/\.json$/, '')).toBe(csv.replace(/\.csv$/, ''));
+    expect(json).not.toContain('RULES_ADAPTIVE');
+    expect(json).not.toContain('NEUTRAL_PROCEDURAL');
   });
 
   it('rejects malformed partial data instead of exporting it silently', () => {

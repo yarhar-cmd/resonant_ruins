@@ -15,6 +15,13 @@ export const RESEARCH_CSV_COLUMNS = [
   'captured_at',
   'condition',
   'assignment_method_id',
+  'protocol_id',
+  'run_label',
+  'condition_block_index',
+  'gameplay_attempt_id',
+  'gameplay_attempt_index',
+  'room_opportunity_id',
+  'room_opportunity_index',
   'game_version',
   'generator_version',
   'adaptation_version',
@@ -160,6 +167,13 @@ function roomRow(room: RoomResearchRecord): Record<(typeof RESEARCH_CSV_COLUMNS)
     captured_at: room.capturedAt,
     condition: room.condition,
     assignment_method_id: room.assignmentMethodId,
+    protocol_id: room.protocolId,
+    run_label: room.runLabel,
+    condition_block_index: room.conditionBlockIndex,
+    gameplay_attempt_id: room.gameplayAttemptId,
+    gameplay_attempt_index: room.gameplayAttemptIndex,
+    room_opportunity_id: room.roomOpportunityId,
+    room_opportunity_index: room.roomOpportunityIndex,
     game_version: room.gameVersion,
     generator_version: room.generatorVersion,
     adaptation_version: room.adaptationVersion,
@@ -279,6 +293,20 @@ export function researchExportFilename(input: {
   const safeSessionId = input.sessionId?.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
   const scope = safeSessionId ? `session-${safeSessionId}` : 'all-sessions';
   return `resonant-ruins-research-${date}-${scope}.${input.format}`;
+}
+
+export function pilotResearchExportFilename(input: {
+  format: 'json' | 'csv';
+  exportedAt: string;
+  participantCode: string | null;
+  participantSequence: number;
+}): string {
+  const safeParticipantCode =
+    input.participantCode?.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 32) || 'no-code';
+  const timestamp = `${input.exportedAt.slice(0, 10).replaceAll('-', '')}-${input.exportedAt
+    .slice(11, 16)
+    .replace(':', '')}`;
+  return `RR_Pilot_${safeParticipantCode}_seq-${input.participantSequence}_${timestamp}.${input.format}`;
 }
 
 export function downloadResearchFile(filename: string, contents: string, type: string): void {

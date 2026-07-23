@@ -91,12 +91,12 @@ export function DungeonRunSession({
 
   return (
     <GameShell
-      showDebug={Boolean(import.meta.env.DEV && run.debug)}
+      showDebug={Boolean(import.meta.env.DEV && run.debug && !run.participantMasked)}
       debugOpen={debugOpen}
       debugButtonRef={debugButtonRef}
       onDebug={() => setDebugOpen((current) => !current)}
       utilityAction={
-        PreviewPlaytestDiagnostics ? (
+        PreviewPlaytestDiagnostics && !run.participantMasked ? (
           <Suspense fallback={null}>
             <PreviewPlaytestDiagnostics
               gameplay={run.gameplay}
@@ -115,7 +115,15 @@ export function DungeonRunSession({
     >
       <StatusPanel
         roomLabel={run.roomLabel}
-        mode={run.runMode === 'research' ? 'Research session' : 'Exploring'}
+        mode={
+          run.participantMasked
+            ? run.roomLabel.startsWith('Practice')
+              ? 'Practice'
+              : (run.roomLabel.split(' — ')[0] ?? 'Run')
+            : run.runMode === 'research'
+              ? 'Research session'
+              : 'Exploring'
+        }
         character={run.character.name}
         currentHealth={run.gameplay.currentHealth}
         maximumHealth={run.gameplay.maximumHealth}
@@ -159,7 +167,15 @@ export function DungeonRunSession({
           {run.runMode !== 'normal' && (
             <div className="chamber-label">
               <span>{run.roomLabel}</span>
-              <span>{run.runMode === 'research' ? 'Research run active' : 'Sandbox active'}</span>
+              <span>
+                {run.participantMasked
+                  ? run.roomLabel.startsWith('Practice')
+                    ? 'Practice'
+                    : (run.roomLabel.split(' — ')[0] ?? 'Run')
+                  : run.runMode === 'research'
+                    ? 'Research run active'
+                    : 'Sandbox active'}
+              </span>
             </div>
           )}
           <AwakeningTutorialTip
@@ -233,7 +249,7 @@ export function DungeonRunSession({
           onFinalize={run.finalizeResearchFeedback}
         />
       )}
-      {import.meta.env.DEV && run.debug && (
+      {import.meta.env.DEV && run.debug && !run.participantMasked && (
         <DebugDrawer
           open={debugOpen}
           triggerRef={debugButtonRef}

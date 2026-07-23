@@ -114,6 +114,8 @@ export function buildRoomResearchRecord(input: {
   const signals = snapshotTerminalRoomSignals(gameplay, input.terminalTimestampMs);
   const capturedAt = input.capturedAt ?? new Date().toISOString();
   const feedback = input.feedback ?? pendingFeedback();
+  const pilotOpportunityIndex = input.run.protocolId ? input.run.rooms.length + 1 : null;
+  const gameplayAttemptId = input.run.gameplayAttemptIds?.at(-1);
   return {
     researchSchemaVersion: RESEARCH_SCHEMA_VERSION,
     feedbackSchemaVersion: FEEDBACK_SCHEMA_VERSION,
@@ -123,10 +125,21 @@ export function buildRoomResearchRecord(input: {
     runId: input.run.id,
     roomId: generated.roomSnapshot.id,
     roomDecisionId: roomStart.roomDecisionId,
-    roomSequence: generated.dungeonRoomNumber,
+    roomSequence: pilotOpportunityIndex ?? generated.dungeonRoomNumber,
     capturedAt,
     condition: input.condition,
     assignmentMethodId: input.run.assignment.methodId,
+    ...(input.run.protocolId
+      ? {
+          protocolId: input.run.protocolId,
+          runLabel: input.run.runLabel!,
+          conditionBlockIndex: input.run.conditionBlockIndex!,
+          gameplayAttemptId: gameplayAttemptId!,
+          gameplayAttemptIndex: input.run.gameplayAttemptIds!.length,
+          roomOpportunityId: `${input.run.id}:opportunity:${pilotOpportunityIndex}`,
+          roomOpportunityIndex: pilotOpportunityIndex!,
+        }
+      : {}),
     gameVersion: 'mvp-0.5',
     generatorVersion: 'generator-4',
     adaptationVersion: 'rules-2',

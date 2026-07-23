@@ -2700,6 +2700,47 @@
   font-size: 0.85rem;
 }
 
+.research-review-page,
+.pilot-exit-form form {
+  display: grid;
+  gap: 1rem;
+}
+
+.research-review-page {
+  padding: clamp(1.25rem, 4vw, 3.5rem) 0 4rem;
+}
+
+.pilot-exit-form label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.pilot-exit-form select,
+.pilot-exit-form textarea {
+  width: min(100%, 36rem);
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--ink-900);
+  color: var(--parchment);
+  font: inherit;
+}
+
+.pilot-exit-form textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.participant-read-only,
+.participant-recoverable-error {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  background: var(--ink-950);
+}
+
 @media (max-width: 720px) {
   .research-data-heading,
   .research-session-record,

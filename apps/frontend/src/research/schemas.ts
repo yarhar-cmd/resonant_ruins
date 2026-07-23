@@ -10,6 +10,7 @@ const participantCode = z
   .regex(/^[A-Za-z0-9_-]{1,32}$/)
   .nullable();
 const condition = z.enum(['RULES_ADAPTIVE', 'NEUTRAL_PROCEDURAL']);
+const assignmentMethod = z.enum(['balanced-two-run-blocks-1', 'pilot-sequence-alternation-1']);
 const exitDirection = z.enum(['north', 'east', 'south', 'west']);
 const cacheSpawnReason = z.enum([
   'spawned',
@@ -185,7 +186,14 @@ export const RoomResearchRecordSchema = z.object({
   roomSequence: z.number().int().positive(),
   capturedAt: timestamp,
   condition,
-  assignmentMethodId: z.literal('balanced-two-run-blocks-1'),
+  assignmentMethodId: assignmentMethod,
+  protocolId: z.literal('fixed-pilot-1').optional(),
+  runLabel: z.enum(['Run A', 'Run B']).optional(),
+  conditionBlockIndex: z.union([z.literal(0), z.literal(1)]).optional(),
+  gameplayAttemptId: z.string().min(1).optional(),
+  gameplayAttemptIndex: z.number().int().positive().optional(),
+  roomOpportunityId: z.string().min(1).optional(),
+  roomOpportunityIndex: z.number().int().min(1).max(10).optional(),
   gameVersion: z.enum(['mvp-0.4', 'mvp-0.5']),
   generatorVersion: z.literal('generator-4'),
   adaptationVersion: z.literal('rules-2'),
@@ -309,7 +317,7 @@ export const ResearchRoomStartSnapshotSchema = z.object({
 
 export const ResearchConditionAssignmentSchema = z.object({
   unit: z.enum(['per-run', 'per-session']),
-  methodId: z.literal('balanced-two-run-blocks-1'),
+  methodId: assignmentMethod,
   sessionSeed: z.string().min(1),
   runIndex: z.number().int().nonnegative(),
   blockIndex: z.number().int().nonnegative(),
@@ -329,7 +337,32 @@ export const ResearchRunSchema = z.object({
   status: z.enum(['active', 'completed', 'defeated', 'interrupted']),
   characterId: z.string().min(1),
   experiencePreset: z.enum(['new-delver', 'seasoned-adventurer', 'dungeon-veteran']),
+  protocolId: z.literal('fixed-pilot-1').optional(),
+  runLabel: z.enum(['Run A', 'Run B']).optional(),
+  conditionBlockIndex: z.union([z.literal(0), z.literal(1)]).optional(),
+  targetOutcomeCount: z.literal(10).optional(),
+  startingProfile: profile.optional(),
+  conditionProfile: profile.optional(),
+  gameplayAttemptIds: z.array(z.string().min(1)).optional(),
   rooms: z.array(RoomResearchRecordSchema),
+});
+
+const PilotSessionExitSchema = z.object({
+  schemaVersion: z.literal('pilot-exit-1'),
+  instructionClarity: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(4),
+    z.literal(5),
+  ]),
+  surveyFatigue: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+  sessionLength: z.enum(['too_short', 'about_right', 'too_long']),
+  technicalProblem: z.enum(['yes', 'no']),
+  technicalProblemDescription: z.string().max(2000).nullable(),
+  overallPreference: z.enum(['run_a', 'run_b', 'no_preference']),
+  comment: z.string().max(4000).nullable(),
+  submittedAt: timestamp,
 });
 
 export const ResearchSessionSchema = z
@@ -340,12 +373,53 @@ export const ResearchSessionSchema = z
     participantCode,
     sessionSeed: z.string().min(1),
     assignmentUnit: z.enum(['per-run', 'per-session']),
-    assignmentMethodId: z.literal('balanced-two-run-blocks-1'),
+    assignmentMethodId: assignmentMethod,
     startedAt: timestamp,
     endedAt: timestamp.nullable(),
     status: z.enum(['active', 'ended']),
     startingProfileSource: z.literal('neutral-session-baseline'),
     sessionProfile: profile,
+    protocolId: z.literal('fixed-pilot-1').optional(),
+    participantSequence: z.number().int().positive().optional(),
+    lockedExperiencePreset: z
+      .enum(['new-delver', 'seasoned-adventurer', 'dungeon-veteran'])
+      .optional(),
+    lockedCharacterId: z.literal('warden').optional(),
+    hiddenConditionOrder: z.tuple([condition, condition]).optional(),
+    participantPhase: z
+      .enum([
+        'setup',
+        'practice',
+        'run_a_active',
+        'run_a_feedback',
+        'run_a_complete',
+        'break',
+        'run_b_active',
+        'run_b_feedback',
+        'session_complete',
+        'session_incomplete',
+        'recoverable_error',
+      ])
+      .optional(),
+    practiceCompletedAt: timestamp.nullable().optional(),
+    practiceChambersCompleted: z.number().int().min(0).max(5).optional(),
+    sharedPracticeBaseline: profile.nullable().optional(),
+    completionStatus: z.enum(['active', 'complete', 'incomplete']).optional(),
+    completedAt: timestamp.nullable().optional(),
+    incompleteAt: timestamp.nullable().optional(),
+    incompleteReason: z
+      .enum([
+        'participant_withdrew',
+        'researcher_ended',
+        'storage_failure',
+        'invalid_recovery',
+        'duplicate_tab_conflict',
+        'other',
+      ])
+      .nullable()
+      .optional(),
+    breakStartedAt: timestamp.nullable().optional(),
+    sessionExit: PilotSessionExitSchema.nullable().optional(),
     runs: z.array(ResearchRunSchema),
   })
   .superRefine((session, context) => {
@@ -355,6 +429,22 @@ export const ResearchSessionSchema = z
         code: 'custom',
         message: 'Duplicate roomDecisionId in research session.',
       });
+    if (session.protocolId === 'fixed-pilot-1') {
+      if (
+        session.assignmentMethodId !== 'pilot-sequence-alternation-1' ||
+        !session.participantSequence ||
+        !session.lockedExperiencePreset ||
+        session.lockedCharacterId !== 'warden' ||
+        !session.hiddenConditionOrder ||
+        !session.participantPhase ||
+        !session.completionStatus
+      )
+        context.addIssue({ code: 'custom', message: 'Fixed Pilot metadata is incomplete.' });
+      if (session.runs.length > 2 || session.runs.some((run) => run.rooms.length > 10))
+        context.addIssue({ code: 'custom', message: 'Fixed Pilot block limit exceeded.' });
+      if (session.completionStatus === 'incomplete' && session.completedAt)
+        context.addIssue({ code: 'custom', message: 'Incomplete Pilot cannot be completed.' });
+    }
   });
 
 export const ResearchStorageEnvelopeSchema = z.object({

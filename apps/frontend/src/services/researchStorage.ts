@@ -18,6 +18,15 @@ import type {
 } from '../types/research';
 import { RoomResearchRecordSchema } from '../research/schemas';
 import { NEUTRAL_ADAPTIVE_PROFILE } from './playerProfileStorage';
+import {
+  PILOT_ASSIGNMENT_METHOD_ID,
+  PILOT_CHARACTER_ID,
+  PILOT_PROTOCOL_ID,
+  PILOT_TARGET_OUTCOMES,
+  pilotConditionOrder,
+  pilotRunLabel,
+} from '../research/pilotProtocol';
+import type { PilotIncompleteReason, PilotPhase, PilotSessionExit } from '../types/research';
 
 export type ResearchStorageIssue =
   'invalid' | 'unavailable' | 'write-failed' | 'storage-pressure' | 'not-found' | 'conflict';
@@ -112,6 +121,8 @@ export function saveResearchStorage(
 export function createResearchSession(input: {
   pilot: boolean;
   participantCode?: string;
+  participantSequence?: number;
+  experiencePreset?: ExperiencePreset;
   assignmentUnit?: ResearchAssignmentUnit;
   now?: number;
   id?: string;
@@ -121,6 +132,10 @@ export function createResearchSession(input: {
   const normalizedCode = normalizeParticipantCode(participantCode);
   if (participantCode && !normalizedCode) throw new Error('Invalid participant code.');
   const id = input.id ?? newId('research-session');
+  const fixedPilot = input.pilot && input.participantSequence !== undefined;
+  if (fixedPilot && !input.experiencePreset)
+    throw new Error('Pilot experience preset is required.');
+  const pilotOrder = fixedPilot ? pilotConditionOrder(input.participantSequence!) : null;
   return {
     researchSchemaVersion: RESEARCH_SCHEMA_VERSION,
     id,
@@ -128,12 +143,31 @@ export function createResearchSession(input: {
     participantCode: normalizedCode,
     sessionSeed: input.sessionSeed ?? `${id}:${input.now ?? Date.now()}`,
     assignmentUnit: input.assignmentUnit ?? DEFAULT_ASSIGNMENT_UNIT,
-    assignmentMethodId: RESEARCH_ASSIGNMENT_METHOD_ID,
+    assignmentMethodId: fixedPilot ? PILOT_ASSIGNMENT_METHOD_ID : RESEARCH_ASSIGNMENT_METHOD_ID,
     startedAt: nowIso(input.now),
     endedAt: null,
     status: 'active',
     startingProfileSource: 'neutral-session-baseline',
     sessionProfile: { ...NEUTRAL_ADAPTIVE_PROFILE },
+    ...(fixedPilot
+      ? {
+          protocolId: PILOT_PROTOCOL_ID,
+          participantSequence: input.participantSequence!,
+          lockedExperiencePreset: input.experiencePreset!,
+          lockedCharacterId: PILOT_CHARACTER_ID,
+          hiddenConditionOrder: pilotOrder!,
+          participantPhase: 'practice' as const,
+          practiceCompletedAt: null,
+          practiceChambersCompleted: 0,
+          sharedPracticeBaseline: null,
+          completionStatus: 'active' as const,
+          completedAt: null,
+          incompleteAt: null,
+          incompleteReason: null,
+          breakStartedAt: null,
+          sessionExit: null,
+        }
+      : {}),
     runs: [],
   };
 }
@@ -160,11 +194,29 @@ export function createResearchRun(input: {
   id?: string;
 }): ResearchRun {
   const runIndex = input.session.runs.length;
-  const assignment = assignResearchCondition({
-    sessionSeed: input.session.sessionSeed,
-    runIndex,
-    unit: input.session.assignmentUnit,
-  });
+  const isFixedPilot = input.session.protocolId === PILOT_PROTOCOL_ID;
+  if (isFixedPilot && runIndex >= 2) throw new Error('Fixed Pilot sessions contain two runs.');
+  const condition = isFixedPilot ? input.session.hiddenConditionOrder![runIndex]! : undefined;
+  const assignment = isFixedPilot
+    ? {
+        unit: 'per-run' as const,
+        methodId: PILOT_ASSIGNMENT_METHOD_ID,
+        sessionSeed: input.session.sessionSeed,
+        runIndex,
+        blockIndex: 0,
+        roll: input.session.participantSequence! % 2 === 1 ? 0 : 1,
+        condition: condition!,
+      }
+    : assignResearchCondition({
+        sessionSeed: input.session.sessionSeed,
+        runIndex,
+        unit: input.session.assignmentUnit,
+      });
+  const lockedPreset = isFixedPilot
+    ? input.session.lockedExperiencePreset!
+    : input.experiencePreset;
+  if (isFixedPilot && input.characterId !== PILOT_CHARACTER_ID)
+    throw new Error('Fixed Pilot runs must use the Warden.');
   return {
     researchSchemaVersion: RESEARCH_SCHEMA_VERSION,
     id: input.id ?? newId('research-run'),
@@ -176,7 +228,22 @@ export function createResearchRun(input: {
     endedAt: null,
     status: 'active',
     characterId: input.characterId,
-    experiencePreset: input.experiencePreset,
+    experiencePreset: lockedPreset,
+    ...(isFixedPilot
+      ? {
+          protocolId: PILOT_PROTOCOL_ID,
+          runLabel: pilotRunLabel(runIndex),
+          conditionBlockIndex: runIndex as 0 | 1,
+          targetOutcomeCount: PILOT_TARGET_OUTCOMES,
+          startingProfile: {
+            ...(input.session.sharedPracticeBaseline ?? input.session.sessionProfile),
+          },
+          conditionProfile: {
+            ...(input.session.sharedPracticeBaseline ?? input.session.sessionProfile),
+          },
+          gameplayAttemptIds: [newId('gameplay-attempt')],
+        }
+      : {}),
     rooms: [],
   };
 }
@@ -215,6 +282,120 @@ export function updateResearchSessionProfile(
   return session
     ? updateResearchSession({ ...session, sessionProfile: { ...profile } }, storage)
     : 'not-found';
+}
+
+export function updatePilotProfile(
+  sessionId: string,
+  runId: string,
+  profile: AdaptiveProfile,
+  storage?: Storage,
+): ResearchStorageIssue | null {
+  const loaded = loadResearchStorage(storage);
+  const session = loaded.data.sessions.find((item) => item.id === sessionId);
+  if (!session) return 'not-found';
+  if (session.protocolId !== PILOT_PROTOCOL_ID)
+    return updateResearchSessionProfile(sessionId, profile, storage);
+  const run = session.runs.find((item) => item.id === runId);
+  if (!run) return 'not-found';
+  if (!session.practiceCompletedAt) {
+    return updateResearchSession(
+      {
+        ...session,
+        sessionProfile: { ...profile },
+        sharedPracticeBaseline: { ...profile },
+        practiceChambersCompleted: 5,
+        practiceCompletedAt: nowIso(),
+        participantPhase: 'run_a_active',
+        runs: session.runs.map((item) =>
+          item.id === runId
+            ? {
+                ...item,
+                startingProfile: { ...profile },
+                conditionProfile: { ...profile },
+              }
+            : item,
+        ),
+      },
+      storage,
+    );
+  }
+  return updateResearchSession(
+    {
+      ...session,
+      runs: session.runs.map((item) =>
+        item.id === runId ? { ...item, conditionProfile: { ...profile } } : item,
+      ),
+    },
+    storage,
+  );
+}
+
+export function setPilotPhase(
+  sessionId: string,
+  participantPhase: PilotPhase,
+  storage?: Storage,
+): ResearchStorageIssue | null {
+  const loaded = loadResearchStorage(storage);
+  const session = loaded.data.sessions.find((item) => item.id === sessionId);
+  return session?.protocolId === PILOT_PROTOCOL_ID
+    ? updateResearchSession({ ...session, participantPhase }, storage)
+    : 'not-found';
+}
+
+export function beginPilotBreak(
+  sessionId: string,
+  now = Date.now(),
+  storage?: Storage,
+): ResearchStorageIssue | null {
+  const loaded = loadResearchStorage(storage);
+  const session = loaded.data.sessions.find((item) => item.id === sessionId);
+  return session?.protocolId === PILOT_PROTOCOL_ID && session.participantPhase === 'run_a_complete'
+    ? updateResearchSession(
+        { ...session, participantPhase: 'break', breakStartedAt: nowIso(now) },
+        storage,
+      )
+    : 'conflict';
+}
+
+export function savePilotSessionExit(
+  sessionId: string,
+  sessionExit: PilotSessionExit,
+  storage?: Storage,
+): ResearchStorageIssue | null {
+  const loaded = loadResearchStorage(storage);
+  const session = loaded.data.sessions.find((item) => item.id === sessionId);
+  return session?.protocolId === PILOT_PROTOCOL_ID &&
+    (session.completionStatus === 'complete' || session.completionStatus === 'incomplete')
+    ? updateResearchSession({ ...session, sessionExit }, storage)
+    : 'conflict';
+}
+
+export function endPilotIncomplete(
+  sessionId: string,
+  reason: PilotIncompleteReason,
+  now = Date.now(),
+  storage?: Storage,
+): ResearchStorageIssue | null {
+  const loaded = loadResearchStorage(storage);
+  const session = loaded.data.sessions.find((item) => item.id === sessionId);
+  if (!session || session.protocolId !== PILOT_PROTOCOL_ID) return 'not-found';
+  if (session.completionStatus === 'complete') return 'conflict';
+  const endedAt = nowIso(now);
+  const next: ResearchSession = {
+    ...session,
+    status: 'ended',
+    endedAt,
+    completionStatus: 'incomplete',
+    completedAt: null,
+    incompleteAt: endedAt,
+    incompleteReason: reason,
+    participantPhase: 'session_incomplete',
+    runs: session.runs.map((run) =>
+      run.status === 'active' ? { ...run, status: 'interrupted', endedAt } : run,
+    ),
+  };
+  const sessions = loaded.data.sessions.map((item) => (item.id === sessionId ? next : item));
+  return saveResearchStorage({ ...loaded.data, activeSessionId: null, sessions }, storage);
 }
 
 export function endResearchSession(
@@ -284,8 +465,10 @@ export function finalizeRoomResearchRecord(
   record: RoomResearchRecord,
   storage?: Storage,
 ): ResearchRoomFinalizationResult {
-  if (!RoomResearchRecordSchema.safeParse(record).success)
+  const parsedRecord = RoomResearchRecordSchema.safeParse(record);
+  if (!parsedRecord.success)
     return { status: 'write-failed', issue: 'invalid', warning: null, duplicate: false };
+  record = parsedRecord.data as RoomResearchRecord;
   const loaded = loadResearchStorage(storage);
   const session = loaded.data.sessions.find((item) => item.id === record.researchSessionId);
   const run = session?.runs.find((item) => item.id === record.runId);
@@ -301,19 +484,61 @@ export function finalizeRoomResearchRecord(
           warning: null,
           duplicate: true,
         };
-  const terminal = record.outcome.status === 'defeated' || record.outcome.status === 'interrupted';
+  const fixedPilot = session.protocolId === PILOT_PROTOCOL_ID;
+  if (
+    fixedPilot &&
+    (run.rooms.length >= PILOT_TARGET_OUTCOMES ||
+      record.experiencePreset !== session.lockedExperiencePreset ||
+      run.characterId !== PILOT_CHARACTER_ID ||
+      record.condition !== run.condition ||
+      record.roomOpportunityIndex !== run.rooms.length + 1)
+  )
+    return { status: 'write-failed', issue: 'invalid', warning: null, duplicate: false };
+  const outcomeCount = run.rooms.length + 1;
+  const blockComplete = fixedPilot && outcomeCount === PILOT_TARGET_OUTCOMES;
+  const terminal =
+    blockComplete ||
+    (!fixedPilot &&
+      (record.outcome.status === 'defeated' || record.outcome.status === 'interrupted'));
   const nextRun: ResearchRun = {
     ...run,
     rooms: [...run.rooms, record],
-    status: terminal ? record.outcome.status : run.status,
+    status: blockComplete ? 'completed' : terminal ? record.outcome.status : run.status,
     endedAt: terminal ? record.capturedAt : run.endedAt,
+    ...(fixedPilot ? { conditionProfile: { ...record.profileAfter } } : {}),
   };
+  const isRunA = fixedPilot && run.conditionBlockIndex === 0;
+  const isRunB = fixedPilot && run.conditionBlockIndex === 1;
+  const sessionComplete = Boolean(isRunB && blockComplete);
   const nextSession: ResearchSession = {
     ...session,
-    sessionProfile: { ...record.profileAfter },
+    ...(fixedPilot ? {} : { sessionProfile: { ...record.profileAfter } }),
+    ...(isRunA && blockComplete ? { participantPhase: 'run_a_complete' as const } : {}),
+    ...(sessionComplete
+      ? {
+          status: 'ended' as const,
+          endedAt: record.capturedAt,
+          completionStatus: 'complete' as const,
+          completedAt: record.capturedAt,
+          incompleteAt: null,
+          incompleteReason: null,
+          participantPhase: 'session_complete' as const,
+        }
+      : {}),
     runs: session.runs.map((item) => (item.id === run.id ? nextRun : item)),
   };
-  const issue = updateResearchSession(nextSession, storage);
+  const issue = sessionComplete
+    ? saveResearchStorage(
+        {
+          ...loaded.data,
+          activeSessionId: null,
+          sessions: loaded.data.sessions.map((item) =>
+            item.id === session.id ? nextSession : item,
+          ),
+        },
+        storage,
+      )
+    : updateResearchSession(nextSession, storage);
   if (issue === null || issue === 'storage-pressure')
     return {
       status: 'saved',
