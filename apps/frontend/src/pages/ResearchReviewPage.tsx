@@ -3,8 +3,8 @@ import { SecondaryButton } from '../components/common/Buttons';
 import {
   createResearchExport,
   downloadResearchFile,
+  pilotResearchExportFilename,
   researchExportCsv,
-  researchExportFilename,
   researchExportJson,
 } from '../research/export';
 import { validatePilotSession } from '../research/pilotProtocol';
@@ -19,7 +19,12 @@ function exportSession(session: ResearchSession, format: 'json' | 'csv') {
   const data = createResearchExport([session], 'session', exportedAt);
   const contents = format === 'json' ? researchExportJson(data) : researchExportCsv(data);
   downloadResearchFile(
-    researchExportFilename({ format, exportedAt, sessionId: session.id }),
+    pilotResearchExportFilename({
+      format,
+      exportedAt,
+      participantCode: session.participantCode,
+      participantSequence: session.participantSequence!,
+    }),
     contents,
     format === 'json' ? 'application/json' : 'text/csv;charset=utf-8',
   );
@@ -52,6 +57,10 @@ export function ResearchReviewPage() {
           <Panel key={session.id} className="pilot-verification" eyebrow="Pilot / Official">
             <h2>{session.participantCode ?? 'No participant code'}</h2>
             <dl className="research-summary-grid">
+              <div>
+                <dt>Research session ID</dt>
+                <dd>{session.id}</dd>
+              </div>
               <div>
                 <dt>Participant sequence</dt>
                 <dd>{session.participantSequence}</dd>
@@ -96,7 +105,14 @@ export function ResearchReviewPage() {
               </div>
               <div>
                 <dt>Full skips</dt>
-                <dd>{rooms.filter((room) => room.feedback.fullDialogSkipped).length}</dd>
+                <dd>
+                  {
+                    rooms.filter(
+                      (room) =>
+                        room.feedback.status === 'skipped' && room.feedback.fullDialogSkipped,
+                    ).length
+                  }
+                </dd>
               </div>
               <div>
                 <dt>Missing fairness</dt>
@@ -117,10 +133,11 @@ export function ResearchReviewPage() {
               </div>
               <div>
                 <dt>Session status</dt>
-                <dd>
-                  {session.completionStatus}
-                  {session.incompleteReason ? ` · ${session.incompleteReason}` : ''}
-                </dd>
+                <dd>{session.completionStatus}</dd>
+              </div>
+              <div>
+                <dt>Incomplete reason</dt>
+                <dd>{session.incompleteReason ?? 'Not applicable'}</dd>
               </div>
               <div>
                 <dt>Schema / invariants</dt>
@@ -129,6 +146,22 @@ export function ResearchReviewPage() {
                 </dd>
               </div>
             </dl>
+            <section className="pilot-technical-review" aria-labelledby={`technical-${session.id}`}>
+              <h3 id={`technical-${session.id}`}>Technical problems</h3>
+              {!session.sessionExit ? (
+                <p>Completion questionnaire not submitted.</p>
+              ) : (
+                <>
+                  <p>{session.sessionExit.technicalProblem === 'yes' ? 'Yes' : 'No'}</p>
+                  {session.sessionExit.technicalProblem === 'yes' && (
+                    <p>
+                      {session.sessionExit.technicalProblemDescription ??
+                        'No technical-problem description provided.'}
+                    </p>
+                  )}
+                </>
+              )}
+            </section>
             {(staleActive || active.issue || issues.length > 0) && (
               <div role="status" className="form-message">
                 {staleActive && (
@@ -144,6 +177,13 @@ export function ResearchReviewPage() {
               <SecondaryButton onClick={() => exportSession(session, 'json')}>JSON</SecondaryButton>
               <SecondaryButton onClick={() => exportSession(session, 'csv')}>CSV</SecondaryButton>
             </div>
+            <p className="research-export-guidance">
+              Filename format:{' '}
+              <code>
+                RR_Pilot_&lt;participant-code&gt;_seq-&lt;number&gt;_&lt;YYYYMMDD-HHMM&gt;
+              </code>
+              . JSON and CSV use the same condition-masked stem.
+            </p>
           </Panel>
         );
       })}

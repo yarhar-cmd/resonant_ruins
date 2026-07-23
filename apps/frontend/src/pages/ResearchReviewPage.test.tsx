@@ -79,6 +79,17 @@ describe('Pilot researcher verification', () => {
     session.completionStatus = 'complete';
     session.completedAt = session.endedAt;
     session.participantPhase = 'session_complete';
+    session.sessionExit = {
+      schemaVersion: 'pilot-exit-1',
+      instructionClarity: 4,
+      surveyFatigue: 2,
+      sessionLength: 'about_right',
+      technicalProblem: 'yes',
+      technicalProblemDescription: 'Audio briefly stopped.',
+      overallPreference: 'run_b',
+      comment: null,
+      submittedAt: new Date(41_000).toISOString(),
+    };
     expect(
       saveResearchStorage({
         researchSchemaVersion: 'research-1',
@@ -93,8 +104,14 @@ describe('Pilot researcher verification', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: 'PILOT_REVIEW' })).toBeVisible();
+    expect(screen.getByText('review-session')).toBeVisible();
     expect(screen.getByText('NEUTRAL_PROCEDURAL → RULES_ADAPTIVE')).toBeVisible();
     expect(screen.getAllByText('completed · 10 / 10')).toHaveLength(2);
+    expect(screen.getByRole('heading', { name: 'Technical problems' })).toBeVisible();
+    expect(screen.getByText('Audio briefly stopped.')).toBeVisible();
+    expect(
+      screen.getByText(/RR_Pilot_<participant-code>_seq-<number>_<YYYYMMDD-HHMM>/),
+    ).toBeVisible();
     expect(screen.getAllByText('Valid').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: 'JSON' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'CSV' })).toBeEnabled();

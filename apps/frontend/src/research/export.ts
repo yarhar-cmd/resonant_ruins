@@ -295,6 +295,20 @@ export function researchExportFilename(input: {
   return `resonant-ruins-research-${date}-${scope}.${input.format}`;
 }
 
+export function pilotResearchExportFilename(input: {
+  format: 'json' | 'csv';
+  exportedAt: string;
+  participantCode: string | null;
+  participantSequence: number;
+}): string {
+  const safeParticipantCode =
+    input.participantCode?.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 32) || 'no-code';
+  const timestamp = `${input.exportedAt.slice(0, 10).replaceAll('-', '')}-${input.exportedAt
+    .slice(11, 16)
+    .replace(':', '')}`;
+  return `RR_Pilot_${safeParticipantCode}_seq-${input.participantSequence}_${timestamp}.${input.format}`;
+}
+
 export function downloadResearchFile(filename: string, contents: string, type: string): void {
   const url = URL.createObjectURL(new Blob([contents], { type }));
   const anchor = document.createElement('a');
