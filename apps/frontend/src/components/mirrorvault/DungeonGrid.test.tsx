@@ -298,13 +298,29 @@ describe('Resonant Ruins dungeon grid', () => {
     const { container, rerender } = renderGrid(basePlayer, attack);
     const playerTile = container.querySelector('.tile--player');
     const slash = playerTile?.querySelector('.attack-slash--right');
+    const sword = playerTile?.querySelector('.player-token__sword');
     expect(container.querySelector('.tile--attack-target')).toBeNull();
     expect(slash?.querySelector('.attack-slash__arc')).not.toBeNull();
+    expect(slash?.querySelector('.attack-slash__trail')).not.toBeNull();
     expect(slash).toHaveAttribute('data-attack-origin', '2,2');
     expect(slash).toHaveAttribute('data-attack-target', '3,2');
+    expect(playerTile?.querySelector('.player-token--attacking-right')).not.toBeNull();
+    expect(sword).toHaveClass('player-token__sword--attacking');
+    expect(sword).toHaveAttribute('data-sword-pose', 'right-attack');
+    expect(sword?.querySelector('.player-token__sword-hand')).not.toBeNull();
+    expect(sword?.querySelector('.player-token__sword-pommel')).not.toBeNull();
+    expect(sword?.querySelector('.player-token__sword-grip')).not.toBeNull();
 
     act(() => vi.advanceTimersByTime(180));
     expect(container.querySelector('.attack-slash')).toBeNull();
+    expect(container.querySelector('.player-token--attacking')).toBeNull();
+    expect(container.querySelector('.player-token__sword')).toHaveClass(
+      'player-token__sword--idle',
+    );
+    expect(container.querySelector('.player-token__sword')).toHaveAttribute(
+      'data-sword-pose',
+      'right-idle',
+    );
 
     rerender(
       <DungeonGrid
@@ -339,6 +355,39 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(edgeSlash).toHaveAttribute('data-attack-target', '2,-1');
     expect(container.querySelectorAll('.tile')).toHaveLength(bounds.rows * bounds.columns);
   });
+
+  it.each(['up', 'right', 'down', 'left'] as const)(
+    'uses a dedicated %s sword swing and slash presentation without changing the attack target',
+    (facing) => {
+      const attemptedTarget = {
+        up: { row: 1, column: 2 },
+        right: { row: 2, column: 3 },
+        down: { row: 3, column: 2 },
+        left: { row: 2, column: 1 },
+      }[facing];
+      const { container } = renderGrid(
+        { ...basePlayer, facing },
+        {
+          id: `attack-${facing}`,
+          source: basePlayer.position,
+          attemptedTarget,
+          target: attemptedTarget,
+          facing,
+          damage: 1,
+          timestamp: 1,
+          blockedReason: null,
+        },
+      );
+
+      expect(container.querySelector(`.player-token--attacking-${facing}`)).not.toBeNull();
+      expect(container.querySelector('.player-token__sword')).toHaveAttribute(
+        'data-sword-pose',
+        `${facing}-attack`,
+      );
+      expect(container.querySelector(`.attack-slash--${facing}`)).not.toBeNull();
+      expect(container.querySelector('.tile--attack-target')).toBeNull();
+    },
+  );
 
   it('renders blocked-movement feedback briefly', () => {
     const { container } = render(
@@ -517,6 +566,32 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.tile--exit-closed')).toBeNull();
     expect(container.querySelector('.tile--exit-open')).not.toBeNull();
     expect(container.querySelector('.tile--collapsed-entrance')).not.toBeNull();
+  });
+
+  it('marks Awakening surfaces and distinguishes the shortcut from its normal sibling door', () => {
+    const room = evaluationRooms[0]!;
+    const { container, rerender } = render(dataDrivenGrid(room));
+    const normalExit = container.querySelector('[data-exit-kind="standard"]');
+    const shortcut = container.querySelector('[data-exit-kind="shortcut"]');
+
+    expect(screen.getByRole('application')).toHaveClass('dungeon-grid--awakening');
+    expect(screen.getByRole('application')).toHaveAttribute('data-room-phase', 'evaluation');
+    expect(container.querySelectorAll('.ruin-torch')).toHaveLength(2);
+    expect(normalExit).not.toHaveClass('tile--exit-shortcut');
+    expect(shortcut).toHaveClass('tile--exit-shortcut', 'tile--exit-sealed');
+    expect(shortcut?.querySelector('[data-shortcut-exit]')).not.toBeNull();
+
+    const unlocked: RoomDefinition = {
+      ...room,
+      exits: room.exits.map((exit) =>
+        exit.kind === 'shortcut' ? { ...exit, enabled: true } : exit,
+      ),
+    };
+    rerender(dataDrivenGrid(unlocked));
+    expect(container.querySelector('[data-exit-kind="shortcut"]')).toHaveClass(
+      'tile--exit-shortcut',
+      'tile--exit-open',
+    );
   });
 
   it('renders generator-3 void and internal structures as distinct solid tile layers', () => {

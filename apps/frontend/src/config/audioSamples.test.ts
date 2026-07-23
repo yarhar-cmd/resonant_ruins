@@ -37,6 +37,17 @@ describe('Resonant Ruins sample manifest', () => {
     expect(selectAudioSample('room.transition', 0).path).toBe('/audio/stone-collapse.ogg');
   });
 
+  it('keeps differentiated Rat cues present but below the dominant gameplay mix', () => {
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain).toBe(0.28);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBe(0.34);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.attack'].gain).toBe(0.3);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.damage'].gain).toBe(0.3);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.defeat'].gain).toBe(0.34);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBeGreaterThan(
+      AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain,
+    );
+  });
+
   it('keeps gameplay one-shots sample-based and reserves synthesis for quiet ambience', () => {
     const engineSource = readFileSync(resolve(testDirectory, '../services/audioEngine.ts'), 'utf8');
     expect(engineSource).not.toContain('SOUND_PROFILES');

@@ -34,8 +34,9 @@ defeat; and UI confirm/cancel.
 Footsteps rotate through four natural stone-step recordings with controlled pitch (0.94-1.06),
 volume (0.94-1.08), cooldown, and voice limits. Perfect blocks use a brighter recorded metal clash
 than normal blocks. Rat categories use separate recorded alert, urgent telegraph, and defeat cues
-with cooldowns and low concurrency to prevent loud chorusing. Full provenance is maintained in
-`docs/AUDIO_ASSETS.md`.
+with a deliberately subdued per-event mix, cooldowns, and low concurrency so Rat presence remains
+audible without overpowering footsteps, torch crackle, or room tone. Full provenance is maintained
+in `docs/AUDIO_ASSETS.md`.
 
 ## Ambience and lifecycle
 

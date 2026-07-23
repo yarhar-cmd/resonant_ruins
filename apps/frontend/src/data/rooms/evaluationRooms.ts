@@ -1,4 +1,5 @@
 import type { RoomDefinition } from '../../types/rooms';
+import type { RuinTorchFeature } from '../../types/topology';
 import { createRectangularRoom } from '../../utils/roomGeometry';
 
 export const EVALUATION_ROOM_1_ID = 'evaluation-room-01';
@@ -20,6 +21,29 @@ export const MIDDLE_EVALUATION_ROOM_IDS = [
   EVALUATION_ROOM_3_ID,
   EVALUATION_ROOM_4_ID,
 ] as const;
+
+function awakeningTorchPair(
+  roomId: string,
+  westColumn: number,
+  eastColumn: number,
+): RuinTorchFeature[] {
+  return [
+    {
+      id: `${roomId}-torch-west`,
+      kind: 'ruin-torch',
+      tile: { x: westColumn, y: 0 },
+      blocking: false,
+      source: 'authored',
+    },
+    {
+      id: `${roomId}-torch-east`,
+      kind: 'ruin-torch',
+      tile: { x: eastColumn, y: 0 },
+      blocking: false,
+      source: 'authored',
+    },
+  ];
+}
 
 export const evaluationRooms: readonly RoomDefinition[] = [
   createRectangularRoom({
@@ -46,6 +70,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         enabled: false,
       },
     ],
+    features: awakeningTorchPair(EVALUATION_ROOM_1_ID, 4, 10),
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_2_ID,
@@ -53,6 +78,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
     width: 17,
     height: 11,
     exitEnabled: true,
+    features: awakeningTorchPair(EVALUATION_ROOM_2_ID, 5, 11),
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_3_ID,
@@ -135,6 +161,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         reason: 'Veteran flank pressure',
       },
     ],
+    features: awakeningTorchPair(EVALUATION_ROOM_4_ID, 5, 11),
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_5_ID,
@@ -182,6 +209,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         reason: 'Combined encounter veteran flank',
       },
     ],
+    features: awakeningTorchPair(EVALUATION_ROOM_5_ID, 6, 14),
   }),
 ];
 

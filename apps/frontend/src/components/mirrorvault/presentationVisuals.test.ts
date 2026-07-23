@@ -37,4 +37,27 @@ describe('Resonant Ruins corrective presentation styling', () => {
     expect(polishCss).toContain('rune-danger-pulse 2.4s ease-in-out infinite alternate');
     expect(polishCss).toMatch(/\.effects-reduced \.tile--hazard::after,[\s\S]*animation: none;/);
   });
+
+  it('assembles the sword and gives every facing its own swing and slash geometry', () => {
+    for (const direction of ['up', 'right', 'down', 'left']) {
+      expect(polishCss).toContain(`@keyframes sword-swing-${direction}`);
+      expect(polishCss).toContain(`@keyframes slash-sweep-${direction}`);
+      expect(polishCss).toContain(`.attack-slash--${direction} .attack-slash__arc`);
+      expect(polishCss).toContain(
+        `.player-token--attacking-${direction} .player-token__sword--attacking`,
+      );
+    }
+    expect(polishCss).toContain('.player-token__sword-hand');
+    expect(polishCss).toContain('.player-token__sword-pommel');
+    expect(polishCss).toContain('.player-token__sword-grip');
+    expect(polishCss).not.toMatch(/\.attack-slash--(?:up|right|down|left)\s*\{[^}]*rotate\(/);
+  });
+
+  it('uses modern Awakening surfaces and a distinct in-family shortcut treatment', () => {
+    expect(polishCss).toContain('.dungeon-grid--awakening .tile--floor');
+    expect(polishCss).toContain('.dungeon-grid--awakening .tile--wall');
+    expect(polishCss).toContain('.tile--exit-shortcut');
+    expect(polishCss).toContain('.shortcut-exit-sigil');
+    expect(polishCss).toContain('.tile--exit-shortcut.tile--exit-open::before');
+  });
 });

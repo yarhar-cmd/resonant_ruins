@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluationRooms } from '../data/rooms/evaluationRooms';
+import type { RuinTorchFeature } from '../types/topology';
 import { createRoomEnemyState } from './enemySystem';
 import { validateAuthoredRoom } from './authoredRoomValidator';
 
@@ -7,6 +8,21 @@ describe('Resonant Ruins official Awakening Chambers', () => {
   it('keeps all five official authored rooms valid', () => {
     for (const room of evaluationRooms) {
       expect(validateAuthoredRoom(room, evaluationRooms).errors, room.id).toEqual([]);
+    }
+  });
+
+  it('gives every Awakening Chamber the shared authored wall-torch presentation', () => {
+    for (const room of evaluationRooms) {
+      const torches =
+        room.features?.filter(
+          (feature): feature is RuinTorchFeature => feature.kind === 'ruin-torch',
+        ) ?? [];
+      expect(torches, room.id).toHaveLength(2);
+      for (const torch of torches) {
+        expect(torch.source).toBe('authored');
+        expect(torch.blocking).toBe(false);
+        expect(torch.tile.y).toBe(0);
+      }
     }
   });
 

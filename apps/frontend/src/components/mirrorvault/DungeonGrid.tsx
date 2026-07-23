@@ -135,7 +135,9 @@ export function DungeonGrid({
         data-maximum-rows={MAX_ROOM_ROWS}
       >
         <div
-          className="dungeon-grid"
+          className={`dungeon-grid ${
+            room?.phase === 'evaluation' ? 'dungeon-grid--awakening' : ''
+          }`.trim()}
           role="application"
           aria-label="Resonant Ruins playable dungeon grid"
           aria-describedby="resonant-ruins-grid-instructions"
@@ -146,6 +148,7 @@ export function DungeonGrid({
           data-room-columns={bounds.columns}
           data-room-rows={bounds.rows}
           data-room-archetype={room?.archetype ?? 'legacy'}
+          data-room-phase={room?.phase ?? 'legacy'}
           tabIndex={0}
           style={
             {
@@ -238,6 +241,7 @@ export function DungeonGrid({
             const className = [
               'tile',
               `tile--${kind}`,
+              exit?.kind === 'shortcut' ? 'tile--exit-shortcut' : '',
               isPlayer ? 'tile--player' : '',
               isHazard ? 'tile--hazard' : '',
             ]
@@ -252,6 +256,7 @@ export function DungeonGrid({
                 data-tile-y={row}
                 data-tile-kind={kind}
                 data-exit-direction={exit?.direction}
+                data-exit-kind={exit?.kind}
                 aria-hidden="true"
               >
                 {isPlayer && (
@@ -272,6 +277,9 @@ export function DungeonGrid({
                       enemies?.lastBlockKind === 'perfect'
                         ? 'player-token--perfect-block'
                         : '',
+                      visibleAttack && status === 'active'
+                        ? `player-token--attacking player-token--attacking-${visibleAttack.facing}`
+                        : '',
                       status === 'defeated' ? 'player-token--defeated' : '',
                     ]
                       .filter(Boolean)
@@ -281,7 +289,20 @@ export function DungeonGrid({
                     <span className="player-token__helm" />
                     <span className="player-token__body" />
                     {status !== 'defeated' && (
-                      <span className="player-token__sword" aria-hidden="true">
+                      <span
+                        className={`player-token__sword ${
+                          visibleAttack && status === 'active'
+                            ? 'player-token__sword--attacking'
+                            : 'player-token__sword--idle'
+                        }`}
+                        data-sword-pose={`${visibleAttack?.facing ?? player.facing}-${
+                          visibleAttack && status === 'active' ? 'attack' : 'idle'
+                        }`}
+                        aria-hidden="true"
+                      >
+                        <span className="player-token__sword-hand" />
+                        <span className="player-token__sword-pommel" />
+                        <span className="player-token__sword-grip" />
                         <span className="player-token__sword-blade" />
                         <span className="player-token__sword-hilt" />
                       </span>
@@ -312,6 +333,7 @@ export function DungeonGrid({
                         aria-hidden="true"
                       >
                         <span className="attack-slash__arc" />
+                        <span className="attack-slash__trail" />
                       </span>
                     )}
                     {isInvulnerable && status === 'active' && (
@@ -325,6 +347,9 @@ export function DungeonGrid({
                       </span>
                     )}
                   </span>
+                )}
+                {exit?.kind === 'shortcut' && (
+                  <span className="shortcut-exit-sigil" data-shortcut-exit aria-hidden="true" />
                 )}
                 {rat && (
                   <span

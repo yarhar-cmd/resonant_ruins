@@ -360,6 +360,19 @@ button:disabled {
   filter: brightness(0.84) saturate(0.78);
 }
 
+.dungeon-grid--awakening .tile--floor {
+  background:
+    radial-gradient(circle at 28% 24%, rgba(130, 151, 137, 0.08), transparent 24%),
+    linear-gradient(145deg, #13251d, #091710 72%);
+}
+
+.dungeon-grid--awakening .tile--wall {
+  border-color: rgba(157, 137, 91, 0.34);
+  box-shadow:
+    inset 0 2px rgba(191, 183, 153, 0.08),
+    inset 0 0 0 2px rgba(3, 9, 7, 0.68);
+}
+
 .tile--void {
   border-color: transparent;
   background:
@@ -482,6 +495,62 @@ button:disabled {
   background: linear-gradient(180deg, #80725d, #443b31);
   box-shadow: 0 0.1rem 0.16rem rgba(0, 0, 0, 0.7);
   transform: rotate(-7deg);
+}
+
+.tile--exit-shortcut {
+  border-color: rgba(194, 104, 75, 0.78);
+  box-shadow:
+    inset 0 0 0 2px rgba(211, 169, 76, 0.18),
+    inset 0 0 0.7rem rgba(163, 69, 50, 0.18);
+}
+
+.tile--exit-shortcut::before {
+  border-color: #a97848;
+  background:
+    linear-gradient(90deg, transparent 0 42%, rgba(191, 100, 73, 0.32) 43% 57%, transparent 58%),
+    linear-gradient(180deg, rgba(222, 179, 94, 0.15), transparent 28%), #51382a;
+}
+
+.tile--exit-shortcut.tile--exit-open::before {
+  background:
+    linear-gradient(
+      90deg,
+      #795036 0 14%,
+      #3b251a 15% 21%,
+      #030705 22% 76%,
+      #43281d 77% 84%,
+      #795036 85% 100%
+    ),
+    linear-gradient(180deg, rgba(222, 179, 94, 0.15), transparent 28%);
+}
+
+.shortcut-exit-sigil {
+  position: absolute;
+  z-index: 4;
+  top: 28%;
+  left: 39%;
+  width: 22%;
+  aspect-ratio: 1;
+  border: 2px solid #d3a94c;
+  background: rgba(133, 57, 43, 0.78);
+  box-shadow:
+    inset 0 0 0 1px rgba(31, 17, 12, 0.78),
+    0 0 0.24rem rgba(194, 104, 75, 0.48);
+  transform: rotate(45deg);
+}
+
+.shortcut-exit-sigil::after {
+  content: '';
+  position: absolute;
+  inset: 27%;
+  border: 1px solid #f0c766;
+  background: #2b1813;
+}
+
+.tile--exit-shortcut.tile--exit-open .shortcut-exit-sigil {
+  top: 11%;
+  width: 18%;
+  opacity: 0.88;
 }
 
 .tile--hazard::after {
@@ -732,44 +801,104 @@ button:disabled {
   position: absolute;
   z-index: 4;
   top: 43%;
-  left: 54%;
-  width: 94%;
-  height: 18%;
-  transform-origin: -4% 50%;
+  left: 52%;
+  width: 82%;
+  height: 20%;
+  transform: rotate(-8deg);
+  transform-origin: 16% 50%;
   filter: drop-shadow(0 0.08rem 0.08rem rgba(0, 0, 0, 0.9));
 }
 
 .player-token--facing-left .player-token__sword {
-  left: 46%;
-  transform: rotate(180deg);
+  left: 48%;
+  transform: rotate(188deg);
 }
 
 .player-token--facing-up .player-token__sword {
-  left: 50%;
-  transform: rotate(-90deg);
+  top: 46%;
+  left: 49%;
+  transform: rotate(-98deg);
 }
 
 .player-token--facing-down .player-token__sword {
-  left: 50%;
-  transform: rotate(90deg);
+  top: 50%;
+  left: 51%;
+  transform: rotate(82deg);
+}
+
+.player-token__sword-hand {
+  position: absolute;
+  z-index: 3;
+  left: 8%;
+  top: 14%;
+  width: 18%;
+  aspect-ratio: 1;
+  border: 1px solid #5b4635;
+  border-radius: 50%;
+  background: #9a8062;
+}
+
+.player-token__sword-pommel {
+  position: absolute;
+  z-index: 2;
+  left: 1%;
+  top: 31%;
+  width: 10%;
+  height: 38%;
+  border-radius: 50%;
+  background: #b18c49;
+  box-shadow: inset 0 0 0 1px #4c3821;
+}
+
+.player-token__sword-grip {
+  position: absolute;
+  z-index: 2;
+  left: 13%;
+  top: 33%;
+  width: 18%;
+  height: 34%;
+  border-radius: 20%;
+  background: repeating-linear-gradient(90deg, #3e2d20 0 2px, #745638 2px 4px);
 }
 
 .player-token__sword-blade {
   position: absolute;
-  inset: 24% 0 24% 21%;
-  clip-path: polygon(0 25%, 82% 25%, 100% 50%, 82% 75%, 0 75%);
-  background: linear-gradient(180deg, #f0f2ef, #8c9692 56%, #56615d);
+  z-index: 1;
+  inset: 20% 0 20% 34%;
+  clip-path: polygon(0 15%, 82% 15%, 100% 50%, 82% 85%, 0 85%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent 42%),
+    linear-gradient(180deg, #f0f2ef, #8c9692 56%, #56615d);
 }
 
 .player-token__sword-hilt {
   position: absolute;
-  left: 9%;
-  top: -16%;
-  width: 8%;
-  height: 132%;
+  z-index: 4;
+  left: 29%;
+  top: -9%;
+  width: 7%;
+  height: 118%;
   border-radius: 20%;
   background: #b18c49;
-  box-shadow: -0.15rem 0 0 #4c3821;
+  box-shadow:
+    inset 0 0 0 1px #4c3821,
+    -0.1rem 0 0 rgba(76, 56, 33, 0.7);
+}
+
+.player-token--attacking-right .player-token__sword--attacking {
+  animation: sword-swing-right 180ms cubic-bezier(0.2, 0.72, 0.35, 1) both;
+}
+
+.player-token--attacking-left .player-token__sword--attacking {
+  animation: sword-swing-left 180ms cubic-bezier(0.2, 0.72, 0.35, 1) both;
+}
+
+.player-token--attacking-up .player-token__sword--attacking {
+  animation: sword-swing-up 180ms cubic-bezier(0.2, 0.72, 0.35, 1) both;
+}
+
+.player-token--attacking-down .player-token__sword--attacking {
+  animation: sword-swing-down 180ms cubic-bezier(0.2, 0.72, 0.35, 1) both;
 }
 
 .player-token--defeated .player-token__cloak,
@@ -781,44 +910,108 @@ button:disabled {
 .attack-slash {
   position: absolute;
   z-index: 8;
-  left: 50%;
-  top: 50%;
-  width: 145%;
-  height: 86%;
-  margin-top: -43%;
   display: block;
   color: transparent;
-  transform-origin: 0 50%;
   text-shadow: none;
   pointer-events: none;
-  animation: none;
 }
 
-.attack-slash__arc {
+.attack-slash__arc,
+.attack-slash__trail {
   position: absolute;
-  inset: 8% 4% 8% 3%;
-  border-top: 3px solid #f4f6f3;
-  border-right: 2px solid rgba(213, 220, 218, 0.74);
-  border-radius: 50%;
   filter: drop-shadow(0 0 0.24rem rgba(229, 234, 232, 0.68));
-  transform-origin: 0 50%;
-  animation: sword-arc-sweep 180ms ease-out both;
 }
 
 .attack-slash--right {
-  transform: rotate(0deg);
+  left: 42%;
+  top: -5%;
+  width: 162%;
+  height: 110%;
+}
+
+.attack-slash--right .attack-slash__arc {
+  inset: 6% 2% 12% 5%;
+  border-top: 3px solid #f4f6f3;
+  border-right: 2px solid rgba(213, 220, 218, 0.74);
+  border-radius: 8% 86% 18% 0;
+  animation: slash-sweep-right 180ms ease-out both;
+}
+
+.attack-slash--right .attack-slash__trail {
+  left: 24%;
+  top: 64%;
+  width: 56%;
+  border-top: 1px solid rgba(213, 220, 218, 0.52);
+  animation: slash-sweep-right 180ms 24ms ease-out both;
 }
 
 .attack-slash--left {
-  transform: rotate(180deg);
+  top: -5%;
+  right: 42%;
+  width: 162%;
+  height: 110%;
+}
+
+.attack-slash--left .attack-slash__arc {
+  inset: 6% 5% 12% 2%;
+  border-top: 3px solid #f4f6f3;
+  border-left: 2px solid rgba(213, 220, 218, 0.74);
+  border-radius: 86% 8% 0 18%;
+  animation: slash-sweep-left 180ms ease-out both;
+}
+
+.attack-slash--left .attack-slash__trail {
+  right: 24%;
+  top: 64%;
+  width: 56%;
+  border-top: 1px solid rgba(213, 220, 218, 0.52);
+  animation: slash-sweep-left 180ms 24ms ease-out both;
 }
 
 .attack-slash--up {
-  transform: rotate(-90deg);
+  left: -5%;
+  bottom: 42%;
+  width: 110%;
+  height: 162%;
+}
+
+.attack-slash--up .attack-slash__arc {
+  inset: 2% 12% 5% 6%;
+  border-top: 2px solid rgba(213, 220, 218, 0.74);
+  border-left: 3px solid #f4f6f3;
+  border-radius: 86% 18% 0 8%;
+  animation: slash-sweep-up 180ms ease-out both;
+}
+
+.attack-slash--up .attack-slash__trail {
+  left: 64%;
+  top: 24%;
+  height: 56%;
+  border-left: 1px solid rgba(213, 220, 218, 0.52);
+  animation: slash-sweep-up 180ms 24ms ease-out both;
 }
 
 .attack-slash--down {
-  transform: rotate(90deg);
+  left: -5%;
+  top: 42%;
+  width: 110%;
+  height: 162%;
+}
+
+.attack-slash--down .attack-slash__arc {
+  inset: 5% 12% 2% 6%;
+  border-bottom: 2px solid rgba(213, 220, 218, 0.74);
+  border-left: 3px solid #f4f6f3;
+  border-radius: 8% 0 18% 86%;
+  animation: slash-sweep-down 180ms ease-out both;
+}
+
+.attack-slash--down .attack-slash__trail {
+  left: 64%;
+  bottom: 24%;
+  height: 56%;
+  border-left: 1px solid rgba(213, 220, 218, 0.52);
+  animation: slash-sweep-down 180ms 24ms ease-out both;
 }
 
 .rat-token {
@@ -966,15 +1159,40 @@ button:disabled {
   box-shadow: none;
 }
 
-.effects-reduced .attack-slash,
-.effects-off .attack-slash {
+.effects-reduced .attack-slash__arc,
+.effects-reduced .attack-slash__trail,
+.effects-off .attack-slash__arc,
+.effects-off .attack-slash__trail,
+.reduce-motion .attack-slash__arc,
+.reduce-motion .attack-slash__trail,
+.effects-reduced .player-token__sword--attacking,
+.effects-off .player-token__sword--attacking,
+.reduce-motion .player-token__sword--attacking {
   animation: none;
 }
 
-.effects-reduced .attack-slash__arc,
-.effects-off .attack-slash__arc,
-.reduce-motion .attack-slash__arc {
-  animation: none;
+.effects-reduced .player-token--attacking-right .player-token__sword,
+.effects-off .player-token--attacking-right .player-token__sword,
+.reduce-motion .player-token--attacking-right .player-token__sword {
+  transform: rotate(48deg);
+}
+
+.effects-reduced .player-token--attacking-left .player-token__sword,
+.effects-off .player-token--attacking-left .player-token__sword,
+.reduce-motion .player-token--attacking-left .player-token__sword {
+  transform: rotate(132deg);
+}
+
+.effects-reduced .player-token--attacking-up .player-token__sword,
+.effects-off .player-token--attacking-up .player-token__sword,
+.reduce-motion .player-token--attacking-up .player-token__sword {
+  transform: rotate(-48deg);
+}
+
+.effects-reduced .player-token--attacking-down .player-token__sword,
+.effects-off .player-token--attacking-down .player-token__sword,
+.reduce-motion .player-token--attacking-down .player-token__sword {
+  transform: rotate(138deg);
 }
 
 .effects-off .low-health-vignette {
@@ -992,7 +1210,10 @@ button:disabled {
   .dungeon-grid:has(.player-token--perfect-block),
   .rat-token--telegraphing .rat-token__visual,
   .tile--hazard::after,
-  .ruin-torch__ember {
+  .ruin-torch__ember,
+  .attack-slash__arc,
+  .attack-slash__trail,
+  .player-token__sword--attacking {
     animation: none !important;
   }
 }
@@ -1362,14 +1583,95 @@ button:disabled {
   }
 }
 
-@keyframes sword-arc-sweep {
+@keyframes sword-swing-right {
+  0% {
+    transform: rotate(-18deg);
+  }
+  42% {
+    transform: rotate(24deg);
+  }
+  100% {
+    transform: rotate(48deg);
+  }
+}
+
+@keyframes sword-swing-left {
+  0% {
+    transform: rotate(198deg);
+  }
+  42% {
+    transform: rotate(158deg);
+  }
+  100% {
+    transform: rotate(132deg);
+  }
+}
+
+@keyframes sword-swing-up {
+  0% {
+    transform: rotate(-112deg);
+  }
+  42% {
+    transform: rotate(-76deg);
+  }
+  100% {
+    transform: rotate(-48deg);
+  }
+}
+
+@keyframes sword-swing-down {
+  0% {
+    transform: rotate(72deg);
+  }
+  42% {
+    transform: rotate(108deg);
+  }
+  100% {
+    transform: rotate(138deg);
+  }
+}
+
+@keyframes slash-sweep-right {
   from {
-    opacity: 0.18;
-    transform: rotate(-18deg) scale(0.58);
+    opacity: 0.12;
+    transform: translate(-24%, 12%) scale(0.46);
   }
   to {
     opacity: 1;
-    transform: rotate(12deg) scale(1);
+    transform: translate(0) scale(1);
+  }
+}
+
+@keyframes slash-sweep-left {
+  from {
+    opacity: 0.12;
+    transform: translate(24%, 12%) scale(0.46);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0) scale(1);
+  }
+}
+
+@keyframes slash-sweep-up {
+  from {
+    opacity: 0.12;
+    transform: translate(12%, 24%) scale(0.46);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0) scale(1);
+  }
+}
+
+@keyframes slash-sweep-down {
+  from {
+    opacity: 0.12;
+    transform: translate(12%, -24%) scale(0.46);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0) scale(1);
   }
 }
 
