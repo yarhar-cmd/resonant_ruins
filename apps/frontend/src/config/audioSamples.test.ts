@@ -32,17 +32,17 @@ describe('Resonant Ruins sample manifest', () => {
     expect(selectAudioSample('player.step', 4).path).toBe('/audio/footstep-stone-01.ogg');
     expect(selectAudioSample('player.attack-swing', 1).path).toBe('/audio/sword-swing-02.ogg');
     expect(selectAudioSample('rat.alert', 0).path).toBe('/audio/rat-alert.ogg');
-    expect(selectAudioSample('rat.telegraph', 0).playbackRate).toBe(1.12);
+    expect(selectAudioSample('rat.telegraph', 0).playbackRate).toBe(1.04);
     expect(selectAudioSample('exit.activate', 0).path).toBe('/audio/door-open.ogg');
     expect(selectAudioSample('room.transition', 0).path).toBe('/audio/stone-collapse.ogg');
   });
 
   it('keeps differentiated Rat cues present but below the dominant gameplay mix', () => {
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain).toBe(0.28);
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBe(0.34);
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.attack'].gain).toBe(0.3);
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.damage'].gain).toBe(0.3);
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.defeat'].gain).toBe(0.34);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain).toBe(0.18);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBe(0.22);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.attack'].gain).toBe(0.18);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.damage'].gain).toBe(0.2);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.defeat'].gain).toBe(0.24);
     expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBeGreaterThan(
       AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain,
     );

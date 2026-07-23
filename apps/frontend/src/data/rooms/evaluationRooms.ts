@@ -1,5 +1,9 @@
 import type { RoomDefinition } from '../../types/rooms';
-import type { RuinTorchFeature } from '../../types/topology';
+import type {
+  RuinPropFeature,
+  RuinPropVisualVariant,
+  RuinTorchFeature,
+} from '../../types/topology';
 import { createRectangularRoom } from '../../utils/roomGeometry';
 
 export const EVALUATION_ROOM_1_ID = 'evaluation-room-01';
@@ -45,6 +49,24 @@ function awakeningTorchPair(
   ];
 }
 
+function awakeningProps(
+  roomId: string,
+  props: ReadonlyArray<{
+    variant: RuinPropVisualVariant;
+    x: number;
+    y: number;
+  }>,
+): RuinPropFeature[] {
+  return props.map(({ variant, x, y }, index) => ({
+    id: `${roomId}-prop-${index + 1}`,
+    kind: 'ruin-prop',
+    tile: { x, y },
+    blocking: false,
+    source: 'authored',
+    variant,
+  }));
+}
+
 export const evaluationRooms: readonly RoomDefinition[] = [
   createRectangularRoom({
     id: EVALUATION_ROOM_1_ID,
@@ -70,7 +92,13 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         enabled: false,
       },
     ],
-    features: awakeningTorchPair(EVALUATION_ROOM_1_ID, 4, 10),
+    features: [
+      ...awakeningTorchPair(EVALUATION_ROOM_1_ID, 4, 10),
+      ...awakeningProps(EVALUATION_ROOM_1_ID, [
+        { variant: 'rubble-cluster', x: 4, y: 3 },
+        { variant: 'iron-coffer', x: 10, y: 8 },
+      ]),
+    ],
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_2_ID,
@@ -78,7 +106,13 @@ export const evaluationRooms: readonly RoomDefinition[] = [
     width: 17,
     height: 11,
     exitEnabled: true,
-    features: awakeningTorchPair(EVALUATION_ROOM_2_ID, 5, 11),
+    features: [
+      ...awakeningTorchPair(EVALUATION_ROOM_2_ID, 5, 11),
+      ...awakeningProps(EVALUATION_ROOM_2_ID, [
+        { variant: 'broken-column', x: 7, y: 2 },
+        { variant: 'urn-cluster', x: 12, y: 8 },
+      ]),
+    ],
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_3_ID,
@@ -117,6 +151,10 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         blocking: false,
         source: 'authored',
       },
+      ...awakeningProps(EVALUATION_ROOM_3_ID, [
+        { variant: 'rubble-cluster', x: 4, y: 3 },
+        { variant: 'iron-coffer', x: 10, y: 9 },
+      ]),
     ],
   }),
   createRectangularRoom({
@@ -161,7 +199,13 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         reason: 'Veteran flank pressure',
       },
     ],
-    features: awakeningTorchPair(EVALUATION_ROOM_4_ID, 5, 11),
+    features: [
+      ...awakeningTorchPair(EVALUATION_ROOM_4_ID, 5, 11),
+      ...awakeningProps(EVALUATION_ROOM_4_ID, [
+        { variant: 'broken-column', x: 5, y: 2 },
+        { variant: 'rubble-cluster', x: 6, y: 8 },
+      ]),
+    ],
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_5_ID,
@@ -209,7 +253,13 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         reason: 'Combined encounter veteran flank',
       },
     ],
-    features: awakeningTorchPair(EVALUATION_ROOM_5_ID, 6, 14),
+    features: [
+      ...awakeningTorchPair(EVALUATION_ROOM_5_ID, 6, 14),
+      ...awakeningProps(EVALUATION_ROOM_5_ID, [
+        { variant: 'urn-cluster', x: 5, y: 3 },
+        { variant: 'iron-coffer', x: 16, y: 11 },
+      ]),
+    ],
   }),
 ];
 

@@ -235,6 +235,7 @@ class WebAudioBackend implements AudioBackend {
   private readonly variantCounters = new Map<AudioEventName, number>();
   private ambienceSources: AudioScheduledSourceNode[] = [];
   private transientSources = new Set<AudioScheduledSourceNode>();
+  private outputPrimed = false;
 
   constructor(private readonly context: AudioContext) {
     this.master = context.createGain();
@@ -254,7 +255,8 @@ class WebAudioBackend implements AudioBackend {
   }
 
   async resume(): Promise<void> {
-    await this.context.resume();
+    if (!this.outputPrimed) this.outputPrimed = primeMobileAudioOutput(this.context);
+    if (this.context.state !== 'running') await this.context.resume();
     void this.samplePreload;
   }
 
@@ -359,6 +361,24 @@ class WebAudioBackend implements AudioBackend {
     this.transientSources.add(source);
     source.addEventListener('ended', () => this.transientSources.delete(source), { once: true });
     return new WebAudioVoice(source);
+  }
+}
+
+type PrimableAudioContext = Pick<
+  AudioContext,
+  'createBuffer' | 'createBufferSource' | 'destination' | 'sampleRate'
+>;
+
+export function primeMobileAudioOutput(context: PrimableAudioContext): boolean {
+  try {
+    const source = context.createBufferSource();
+    source.buffer = context.createBuffer(1, 1, context.sampleRate);
+    source.connect(context.destination);
+    source.addEventListener('ended', () => source.disconnect(), { once: true });
+    source.start(0);
+    return true;
+  } catch {
+    return false;
   }
 }
 

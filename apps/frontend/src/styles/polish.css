@@ -701,43 +701,43 @@ button:disabled {
 }
 
 .player-token--facing-right .player-token__shield--carried {
-  top: 25%;
+  top: 8%;
   left: -12%;
 }
 
 .player-token--facing-left .player-token__shield--carried {
-  top: 25%;
+  top: 48%;
   right: -12%;
 }
 
 .player-token--facing-up .player-token__shield--carried {
-  right: -10%;
+  left: -10%;
   bottom: 4%;
 }
 
 .player-token--facing-down .player-token__shield--carried {
-  left: -10%;
+  right: -10%;
   top: 4%;
 }
 
 .player-token--facing-right .player-token__shield--active {
-  top: 12%;
+  top: 0;
   right: -34%;
 }
 
 .player-token--facing-left .player-token__shield--active {
-  top: 12%;
+  top: 35%;
   left: -34%;
 }
 
 .player-token--facing-up .player-token__shield--active {
   top: -31%;
-  left: 26%;
+  left: 2%;
 }
 
 .player-token--facing-down .player-token__shield--active {
   bottom: -31%;
-  left: 26%;
+  right: 2%;
 }
 
 .player-token__shield-guard {
@@ -800,8 +800,8 @@ button:disabled {
 .player-token__sword {
   position: absolute;
   z-index: 4;
-  top: 43%;
-  left: 52%;
+  top: 56%;
+  left: 48%;
   width: 82%;
   height: 20%;
   transform: rotate(-8deg);
@@ -810,19 +810,20 @@ button:disabled {
 }
 
 .player-token--facing-left .player-token__sword {
-  left: 48%;
+  top: 24%;
+  left: 52%;
   transform: rotate(188deg);
 }
 
 .player-token--facing-up .player-token__sword {
-  top: 46%;
-  left: 49%;
+  top: 50%;
+  left: 58%;
   transform: rotate(-98deg);
 }
 
 .player-token--facing-down .player-token__sword {
-  top: 50%;
-  left: 51%;
+  top: 48%;
+  left: 28%;
   transform: rotate(82deg);
 }
 
@@ -910,10 +911,12 @@ button:disabled {
 .attack-slash {
   position: absolute;
   z-index: 8;
+  inset: auto;
   display: block;
   color: transparent;
   text-shadow: none;
   pointer-events: none;
+  animation: none;
 }
 
 .attack-slash__arc,
@@ -923,9 +926,9 @@ button:disabled {
 }
 
 .attack-slash--right {
-  left: 42%;
+  left: 82%;
   top: -5%;
-  width: 162%;
+  width: 148%;
   height: 110%;
 }
 
@@ -947,8 +950,8 @@ button:disabled {
 
 .attack-slash--left {
   top: -5%;
-  right: 42%;
-  width: 162%;
+  right: 82%;
+  width: 148%;
   height: 110%;
 }
 
@@ -970,9 +973,9 @@ button:disabled {
 
 .attack-slash--up {
   left: -5%;
-  bottom: 42%;
+  bottom: 82%;
   width: 110%;
-  height: 162%;
+  height: 148%;
 }
 
 .attack-slash--up .attack-slash__arc {
@@ -993,9 +996,9 @@ button:disabled {
 
 .attack-slash--down {
   left: -5%;
-  top: 42%;
+  top: 82%;
   width: 110%;
-  height: 162%;
+  height: 148%;
 }
 
 .attack-slash--down .attack-slash__arc {
@@ -1065,6 +1068,102 @@ button:disabled {
 .resonance-cache__glow {
   background: rgba(255, 234, 192, 0.18);
   box-shadow: 0 0 0.45rem rgba(255, 224, 161, 0.42);
+}
+
+.ruin-prop {
+  position: absolute;
+  z-index: 3;
+  inset: 10%;
+  pointer-events: none;
+  filter: drop-shadow(0 0.12rem 0.1rem rgba(0, 0, 0, 0.68));
+}
+
+.ruin-prop__piece {
+  position: absolute;
+  display: block;
+}
+
+.ruin-prop--iron-coffer .ruin-prop__piece--one {
+  inset: 38% 10% 12%;
+  border: 1px solid #665a45;
+  border-radius: 8%;
+  background: linear-gradient(180deg, #655b4a, #333834 68%);
+}
+
+.ruin-prop--iron-coffer .ruin-prop__piece--two {
+  inset: 19% 8% 48%;
+  border: 1px solid #716345;
+  border-radius: 45% 45% 8% 8%;
+  background: linear-gradient(180deg, #756a55, #40443e);
+}
+
+.ruin-prop--iron-coffer .ruin-prop__piece--three {
+  left: 45%;
+  top: 39%;
+  width: 11%;
+  height: 27%;
+  border: 1px solid #8d7848;
+  background: #493c27;
+}
+
+.ruin-prop--rubble-cluster .ruin-prop__piece {
+  border: 1px solid #4d524b;
+  background: linear-gradient(135deg, #686d63, #343a35);
+}
+
+.ruin-prop--rubble-cluster .ruin-prop__piece--one {
+  inset: 42% 38% 12% 6%;
+  clip-path: polygon(12% 20%, 72% 0, 100% 62%, 78% 100%, 0 82%);
+}
+
+.ruin-prop--rubble-cluster .ruin-prop__piece--two {
+  inset: 24% 8% 35% 49%;
+  clip-path: polygon(45% 0, 100% 26%, 82% 100%, 0 74%);
+}
+
+.ruin-prop--rubble-cluster .ruin-prop__piece--three {
+  inset: 58% 12% 9% 57%;
+  transform: rotate(13deg);
+}
+
+.ruin-prop--broken-column .ruin-prop__piece--one {
+  inset: 38% 7% 25%;
+  transform: rotate(-12deg);
+  border: 1px solid #62675d;
+  border-radius: 8%;
+  background: repeating-linear-gradient(90deg, #3c423d 0 22%, #666b61 24% 43%);
+}
+
+.ruin-prop--broken-column .ruin-prop__piece--two {
+  inset: 23% 57% 44% 5%;
+  transform: rotate(-17deg);
+  border: 1px solid #555b53;
+  background: #6b7065;
+}
+
+.ruin-prop--broken-column .ruin-prop__piece--three {
+  inset: 55% 7% 14% 69%;
+  transform: rotate(18deg);
+  border: 1px solid #50564e;
+  background: #595f57;
+}
+
+.ruin-prop--urn-cluster .ruin-prop__piece {
+  border: 1px solid #5e4d3c;
+  border-radius: 42% 42% 48% 48%;
+  background: linear-gradient(90deg, #47372b, #876848 52%, #3c322b);
+}
+
+.ruin-prop--urn-cluster .ruin-prop__piece--one {
+  inset: 24% 43% 12% 10%;
+}
+
+.ruin-prop--urn-cluster .ruin-prop__piece--two {
+  inset: 42% 8% 14% 58%;
+}
+
+.ruin-prop--urn-cluster .ruin-prop__piece--three {
+  inset: 15% 22% 45% 52%;
 }
 
 .ruin-torch::before {

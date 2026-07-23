@@ -14,7 +14,11 @@ import type {
 } from '../../types/player';
 import type { AvoidedDamageEvent, DamageEvent, GameplayStatus } from '../../utils/gameplayState';
 import type { RoomDefinition, TileCoordinate } from '../../types/rooms';
-import type { ResonanceCacheFeature, RestorationFountainFeature } from '../../types/topology';
+import type {
+  ResonanceCacheFeature,
+  RestorationFountainFeature,
+  RuinPropFeature,
+} from '../../types/topology';
 import type { EnemyRoomState } from '../../types/enemies';
 import type {
   InteractableDefinition,
@@ -182,6 +186,10 @@ export function DungeonGrid({
                 ? (feature as RestorationFountainFeature)
                 : null;
             const torch = feature?.kind === 'ruin-torch' ? feature : null;
+            const prop =
+              feature?.kind === 'ruin-prop' && 'variant' in feature
+                ? (feature as RuinPropFeature)
+                : null;
             const torchMountDirection = torch
               ? getTorchMountDirection(coordinate, floorLookup)
               : null;
@@ -284,6 +292,7 @@ export function DungeonGrid({
                     ]
                       .filter(Boolean)
                       .join(' ')}
+                    data-equipment-handedness="weapon-right-shield-left"
                   >
                     <span className="player-token__cloak" />
                     <span className="player-token__helm" />
@@ -298,6 +307,7 @@ export function DungeonGrid({
                         data-sword-pose={`${visibleAttack?.facing ?? player.facing}-${
                           visibleAttack && status === 'active' ? 'attack' : 'idle'
                         }`}
+                        data-equipment-hand="right"
                         aria-hidden="true"
                       >
                         <span className="player-token__sword-hand" />
@@ -317,6 +327,7 @@ export function DungeonGrid({
                         data-shield-pose={`${player.facing}-${
                           player.isShielding && status === 'active' ? 'active' : 'idle'
                         }`}
+                        data-equipment-hand="left"
                         aria-hidden="true"
                       >
                         <span className="player-token__shield-face" />
@@ -330,6 +341,7 @@ export function DungeonGrid({
                         className={`attack-slash attack-slash--${visibleAttack.facing}`}
                         data-attack-origin={`${visibleAttack.source.column},${visibleAttack.source.row}`}
                         data-attack-target={`${visibleAttack.attemptedTarget.column},${visibleAttack.attemptedTarget.row}`}
+                        data-attack-presentation={`forward-${visibleAttack.facing}`}
                         aria-hidden="true"
                       >
                         <span className="attack-slash__arc" />
@@ -420,6 +432,17 @@ export function DungeonGrid({
                     <span className="ruin-torch__bracket" />
                     <span className="ruin-torch__flame" />
                     <span className="ruin-torch__ember" />
+                  </span>
+                )}
+                {prop && (
+                  <span
+                    className={`ruin-prop ruin-prop--${prop.variant}`}
+                    data-decoration-id={prop.id}
+                    data-prop-variant={prop.variant}
+                  >
+                    <span className="ruin-prop__piece ruin-prop__piece--one" />
+                    <span className="ruin-prop__piece ruin-prop__piece--two" />
+                    <span className="ruin-prop__piece ruin-prop__piece--three" />
                   </span>
                 )}
               </span>

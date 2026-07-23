@@ -3,6 +3,7 @@ import { DEFAULT_AUDIO_SETTINGS } from '../config/audio';
 import type { AudioEvent, AudioSettings } from '../types/audio';
 import {
   AudioEngine,
+  primeMobileAudioOutput,
   selectFootstepPitch,
   selectFootstepVolume,
   type AudioBackend,
@@ -153,7 +154,7 @@ describe('Resonant Ruins centralized sample audio engine', () => {
     expect(engine.emit({ name: 'player.step' })).toBe(true);
   });
 
-  it('keeps repeated Rat cues within the existing category voice limit', async () => {
+  it('throttles repeated Rat cues and limits simultaneous Rat voices', async () => {
     let now = 1_000;
     const backend = new FakeBackend();
     const engine = new AudioEngine(DEFAULT_AUDIO_SETTINGS, {
@@ -164,11 +165,52 @@ describe('Resonant Ruins centralized sample audio engine', () => {
 
     expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-1' })).toBe(true);
     now += 200;
-    expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-2' })).toBe(true);
-    now += 200;
     expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-3' })).toBe(false);
     backend.plays[0]?.voice.end();
+    now += 250;
     expect(engine.emit({ name: 'rat.alert', sourceId: 'rat-3' })).toBe(true);
+
+    now += 500;
+    expect(engine.emit({ name: 'rat.telegraph', sourceId: 'rat-1' })).toBe(true);
+    now += 320;
+    expect(engine.emit({ name: 'rat.telegraph', sourceId: 'rat-2' })).toBe(true);
+    now += 320;
+    expect(engine.emit({ name: 'rat.telegraph', sourceId: 'rat-3' })).toBe(false);
+    backend.plays.at(-2)?.voice.end();
+    expect(engine.emit({ name: 'rat.telegraph', sourceId: 'rat-3' })).toBe(true);
+  });
+
+  it('primes a one-frame silent source for mobile Web Audio unlock', () => {
+    const buffer = {} as AudioBuffer;
+    const destination = {} as AudioDestinationNode;
+    const source = {
+      buffer: null,
+      connect: vi.fn(),
+      addEventListener: vi.fn(),
+      start: vi.fn(),
+      disconnect: vi.fn(),
+    } as unknown as AudioBufferSourceNode;
+    const context = {
+      sampleRate: 48_000,
+      destination,
+      createBuffer: vi.fn(() => buffer),
+      createBufferSource: vi.fn(() => source),
+    } as unknown as AudioContext;
+
+    expect(primeMobileAudioOutput(context)).toBe(true);
+    expect(context.createBuffer).toHaveBeenCalledWith(1, 1, 48_000);
+    expect(source.buffer).toBe(buffer);
+    expect(source.connect).toHaveBeenCalledWith(destination);
+    expect(source.start).toHaveBeenCalledWith(0);
+
+    expect(
+      primeMobileAudioOutput({
+        ...context,
+        createBufferSource: () => {
+          throw new Error('mobile backend unavailable');
+        },
+      }),
+    ).toBe(false);
   });
 
   it('suppresses effects and ambience while hidden, restores ambience when visible, and cleans up', async () => {

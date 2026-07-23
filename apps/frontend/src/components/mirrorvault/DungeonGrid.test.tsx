@@ -97,9 +97,21 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(container.querySelector('.player-token--shielding')).not.toBeNull();
     expect(container.querySelector('.player-token__facing')).toBeNull();
     expect(container.querySelector('.player-token__sword')).not.toBeNull();
+    expect(container.querySelector('.player-token')).toHaveAttribute(
+      'data-equipment-handedness',
+      'weapon-right-shield-left',
+    );
+    expect(container.querySelector('.player-token__sword')).toHaveAttribute(
+      'data-equipment-hand',
+      'right',
+    );
     expect(container.querySelector('.player-token__shield--active')).toHaveAttribute(
       'data-shield-pose',
       'right-active',
+    );
+    expect(container.querySelector('.player-token__shield--active')).toHaveAttribute(
+      'data-equipment-hand',
+      'left',
     );
     expect(container.querySelector('.player-token__shield-guard')).not.toBeNull();
     expect(container.querySelector('.player-token--facing-right')).not.toBeNull();
@@ -169,6 +181,14 @@ describe('Resonant Ruins dungeon grid', () => {
         'data-shield-pose',
         `${facing}-idle`,
       );
+      expect(container.querySelector('.player-token__sword')).toHaveAttribute(
+        'data-equipment-hand',
+        'right',
+      );
+      expect(container.querySelector('.player-token__shield')).toHaveAttribute(
+        'data-equipment-hand',
+        'left',
+      );
       expect(container.querySelector('.player-token__shield-guard')).toBeNull();
       unmount();
 
@@ -181,6 +201,14 @@ describe('Resonant Ruins dungeon grid', () => {
       expect(active.container.querySelector('.player-token__shield')).toHaveAttribute(
         'data-shield-pose',
         `${facing}-active`,
+      );
+      expect(active.container.querySelector('.player-token__sword')).toHaveAttribute(
+        'data-equipment-hand',
+        'right',
+      );
+      expect(active.container.querySelector('.player-token__shield')).toHaveAttribute(
+        'data-equipment-hand',
+        'left',
       );
       expect(active.container.querySelector('.player-token__shield-guard')).not.toBeNull();
     },
@@ -385,6 +413,10 @@ describe('Resonant Ruins dungeon grid', () => {
         `${facing}-attack`,
       );
       expect(container.querySelector(`.attack-slash--${facing}`)).not.toBeNull();
+      expect(container.querySelector(`.attack-slash--${facing}`)).toHaveAttribute(
+        'data-attack-presentation',
+        `forward-${facing}`,
+      );
       expect(container.querySelector('.tile--attack-target')).toBeNull();
     },
   );
@@ -577,6 +609,9 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(screen.getByRole('application')).toHaveClass('dungeon-grid--awakening');
     expect(screen.getByRole('application')).toHaveAttribute('data-room-phase', 'evaluation');
     expect(container.querySelectorAll('.ruin-torch')).toHaveLength(2);
+    expect(container.querySelectorAll('.ruin-prop')).toHaveLength(2);
+    expect(container.querySelector('[data-prop-variant="iron-coffer"]')).not.toBeNull();
+    expect(container.querySelector('[data-prop-variant="rubble-cluster"]')).not.toBeNull();
     expect(normalExit).not.toHaveClass('tile--exit-shortcut');
     expect(shortcut).toHaveClass('tile--exit-shortcut', 'tile--exit-sealed');
     expect(shortcut?.querySelector('[data-shortcut-exit]')).not.toBeNull();

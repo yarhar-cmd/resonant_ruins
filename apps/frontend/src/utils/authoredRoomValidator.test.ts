@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluationRooms } from '../data/rooms/evaluationRooms';
-import type { RuinTorchFeature } from '../types/topology';
+import type { RuinPropFeature, RuinTorchFeature } from '../types/topology';
 import { createRoomEnemyState } from './enemySystem';
 import { validateAuthoredRoom } from './authoredRoomValidator';
 
@@ -22,6 +22,24 @@ describe('Resonant Ruins official Awakening Chambers', () => {
         expect(torch.source).toBe('authored');
         expect(torch.blocking).toBe(false);
         expect(torch.tile.y).toBe(0);
+      }
+    }
+  });
+
+  it('adds two authored nonblocking physical props to every Awakening Chamber', () => {
+    for (const room of evaluationRooms) {
+      const props =
+        room.features?.filter(
+          (feature): feature is RuinPropFeature => feature.kind === 'ruin-prop',
+        ) ?? [];
+      expect(props, room.id).toHaveLength(2);
+      for (const prop of props) {
+        expect(prop.source).toBe('authored');
+        expect(prop.blocking).toBe(false);
+        expect(room.floorTiles).toContainEqual(prop.tile);
+        expect(room.exits.map((exit) => exit.tile)).not.toContainEqual(prop.tile);
+        expect(room.hazards ?? []).not.toContainEqual(prop.tile);
+        expect(room.enemySpawns?.map((spawn) => spawn.tile) ?? []).not.toContainEqual(prop.tile);
       }
     }
   });

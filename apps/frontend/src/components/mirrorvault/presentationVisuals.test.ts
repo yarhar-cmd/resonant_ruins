@@ -50,7 +50,27 @@ describe('Resonant Ruins corrective presentation styling', () => {
     expect(polishCss).toContain('.player-token__sword-hand');
     expect(polishCss).toContain('.player-token__sword-pommel');
     expect(polishCss).toContain('.player-token__sword-grip');
+    expect(polishCss).toMatch(/\.attack-slash\s*\{[^}]*inset: auto;[^}]*animation: none;/);
     expect(polishCss).not.toMatch(/\.attack-slash--(?:up|right|down|left)\s*\{[^}]*rotate\(/);
+    expect(polishCss).toMatch(/\.attack-slash--right\s*\{[^}]*left: 82%;/);
+    expect(polishCss).toMatch(/\.attack-slash--left\s*\{[^}]*right: 82%;/);
+    expect(polishCss).toMatch(/\.attack-slash--up\s*\{[^}]*bottom: 82%;/);
+    expect(polishCss).toMatch(/\.attack-slash--down\s*\{[^}]*top: 82%;/);
+  });
+
+  it('keeps the right-hand weapon and left-hand shield in mirrored facing lanes', () => {
+    expect(polishCss).toMatch(
+      /\.player-token--facing-right \.player-token__shield--carried\s*\{[^}]*top: 8%;[^}]*left: -12%;/,
+    );
+    expect(polishCss).toMatch(
+      /\.player-token--facing-left \.player-token__shield--carried\s*\{[^}]*top: 48%;[^}]*right: -12%;/,
+    );
+    expect(polishCss).toMatch(
+      /\.player-token--facing-up \.player-token__shield--carried\s*\{[^}]*left: -10%;/,
+    );
+    expect(polishCss).toMatch(
+      /\.player-token--facing-down \.player-token__shield--carried\s*\{[^}]*right: -10%;/,
+    );
   });
 
   it('uses modern Awakening surfaces and a distinct in-family shortcut treatment', () => {
@@ -59,5 +79,9 @@ describe('Resonant Ruins corrective presentation styling', () => {
     expect(polishCss).toContain('.tile--exit-shortcut');
     expect(polishCss).toContain('.shortcut-exit-sigil');
     expect(polishCss).toContain('.tile--exit-shortcut.tile--exit-open::before');
+    expect(polishCss).toContain('.ruin-prop--iron-coffer');
+    expect(polishCss).toContain('.ruin-prop--rubble-cluster');
+    expect(polishCss).toContain('.ruin-prop--broken-column');
+    expect(polishCss).toContain('.ruin-prop--urn-cluster');
   });
 });

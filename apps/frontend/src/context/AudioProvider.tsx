@@ -5,6 +5,8 @@ import { AudioEngine, type AudioAvailability } from '../services/audioEngine';
 import { AudioSystemContext } from './audioContext';
 import { AUDIO_EVENT_NAMES, type AudioEvent, type AudioEventName } from '../types/audio';
 
+export const AUDIO_ACTIVATION_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'] as const;
+
 export function AudioProvider({ children }: { children: ReactNode }) {
   const { settings } = useAdventure();
   const location = useLocation();
@@ -45,15 +47,20 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         engine.emit({ name: name as AudioEventName });
     };
     const visibility = () => engine.setDocumentHidden(document.hidden);
-    document.addEventListener('pointerdown', activate, { capture: true });
-    document.addEventListener('keydown', activate, { capture: true });
+    for (const eventName of AUDIO_ACTIVATION_EVENTS) {
+      document.addEventListener(eventName, activate, {
+        capture: true,
+        passive: eventName !== 'keydown',
+      });
+    }
     document.addEventListener('click', playUiEvent, { capture: true });
     document.addEventListener('visibilitychange', visibility);
     visibility();
     return () => {
       mounted = false;
-      document.removeEventListener('pointerdown', activate, { capture: true });
-      document.removeEventListener('keydown', activate, { capture: true });
+      for (const eventName of AUDIO_ACTIVATION_EVENTS) {
+        document.removeEventListener(eventName, activate, { capture: true });
+      }
       document.removeEventListener('click', playUiEvent, { capture: true });
       document.removeEventListener('visibilitychange', visibility);
       void engine.dispose();
