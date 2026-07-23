@@ -123,6 +123,9 @@ export interface RunControllerOptions {
   onResearchPendingChange?: (pending: PendingRoomFeedback | null) => boolean;
   onResearchShadowChange?: (shadow: ShadowRoomEvidence | null) => boolean;
   onFinalizeResearchRecord?: (record: RoomResearchRecord) => ResearchRoomFinalizationResult;
+  shouldStopAfterResearchFinalization?: (record: RoomResearchRecord) => boolean;
+  onResearchRecordFinalized?: (record: RoomResearchRecord) => void;
+  skipResearchPractice?: boolean;
   saveActiveRecord?: (record: ActiveRunRecord) => ActiveRunStorageIssue | null;
   clearActiveRecord?: () => void;
   returnPath?: string;
@@ -178,6 +181,7 @@ export function useRunController(
   const defeatedResearchRoomIdsRef = useRef(new Set<string>());
   const finalizingResearchRecordIdRef = useRef<string | null>(null);
   const finalizedResearchRecordIdsRef = useRef(new Set<string>());
+  const skippedResearchPracticeRef = useRef(false);
   const researchProfileRef = useRef(options.researchSessionProfile);
   const roomSnapshotsRef = useRef(new Map<string, RoomDefinition>());
   const setDebugInterfaceOpen = useCallback(
@@ -293,9 +297,13 @@ export function useRunController(
       gameplay.runStats.startedAt === null
         ? Date.now()
         : gameplay.runStats.startedAt + terminalElapsedMs + gameplay.pause.totalPausedMs;
+    const freshSession = options.getResearchSessionSnapshot?.() ?? options.researchSession;
+    const freshRun =
+      freshSession.runs.find((candidate) => candidate.id === options.researchRun!.id) ??
+      options.researchRun;
     const record = buildRoomResearchRecord({
-      session: options.researchSession,
-      run: options.researchRun,
+      session: freshSession,
+      run: freshRun,
       condition: options.researchRun.condition,
       gameplay,
       generated: generatedSave,
@@ -648,9 +656,13 @@ export function useRunController(
         evaluationComplete: progress.evaluationComplete,
         exitDirection: exit.direction,
       });
+      const freshSession = options.getResearchSessionSnapshot?.() ?? options.researchSession;
+      const freshRun =
+        freshSession.runs.find((candidate) => candidate.id === options.researchRun!.id) ??
+        options.researchRun;
       const record = buildRoomResearchRecord({
-        session: options.researchSession,
-        run: options.researchRun,
+        session: freshSession,
+        run: freshRun,
         condition: options.researchRun.condition,
         gameplay,
         generated: generatedSave,
@@ -805,6 +817,23 @@ export function useRunController(
       },
     });
   }
+
+  useEffect(() => {
+    if (
+      !options.skipResearchPractice ||
+      skippedResearchPracticeRef.current ||
+      currentRoom.phase !== 'evaluation' ||
+      gameplay.status !== 'active' ||
+      pendingResearchFeedback
+    )
+      return;
+    const shortcut = currentRoom.exits.find((exit) => exit.kind === 'shortcut');
+    if (!shortcut) return;
+    skippedResearchPracticeRef.current = true;
+    commitExitTransition(shortcut);
+    // The transition intentionally uses the current render and is guarded to run once per attempt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRoom, gameplay.status, options.skipResearchPractice, pendingResearchFeedback]);
 
   const controls = useCharacterControls({
     enabled: Boolean(
@@ -1048,6 +1077,10 @@ export function useRunController(
     setResearchRoomStart(null);
     finalizedResearchRecordIdsRef.current.add(roomDecisionId);
     finalizingResearchRecordIdRef.current = null;
+    const stop = options.shouldStopAfterResearchFinalization?.(record) ?? false;
+    if (stop) options.clearActiveRecord?.();
+    options.onResearchRecordFinalized?.(record);
+    if (stop) return true;
     if (defeatedRoom) {
       defeatedResearchRoomIdsRef.current.add(roomDecisionId);
       return true;
@@ -1075,7 +1108,8 @@ export function useRunController(
       PLAYTEST_DIAGNOSTICS_ENABLED &&
       runMode === 'research' &&
       options.researchSession &&
-      options.researchRun
+      options.researchRun &&
+      options.researchSession.protocolId !== 'fixed-pilot-1'
         ? {
             runMode,
             pilot: options.researchSession.pilot,
@@ -1116,7 +1150,16 @@ export function useRunController(
     renderedRoom,
     renderedHazards,
     collapsedEntrance,
-    roomLabel,
+    roomLabel:
+      options.researchSession?.protocolId === 'fixed-pilot-1'
+        ? options.researchSession.participantPhase === 'practice'
+          ? `Practice — Chamber ${Math.min(5, (gameplay.evaluationProgress?.currentRoomIndex ?? 0) + 1)} of 5`
+          : `${options.researchRun?.runLabel ?? 'Run'} — Room ${Math.min(
+              10,
+              (options.researchRun?.rooms.length ?? 0) + finalizedResearchRecordCount + 1,
+            )} of 10`
+        : roomLabel,
+    participantMasked: options.researchSession?.protocolId === 'fixed-pilot-1',
     inGeneratedDungeon,
     defeated,
     resultsVisible,
@@ -1149,40 +1192,47 @@ export function useRunController(
       onRestart: restartRun,
       onMainMenu: returnToMainMenuAfterDefeat,
     },
-    debug: playerProfile && {
-      longTermProfile: playerProfile.longTermProfile,
-      storageDiagnostics: getStorageDiagnostics(gameplay, playableCharacterId, clockNow),
-      onAdvance: () => {
-        if (livingEnemyCount > 0) return;
-        const exit = currentRoom.exits.find((candidate) => candidate.enabled);
-        if (exit) commitExitTransition(exit);
-      },
-      livingEnemyCount,
-      enemies: gameplay.enemies,
-      room: currentRoom,
-      onSpawnRat: () =>
-        dispatchGameplay({ type: 'debug-spawn-rat', timestamp: Date.now(), room: currentRoom }),
-      onDefeatAllEnemies: () =>
-        dispatchGameplay({ type: 'debug-defeat-all-enemies', timestamp: Date.now() }),
-      onFreezeEnemyAi: (frozen: boolean) =>
-        dispatchGameplay({ type: 'debug-freeze-enemy-ai', frozen }),
-      onTemporaryOverride: (profile: AdaptiveProfile) => {
-        setDebugProfileOverride(profile);
-        dispatchGameplay({ type: 'apply-debug-profile', profile });
-      },
-      onClearOverrides: () => {
-        setDebugProfileOverride(null);
-        dispatchGameplay({
-          type: 'apply-debug-profile',
-          profile: gameplay.adaptation.currentRunProfile,
-        });
-      },
-      onApplyOverrides: (profile: AdaptiveProfile) =>
-        saveProfile({
-          ...playerProfile,
-          longTermProfile: profile,
-          metadata: { ...playerProfile.metadata, updatedAt: new Date().toISOString() },
-        }),
-    },
+    debug:
+      options.researchSession?.protocolId !== 'fixed-pilot-1' && playerProfile
+        ? {
+            longTermProfile: playerProfile.longTermProfile,
+            storageDiagnostics: getStorageDiagnostics(gameplay, playableCharacterId, clockNow),
+            onAdvance: () => {
+              if (livingEnemyCount > 0) return;
+              const exit = currentRoom.exits.find((candidate) => candidate.enabled);
+              if (exit) commitExitTransition(exit);
+            },
+            livingEnemyCount,
+            enemies: gameplay.enemies,
+            room: currentRoom,
+            onSpawnRat: () =>
+              dispatchGameplay({
+                type: 'debug-spawn-rat',
+                timestamp: Date.now(),
+                room: currentRoom,
+              }),
+            onDefeatAllEnemies: () =>
+              dispatchGameplay({ type: 'debug-defeat-all-enemies', timestamp: Date.now() }),
+            onFreezeEnemyAi: (frozen: boolean) =>
+              dispatchGameplay({ type: 'debug-freeze-enemy-ai', frozen }),
+            onTemporaryOverride: (profile: AdaptiveProfile) => {
+              setDebugProfileOverride(profile);
+              dispatchGameplay({ type: 'apply-debug-profile', profile });
+            },
+            onClearOverrides: () => {
+              setDebugProfileOverride(null);
+              dispatchGameplay({
+                type: 'apply-debug-profile',
+                profile: gameplay.adaptation.currentRunProfile,
+              });
+            },
+            onApplyOverrides: (profile: AdaptiveProfile) =>
+              saveProfile({
+                ...playerProfile,
+                longTermProfile: profile,
+                metadata: { ...playerProfile.metadata, updatedAt: new Date().toISOString() },
+              }),
+          }
+        : undefined,
   };
 }

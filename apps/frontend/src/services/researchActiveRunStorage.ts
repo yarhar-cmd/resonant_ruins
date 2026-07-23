@@ -19,6 +19,12 @@ export interface ResearchActiveRunRecord {
   pendingFeedback: PendingRoomFeedback | null;
   roomStart: ResearchRoomStartSnapshot | null;
   pendingShadow: ShadowRoomEvidence | null;
+  protocolId?: 'fixed-pilot-1';
+  participantPhase?: import('../types/research').PilotPhase;
+  gameplayAttemptId?: string;
+  gameplayAttemptIndex?: number;
+  skipPractice?: boolean;
+  writerTabId?: string;
 }
 
 export type ResearchActiveRunStorageIssue = 'invalid' | 'unavailable' | 'write-failed';
@@ -54,6 +60,33 @@ export function parseResearchActiveRun(value: unknown): ResearchActiveRunRecord 
     (roomStart !== null && !roomStart.success)
   )
     return null;
+  const pilotPhases = [
+    'setup',
+    'practice',
+    'run_a_active',
+    'run_a_feedback',
+    'run_a_complete',
+    'break',
+    'run_b_active',
+    'run_b_feedback',
+    'session_complete',
+    'session_incomplete',
+    'recoverable_error',
+  ];
+  if (
+    candidate.protocolId !== undefined &&
+    (candidate.protocolId !== 'fixed-pilot-1' ||
+      typeof candidate.participantPhase !== 'string' ||
+      !pilotPhases.includes(candidate.participantPhase) ||
+      typeof candidate.gameplayAttemptId !== 'string' ||
+      !candidate.gameplayAttemptId ||
+      !Number.isSafeInteger(candidate.gameplayAttemptIndex) ||
+      Number(candidate.gameplayAttemptIndex) < 1 ||
+      typeof candidate.skipPractice !== 'boolean' ||
+      typeof candidate.writerTabId !== 'string' ||
+      !candidate.writerTabId)
+  )
+    return null;
   return {
     researchSchemaVersion: RESEARCH_SCHEMA_VERSION,
     researchSessionId: candidate.researchSessionId,
@@ -65,6 +98,16 @@ export function parseResearchActiveRun(value: unknown): ResearchActiveRunRecord 
       pendingShadow === null || !pendingShadow.success
         ? null
         : (pendingShadow.data as ShadowRoomEvidence),
+    ...(candidate.protocolId === 'fixed-pilot-1'
+      ? {
+          protocolId: candidate.protocolId,
+          participantPhase: candidate.participantPhase as import('../types/research').PilotPhase,
+          gameplayAttemptId: candidate.gameplayAttemptId as string,
+          gameplayAttemptIndex: Number(candidate.gameplayAttemptIndex),
+          skipPractice: candidate.skipPractice as boolean,
+          writerTabId: candidate.writerTabId as string,
+        }
+      : {}),
   };
 }
 

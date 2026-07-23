@@ -2,6 +2,28 @@
 
 Research Mode is an explicit, browser-local workflow for comparing two `generator-4` room selectors. It investigates whether behavior-adaptive selection increases the share of submitted difficulty ratings marked **About Right** without reducing fairness or enjoyment.
 
+## Fixed Pilot protocol (`fixed-pilot-1`)
+
+The Pilot is five Awakening Chambers once as **Practice**, **Run A** with exactly 10 durably
+finalized generated-room outcomes, a neutral optional break, **Run B** with exactly 10 outcomes,
+and session completion. Researchers enter a positive participant sequence number. Odd sequences
+assign adaptive then neutral; even sequences reverse the order. Participants see only Practice,
+Run A, and Run B. The assignment method is `pilot-sequence-alternation-1`.
+
+Pilot participants are locked to the Warden and one selected experience preset. Practice creates
+one shared profile baseline. Both condition blocks start from that saved baseline, while each may
+update its own condition profile. Run B starts directly in generated-room opportunity 1.
+
+Progress comes only from persisted room records. Submitted and explicitly skipped feedback count
+after record-first finalization. Defeated rooms retain their defeated outcome and count after
+feedback finalization; a new full-health attempt continues the same condition when fewer than 10
+outcomes are stored.
+
+The first participant tab owns the attempt and other tabs are read-only. Active participant play
+hides conditions, selector evidence, diagnostics, summaries, exports, and Lab navigation.
+Researcher verification and JSON/CSV export are available at `/research/review` after termination.
+The optional completion form is stored separately as `pilot-exit-1`.
+
 ## Conditions
 
 - `RULES_ADAPTIVE` uses `rules-adaptive` / `rules-selector-1`. It scores a shared validated candidate pool with the five session-local behavior traits and bounded reinforce/poke context.

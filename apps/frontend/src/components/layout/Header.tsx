@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { MirrorvaultLogo } from './MirrorvaultLogo';
 import { MODEL_LAB_ENABLED, TOPOLOGY_LAB_ENABLED } from '../../config/environment';
+import { loadResearchStorage } from '../../services/researchStorage';
 
 const links = [
   ['/', 'Home'],
@@ -11,6 +12,13 @@ const links = [
 ];
 
 export function Header() {
+  const data = loadResearchStorage().data;
+  const participantPilotActive = data.sessions.some(
+    (session) =>
+      session.id === data.activeSessionId &&
+      session.protocolId === 'fixed-pilot-1' &&
+      session.completionStatus === 'active',
+  );
   return (
     <header className="site-header">
       <MirrorvaultLogo />
@@ -20,7 +28,7 @@ export function Header() {
             {label}
           </NavLink>
         ))}
-        {(TOPOLOGY_LAB_ENABLED || MODEL_LAB_ENABLED) && (
+        {!participantPilotActive && (TOPOLOGY_LAB_ENABLED || MODEL_LAB_ENABLED) && (
           <details className="nav-menu nav-menu--labs">
             <summary>Labs</summary>
             <div className="nav-menu__links">

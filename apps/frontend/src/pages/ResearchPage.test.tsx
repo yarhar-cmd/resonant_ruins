@@ -42,6 +42,9 @@ describe('Research Mode opt-in page', () => {
     fireEvent.change(screen.getByLabelText('Optional participant code'), {
       target: { value: 'PILOT_02' },
     });
+    fireEvent.change(screen.getByLabelText('Participant sequence number'), {
+      target: { value: '2' },
+    });
     fireEvent.click(screen.getByLabelText(/I have read this notice and choose to start/i));
     fireEvent.click(screen.getByRole('button', { name: 'Start Pilot Session' }));
     await screen.findByText('Research run route');
@@ -49,7 +52,11 @@ describe('Research Mode opt-in page', () => {
     expect(stored.sessions[0]).toMatchObject({
       pilot: true,
       participantCode: 'PILOT_02',
-      runs: [{ pilot: true, status: 'active' }],
+      protocolId: 'fixed-pilot-1',
+      participantSequence: 2,
+      hiddenConditionOrder: ['NEUTRAL_PROCEDURAL', 'RULES_ADAPTIVE'],
+      lockedCharacterId: 'warden',
+      runs: [{ pilot: true, status: 'active', runLabel: 'Run A' }],
     });
     expect(localStorage.getItem(RESEARCH_ACTIVE_RUN_KEY)).not.toBeNull();
     expect(localStorage.getItem('mirrorvault:active-run:v1')).toBe('normal-save-sentinel');

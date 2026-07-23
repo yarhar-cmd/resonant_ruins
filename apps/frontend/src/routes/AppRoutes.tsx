@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, type ReactNode } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { AboutPage } from '../pages/AboutPage';
 import { CharactersPage } from '../pages/CharactersPage';
@@ -12,7 +12,20 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { ResearchPage } from '../pages/ResearchPage';
 import { ResearchRunPage } from '../pages/ResearchRunPage';
+import { ResearchReviewPage } from '../pages/ResearchReviewPage';
 import { MODEL_LAB_ENABLED, TOPOLOGY_LAB_ENABLED } from '../config/environment';
+import { loadResearchStorage } from '../services/researchStorage';
+
+function ResearcherOnlyRoute({ children }: { children: ReactNode }) {
+  const data = loadResearchStorage().data;
+  const activePilot = data.sessions.some(
+    (session) =>
+      session.id === data.activeSessionId &&
+      session.protocolId === 'fixed-pilot-1' &&
+      session.completionStatus === 'active',
+  );
+  return activePilot ? <Navigate to="/research" replace /> : children;
+}
 
 const TopologyLabPage = TOPOLOGY_LAB_ENABLED
   ? lazy(async () => {
@@ -58,12 +71,22 @@ export function AppRoutes() {
         <Route path="about" element={<AboutPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="research" element={<ResearchPage />} />
+        <Route
+          path="research/review"
+          element={
+            <ResearcherOnlyRoute>
+              <ResearchReviewPage />
+            </ResearcherOnlyRoute>
+          }
+        />
         {TopologyLabPage && (
           <Route
             path="topology-lab"
             element={
               <Suspense fallback={null}>
-                <TopologyLabPage />
+                <ResearcherOnlyRoute>
+                  <TopologyLabPage />
+                </ResearcherOnlyRoute>
               </Suspense>
             }
           />
@@ -73,7 +96,9 @@ export function AppRoutes() {
             path="model-lab"
             element={
               <Suspense fallback={null}>
-                <ModelLabPage />
+                <ResearcherOnlyRoute>
+                  <ModelLabPage />
+                </ResearcherOnlyRoute>
               </Suspense>
             }
           />

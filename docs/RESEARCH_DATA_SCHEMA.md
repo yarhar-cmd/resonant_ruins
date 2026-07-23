@@ -2,6 +2,21 @@
 
 Research records are runtime-validated with Zod at storage and export boundaries.
 
+## Backward-compatible Fixed Pilot extension
+
+`research-1` remains authoritative and legacy records remain valid. Fixed Pilot sessions add
+`protocolId: "fixed-pilot-1"`, participant sequence, locked Warden/preset, hidden condition order,
+participant phase, shared practice baseline, and distinct complete/incomplete metadata.
+
+Each Pilot `ResearchRun` is a Run A or Run B condition block with a target of 10, the shared
+starting baseline, its current condition profile, and gameplay-attempt IDs. Pilot room records add
+block, attempt, and room-opportunity identities. The opportunity index is derived from the
+persisted room array; finalization rejects an out-of-order or 11th record.
+
+The active-run envelope remains recoverable staging and adds Pilot phase, attempt identity,
+practice-skip state for Run B/defeat continuation, and the first-tab writer identity. The durable
+dataset remains authoritative.
+
 ## Versions and namespaces
 
 - Game: `mvp-0.5`
