@@ -272,6 +272,10 @@ export function DungeonGrid({
                     className={[
                       'player-token',
                       `player-token--facing-${player.facing}`,
+                      `player-token--weapon-facing-${
+                        visibleAttack && status === 'active' ? visibleAttack.facing : player.facing
+                      }`,
+                      `player-token--shield-facing-${player.facing}`,
                       player.isShielding && status === 'active' ? 'player-token--shielding' : '',
                       isBumping ? 'player-token--bump' : '',
                       visibleDamage && !visibleDamage.fatal && status === 'active'
@@ -293,6 +297,10 @@ export function DungeonGrid({
                       .filter(Boolean)
                       .join(' ')}
                     data-equipment-handedness="weapon-right-shield-left"
+                    data-weapon-facing={
+                      visibleAttack && status === 'active' ? visibleAttack.facing : player.facing
+                    }
+                    data-shield-facing={player.facing}
                   >
                     <span className="player-token__cloak" />
                     <span className="player-token__helm" />

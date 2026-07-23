@@ -233,6 +233,71 @@ button:disabled {
   background: #0a1711;
 }
 
+.awakening-tutorial {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.6rem 0.75rem 0;
+  padding: 0.52rem 0.65rem;
+  border-left: 2px solid var(--brass);
+  background: color-mix(in srgb, var(--ink-900) 92%, var(--brass));
+  color: var(--parchment-muted);
+}
+
+.awakening-tutorial__message {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0;
+  font-size: clamp(0.72rem, 1.4vw, 0.86rem);
+  line-height: 1.4;
+}
+
+.awakening-tutorial__message > span {
+  flex: 0 0 auto;
+  color: var(--brass-bright);
+  font: 0.62rem var(--mono);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.awakening-tutorial__dismiss {
+  flex: 0 0 auto;
+  min-height: 2rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--parchment-muted);
+  font: 0.58rem var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.awakening-tutorial__dismiss:hover,
+.awakening-tutorial__dismiss:focus-visible {
+  border-color: var(--brass);
+  color: var(--parchment);
+}
+
+@media (max-width: 480px) {
+  .awakening-tutorial {
+    align-items: flex-start;
+    margin: 0.4rem 0.5rem 0;
+    padding: 0.45rem 0.5rem;
+  }
+
+  .awakening-tutorial__message {
+    gap: 0.4rem;
+    font-size: 0.68rem;
+  }
+
+  .awakening-tutorial__dismiss {
+    min-height: 2.25rem;
+  }
+}
+
 .dungeon-grid-viewport {
   background:
     radial-gradient(circle at 50% 42%, rgba(217, 149, 62, 0.075), transparent 46%),
@@ -700,42 +765,42 @@ button:disabled {
   filter: brightness(0.86);
 }
 
-.player-token--facing-right .player-token__shield--carried {
+.player-token--shield-facing-right .player-token__shield--carried {
   top: 8%;
   left: -12%;
 }
 
-.player-token--facing-left .player-token__shield--carried {
+.player-token--shield-facing-left .player-token__shield--carried {
   top: 48%;
   right: -12%;
 }
 
-.player-token--facing-up .player-token__shield--carried {
+.player-token--shield-facing-up .player-token__shield--carried {
   left: -10%;
   bottom: 4%;
 }
 
-.player-token--facing-down .player-token__shield--carried {
+.player-token--shield-facing-down .player-token__shield--carried {
   right: -10%;
   top: 4%;
 }
 
-.player-token--facing-right .player-token__shield--active {
+.player-token--shield-facing-right .player-token__shield--active {
   top: 0;
   right: -34%;
 }
 
-.player-token--facing-left .player-token__shield--active {
+.player-token--shield-facing-left .player-token__shield--active {
   top: 35%;
   left: -34%;
 }
 
-.player-token--facing-up .player-token__shield--active {
+.player-token--shield-facing-up .player-token__shield--active {
   top: -31%;
   left: 2%;
 }
 
-.player-token--facing-down .player-token__shield--active {
+.player-token--shield-facing-down .player-token__shield--active {
   bottom: -31%;
   right: 2%;
 }
@@ -749,28 +814,28 @@ button:disabled {
   pointer-events: none;
 }
 
-.player-token--facing-right .player-token__shield-guard {
+.player-token--shield-facing-right .player-token__shield-guard {
   border-top-color: #8fae91;
   border-right-color: #8fae91;
   border-bottom-color: #8fae91;
   transform: translateX(8%);
 }
 
-.player-token--facing-left .player-token__shield-guard {
+.player-token--shield-facing-left .player-token__shield-guard {
   border-top-color: #8fae91;
   border-bottom-color: #8fae91;
   border-left-color: #8fae91;
   transform: translateX(-8%);
 }
 
-.player-token--facing-up .player-token__shield-guard {
+.player-token--shield-facing-up .player-token__shield-guard {
   border-top-color: #8fae91;
   border-right-color: #8fae91;
   border-left-color: #8fae91;
   transform: translateY(-8%);
 }
 
-.player-token--facing-down .player-token__shield-guard {
+.player-token--shield-facing-down .player-token__shield-guard {
   border-right-color: #8fae91;
   border-bottom-color: #8fae91;
   border-left-color: #8fae91;
@@ -800,28 +865,31 @@ button:disabled {
 .player-token__sword {
   position: absolute;
   z-index: 4;
-  top: 56%;
-  left: 48%;
   width: 82%;
   height: 20%;
-  transform: rotate(-8deg);
   transform-origin: 16% 50%;
   filter: drop-shadow(0 0.08rem 0.08rem rgba(0, 0, 0, 0.9));
 }
 
-.player-token--facing-left .player-token__sword {
+.player-token--weapon-facing-right .player-token__sword {
+  top: 56%;
+  left: 48%;
+  transform: rotate(-8deg);
+}
+
+.player-token--weapon-facing-left .player-token__sword {
   top: 24%;
   left: 52%;
   transform: rotate(188deg);
 }
 
-.player-token--facing-up .player-token__sword {
+.player-token--weapon-facing-up .player-token__sword {
   top: 50%;
   left: 58%;
   transform: rotate(-98deg);
 }
 
-.player-token--facing-down .player-token__sword {
+.player-token--weapon-facing-down .player-token__sword {
   top: 48%;
   left: 28%;
   transform: rotate(82deg);

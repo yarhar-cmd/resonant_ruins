@@ -12,12 +12,14 @@ describe('Resonant Ruins corrective presentation styling', () => {
   it('defines explicit idle and active shield poses plus shield-centered directional guard arcs', () => {
     for (const direction of ['up', 'right', 'down', 'left']) {
       expect(polishCss).toContain(
-        `.player-token--facing-${direction} .player-token__shield--carried`,
+        `.player-token--shield-facing-${direction} .player-token__shield--carried`,
       );
       expect(polishCss).toContain(
-        `.player-token--facing-${direction} .player-token__shield--active`,
+        `.player-token--shield-facing-${direction} .player-token__shield--active`,
       );
-      expect(polishCss).toContain(`.player-token--facing-${direction} .player-token__shield-guard`);
+      expect(polishCss).toContain(
+        `.player-token--shield-facing-${direction} .player-token__shield-guard`,
+      );
     }
     expect(polishCss).not.toMatch(
       /player-token--facing-(?:up|right|down|left) \.player-token__shield \{/,
@@ -60,16 +62,28 @@ describe('Resonant Ruins corrective presentation styling', () => {
 
   it('keeps the right-hand weapon and left-hand shield in mirrored facing lanes', () => {
     expect(polishCss).toMatch(
-      /\.player-token--facing-right \.player-token__shield--carried\s*\{[^}]*top: 8%;[^}]*left: -12%;/,
+      /\.player-token--shield-facing-right \.player-token__shield--carried\s*\{[^}]*top: 8%;[^}]*left: -12%;/,
     );
     expect(polishCss).toMatch(
-      /\.player-token--facing-left \.player-token__shield--carried\s*\{[^}]*top: 48%;[^}]*right: -12%;/,
+      /\.player-token--shield-facing-left \.player-token__shield--carried\s*\{[^}]*top: 48%;[^}]*right: -12%;/,
     );
     expect(polishCss).toMatch(
-      /\.player-token--facing-up \.player-token__shield--carried\s*\{[^}]*left: -10%;/,
+      /\.player-token--shield-facing-up \.player-token__shield--carried\s*\{[^}]*left: -10%;/,
     );
     expect(polishCss).toMatch(
-      /\.player-token--facing-down \.player-token__shield--carried\s*\{[^}]*right: -10%;/,
+      /\.player-token--shield-facing-down \.player-token__shield--carried\s*\{[^}]*right: -10%;/,
+    );
+    expect(polishCss).toMatch(
+      /\.player-token--weapon-facing-right \.player-token__sword\s*\{[^}]*top: 56%;[^}]*left: 48%;[^}]*rotate\(-8deg\);/,
+    );
+    expect(polishCss).toMatch(
+      /\.player-token--weapon-facing-left \.player-token__sword\s*\{[^}]*top: 24%;[^}]*left: 52%;[^}]*rotate\(188deg\);/,
+    );
+    expect(polishCss).toMatch(
+      /\.player-token--weapon-facing-up \.player-token__sword\s*\{[^}]*top: 50%;[^}]*left: 58%;[^}]*rotate\(-98deg\);/,
+    );
+    expect(polishCss).toMatch(
+      /\.player-token--weapon-facing-down \.player-token__sword\s*\{[^}]*top: 48%;[^}]*left: 28%;[^}]*rotate\(82deg\);/,
     );
   });
 

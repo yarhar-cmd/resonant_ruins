@@ -27,16 +27,15 @@ describe('Resonant Ruins development Awakening editor', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Awakening Chamber' }), {
       target: { value: 'evaluation-room-04' },
     });
-    expect(screen.getByRole('button', { name: 'Tile 9, 5: rat 1' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tile 10, 5: rat 1' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Tile 12, 3: rat 2' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Tile 12, 7: rat 3' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Validate Room' }));
     expect(screen.getByRole('status')).toHaveTextContent('Room is valid.');
     expect(screen.getByRole('button', { name: 'Preview Room' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Preview Room' }));
     expect(screen.getByRole('region', { name: 'Preview Mode' })).toBeVisible();
-    expect(container.querySelectorAll('.rat-token')).toHaveLength(2);
+    expect(container.querySelectorAll('.rat-token')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Exit Preview' }));
     expect(screen.getByRole('heading', { name: 'Awakening Chamber Editor' })).toBeVisible();
     expect(localStorage.getItem(EDITOR_DRAFT_KEY)).not.toBeNull();
@@ -49,10 +48,9 @@ describe('Resonant Ruins development Awakening editor', () => {
     });
     expect(screen.getByRole('button', { name: 'Copy Room JSON' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Erase' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Tile 9, 5: rat 1' }));
-    expect(screen.queryByRole('button', { name: 'Tile 9, 5: rat 1' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tile 10, 5: rat 1' }));
+    expect(screen.queryByRole('button', { name: 'Tile 10, 5: rat 1' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tile 12, 3: rat 1' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Tile 12, 7: rat 2' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Validate Room' }));
     expect(screen.getByRole('status')).toHaveTextContent('validation errors');
     expect(screen.getByRole('button', { name: 'Copy Room JSON' })).toBeDisabled();

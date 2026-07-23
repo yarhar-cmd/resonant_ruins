@@ -94,10 +94,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
     ],
     features: [
       ...awakeningTorchPair(EVALUATION_ROOM_1_ID, 4, 10),
-      ...awakeningProps(EVALUATION_ROOM_1_ID, [
-        { variant: 'rubble-cluster', x: 4, y: 3 },
-        { variant: 'iron-coffer', x: 10, y: 8 },
-      ]),
+      ...awakeningProps(EVALUATION_ROOM_1_ID, [{ variant: 'rubble-cluster', x: 4, y: 3 }]),
     ],
   }),
   createRectangularRoom({
@@ -106,13 +103,11 @@ export const evaluationRooms: readonly RoomDefinition[] = [
     width: 17,
     height: 11,
     exitEnabled: true,
-    features: [
-      ...awakeningTorchPair(EVALUATION_ROOM_2_ID, 5, 11),
-      ...awakeningProps(EVALUATION_ROOM_2_ID, [
-        { variant: 'broken-column', x: 7, y: 2 },
-        { variant: 'urn-cluster', x: 12, y: 8 },
-      ]),
+    hazards: [
+      { x: 8, y: 4 },
+      { x: 8, y: 6 },
     ],
+    features: [...awakeningTorchPair(EVALUATION_ROOM_2_ID, 5, 11)],
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_3_ID,
@@ -120,7 +115,10 @@ export const evaluationRooms: readonly RoomDefinition[] = [
     width: 15,
     height: 13,
     exitEnabled: true,
-    hazards: [{ x: 7, y: 6 }],
+    hazards: [
+      { x: 6, y: 5 },
+      { x: 7, y: 8 },
+    ],
     features: [
       {
         id: `${EVALUATION_ROOM_3_ID}-restoration-fountain`,
@@ -151,10 +149,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         blocking: false,
         source: 'authored',
       },
-      ...awakeningProps(EVALUATION_ROOM_3_ID, [
-        { variant: 'rubble-cluster', x: 4, y: 3 },
-        { variant: 'iron-coffer', x: 10, y: 9 },
-      ]),
+      ...awakeningProps(EVALUATION_ROOM_3_ID, [{ variant: 'rubble-cluster', x: 4, y: 10 }]),
     ],
   }),
   createRectangularRoom({
@@ -177,7 +172,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
       {
         id: `${EVALUATION_ROOM_4_ID}-rat-1`,
         type: 'rat',
-        tile: { x: 9, y: 5 },
+        tile: { x: 10, y: 5 },
         order: 1,
         source: 'authored',
         reason: 'Primary combat introduction',
@@ -188,24 +183,11 @@ export const evaluationRooms: readonly RoomDefinition[] = [
         tile: { x: 12, y: 3 },
         order: 2,
         source: 'authored',
-        reason: 'Secondary cross-pressure',
-      },
-      {
-        id: `${EVALUATION_ROOM_4_ID}-rat-3`,
-        type: 'rat',
-        tile: { x: 12, y: 7 },
-        order: 3,
-        source: 'authored',
-        reason: 'Veteran flank pressure',
+        reason: 'Veteran-only secondary combat pressure',
+        experiencePresets: ['dungeon-veteran'],
       },
     ],
-    features: [
-      ...awakeningTorchPair(EVALUATION_ROOM_4_ID, 5, 11),
-      ...awakeningProps(EVALUATION_ROOM_4_ID, [
-        { variant: 'broken-column', x: 5, y: 2 },
-        { variant: 'rubble-cluster', x: 6, y: 8 },
-      ]),
-    ],
+    features: [...awakeningTorchPair(EVALUATION_ROOM_4_ID, 5, 11)],
   }),
   createRectangularRoom({
     id: EVALUATION_ROOM_5_ID,
@@ -215,7 +197,7 @@ export const evaluationRooms: readonly RoomDefinition[] = [
     exitEnabled: true,
     hazards: [
       { x: 8, y: 5 },
-      { x: 11, y: 9 },
+      { x: 12, y: 9 },
     ],
     exits: [
       {
@@ -239,26 +221,31 @@ export const evaluationRooms: readonly RoomDefinition[] = [
       {
         id: `${EVALUATION_ROOM_5_ID}-rat-2`,
         type: 'rat',
-        tile: { x: 14, y: 7 },
+        tile: { x: 14, y: 9 },
         order: 2,
         source: 'authored',
         reason: 'Combined encounter center pressure',
-      },
-      {
-        id: `${EVALUATION_ROOM_5_ID}-rat-3`,
-        type: 'rat',
-        tile: { x: 10, y: 11 },
-        order: 3,
-        source: 'authored',
-        reason: 'Combined encounter veteran flank',
+        experiencePresets: ['seasoned-adventurer', 'dungeon-veteran'],
       },
     ],
     features: [
       ...awakeningTorchPair(EVALUATION_ROOM_5_ID, 6, 14),
-      ...awakeningProps(EVALUATION_ROOM_5_ID, [
-        { variant: 'urn-cluster', x: 5, y: 3 },
-        { variant: 'iron-coffer', x: 16, y: 11 },
-      ]),
+      {
+        id: `${EVALUATION_ROOM_5_ID}-restoration-fountain`,
+        kind: 'restoration-fountain',
+        tile: { x: 10, y: 13 },
+        blocking: true,
+        source: 'authored',
+        placementStyle: 'safe',
+        variant: 'wall-integrated',
+        orientation: 'north',
+        interactionTiles: [
+          { x: 10, y: 12 },
+          { x: 9, y: 13 },
+          { x: 11, y: 13 },
+        ],
+      },
+      ...awakeningProps(EVALUATION_ROOM_5_ID, [{ variant: 'rubble-cluster', x: 5, y: 3 }]),
     ],
   }),
 ];

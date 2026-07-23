@@ -421,6 +421,38 @@ describe('Resonant Ruins dungeon grid', () => {
     },
   );
 
+  it('keeps the attacking sword on its original right-hand anchor if facing changes mid-swing', () => {
+    const attack: AttackAction = {
+      id: 'attack-anchor',
+      source: basePlayer.position,
+      attemptedTarget: { row: 2, column: 3 },
+      target: { row: 2, column: 3 },
+      facing: 'right',
+      damage: 1,
+      timestamp: 1,
+      blockedReason: null,
+    };
+    const { container } = renderGrid({ ...basePlayer, facing: 'left' }, attack);
+    const playerToken = container.querySelector('.player-token');
+
+    expect(playerToken).toHaveClass(
+      'player-token--facing-left',
+      'player-token--weapon-facing-right',
+      'player-token--shield-facing-left',
+      'player-token--attacking-right',
+    );
+    expect(playerToken).toHaveAttribute('data-weapon-facing', 'right');
+    expect(playerToken).toHaveAttribute('data-shield-facing', 'left');
+    expect(container.querySelector('.player-token__sword')).toHaveAttribute(
+      'data-sword-pose',
+      'right-attack',
+    );
+    expect(container.querySelector('.player-token__shield')).toHaveAttribute(
+      'data-shield-pose',
+      'left-idle',
+    );
+  });
+
   it('renders blocked-movement feedback briefly', () => {
     const { container } = render(
       <DungeonGrid
@@ -609,8 +641,8 @@ describe('Resonant Ruins dungeon grid', () => {
     expect(screen.getByRole('application')).toHaveClass('dungeon-grid--awakening');
     expect(screen.getByRole('application')).toHaveAttribute('data-room-phase', 'evaluation');
     expect(container.querySelectorAll('.ruin-torch')).toHaveLength(2);
-    expect(container.querySelectorAll('.ruin-prop')).toHaveLength(2);
-    expect(container.querySelector('[data-prop-variant="iron-coffer"]')).not.toBeNull();
+    expect(container.querySelectorAll('.ruin-prop')).toHaveLength(1);
+    expect(container.querySelector('[data-prop-variant="iron-coffer"]')).toBeNull();
     expect(container.querySelector('[data-prop-variant="rubble-cluster"]')).not.toBeNull();
     expect(normalExit).not.toHaveClass('tile--exit-shortcut');
     expect(shortcut).toHaveClass('tile--exit-shortcut', 'tile--exit-sealed');

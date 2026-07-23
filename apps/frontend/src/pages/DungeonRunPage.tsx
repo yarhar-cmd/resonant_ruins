@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { DebugDrawer } from '../components/mirrorvault/DebugDrawer';
 import { DungeonGrid } from '../components/mirrorvault/DungeonGrid';
 import { AwakeningCompleteText } from '../components/mirrorvault/AwakeningCompleteText';
+import { AwakeningTutorialTip } from '../components/mirrorvault/AwakeningTutorialTip';
 import { GameOverResults } from '../components/mirrorvault/GameOverResults';
 import { GameShell } from '../components/mirrorvault/GameShell';
 import { PauseMenu } from '../components/mirrorvault/PauseMenu';
@@ -80,6 +81,13 @@ export function DungeonRunSession({
   const enemiesRemaining = run.gameplay.enemies.rats.filter(
     (rat) => rat.health > 0 && rat.state !== 'corpse',
   ).length;
+  const fountain = run.currentRoom.features?.find(
+    (feature) => feature.kind === 'restoration-fountain',
+  );
+  const fountainUsed = Boolean(fountain && run.gameplay.interactables[fountain.id]?.depleted);
+  const ratTelegraphing = run.gameplay.enemies.rats.some(
+    (rat) => rat.health > 0 && rat.state === 'telegraphing',
+  );
 
   return (
     <GameShell
@@ -154,6 +162,15 @@ export function DungeonRunSession({
               <span>{run.runMode === 'research' ? 'Research run active' : 'Sandbox active'}</span>
             </div>
           )}
+          <AwakeningTutorialTip
+            key={run.currentRoom.id}
+            roomId={run.currentRoom.id}
+            runMode={run.runMode}
+            inGeneratedDungeon={run.inGeneratedDungeon}
+            playerPosition={run.gameplay.player.position}
+            fountainUsed={fountainUsed}
+            ratTelegraphing={ratTelegraphing}
+          />
           <DungeonGrid
             bounds={roomBounds(run.renderedRoom)}
             hazards={run.renderedHazards}

@@ -498,6 +498,34 @@ test.afterEach(async ({ page }) => {
   expect((page as Page & { consoleErrors?: string[] }).consoleErrors).toEqual([]);
 });
 
+test('Awakening tips stay above the grid on mobile, dismiss contextually, and skip generated rooms', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await seedActiveRun(page);
+  await page.goto('/dungeon/run');
+
+  const tip = page.getByLabel('Awakening Chamber tutorial');
+  await expect(tip).toContainText(
+    'Move with WASD or the arrow keys. Step into the glowing exit to continue.',
+  );
+  const tipBounds = await tip.boundingBox();
+  const gridBounds = await page.locator('.dungeon-grid').boundingBox();
+  expect(tipBounds).not.toBeNull();
+  expect(gridBounds).not.toBeNull();
+  expect(tipBounds!.y + tipBounds!.height).toBeLessThanOrEqual(gridBounds!.y);
+
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(tip).toHaveCount(0);
+
+  await page.goto('/');
+  await seedActiveRun(page, topologyRecord('open-arena'));
+  await page.goto('/dungeon/run');
+  await expect(page.getByLabel('Awakening Chamber tutorial')).toHaveCount(0);
+});
+
 test('Research page requires opt-in and starts labeled Pilot and Official sessions locally', async ({
   page,
 }) => {
@@ -884,8 +912,8 @@ test('Fountain channel pauses and restores across refresh without healing twice'
   await seedActiveRun(page, fountainRecord());
   await page.goto('/dungeon/run');
   await page.keyboard.press('KeyE');
-  await page.waitForTimeout(200);
-  await page.getByRole('button', { name: 'Pause' }).click();
+  await expect(page.getByRole('progressbar', { name: 'Restoration progress' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
   const before = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)!),
@@ -1093,7 +1121,10 @@ test('sample audio ships from local OGG paths without a runtime source-site depe
   page,
 }) => {
   for (const path of [
-    '/audio/rat-alert.ogg',
+    '/audio/rat-alert-soft.ogg',
+    '/audio/rat-scuffle.ogg',
+    '/audio/rat-damage-soft.ogg',
+    '/audio/rat-defeat-rustle.ogg',
     '/audio/sword-swing-01.ogg',
     '/audio/shield-perfect-block.ogg',
     '/audio/fountain-water.ogg',
@@ -1281,8 +1312,7 @@ test('new runs use fixed Awakening order and authored Rat counts', async ({ page
     await expect(page.getByText(`Awakening Chamber ${chamber} / 5`).first()).toBeVisible();
     await page.waitForTimeout(350);
   }
-  await expect(page.locator('.rat-token')).toHaveCount(2);
-  await expect(page.locator('.rat-token')).toHaveCount(2);
+  await expect(page.locator('.rat-token')).toHaveCount(1);
   await page.getByRole('button', { name: 'Defeat All Enemies' }).click();
   await page.getByRole('button', { name: 'Advance to Next Room' }).click();
   await expect(page.getByText('Awakening Chamber 5 / 5').first()).toBeVisible();

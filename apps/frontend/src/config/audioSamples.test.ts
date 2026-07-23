@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { AUDIO_EVENT_NAMES } from '../types/audio';
+import { AUDIO_EVENT_NAMES, type AudioEventName } from '../types/audio';
 import {
   AUDIO_EVENT_SAMPLE_ROUTES,
   AUDIO_SAMPLE_ASSETS,
@@ -31,20 +31,34 @@ describe('Resonant Ruins sample manifest', () => {
     expect(selectAudioSample('player.step', 0).path).toBe('/audio/footstep-stone-01.ogg');
     expect(selectAudioSample('player.step', 4).path).toBe('/audio/footstep-stone-01.ogg');
     expect(selectAudioSample('player.attack-swing', 1).path).toBe('/audio/sword-swing-02.ogg');
-    expect(selectAudioSample('rat.alert', 0).path).toBe('/audio/rat-alert.ogg');
-    expect(selectAudioSample('rat.telegraph', 0).playbackRate).toBe(1.04);
+    expect(selectAudioSample('rat.alert', 0).path).toBe('/audio/rat-alert-soft.ogg');
+    expect(selectAudioSample('rat.telegraph', 0).path).toBe('/audio/rat-scuffle.ogg');
     expect(selectAudioSample('exit.activate', 0).path).toBe('/audio/door-open.ogg');
     expect(selectAudioSample('room.transition', 0).path).toBe('/audio/stone-collapse.ogg');
   });
 
   it('keeps differentiated Rat cues present but below the dominant gameplay mix', () => {
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain).toBe(0.18);
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBe(0.22);
-    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.attack'].gain).toBe(0.18);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain).toBe(0.2);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBe(0.26);
+    expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.attack'].gain).toBe(0.22);
     expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.damage'].gain).toBe(0.2);
     expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.defeat'].gain).toBe(0.24);
     expect(AUDIO_EVENT_SAMPLE_ROUTES['rat.telegraph'].gain).toBeGreaterThan(
       AUDIO_EVENT_SAMPLE_ROUTES['rat.alert'].gain,
+    );
+    expect(
+      new Set(
+        ['rat.alert', 'rat.telegraph', 'rat.attack', 'rat.damage', 'rat.defeat'].map(
+          (eventName) => selectAudioSample(eventName as AudioEventName, 0).path,
+        ),
+      ).size,
+    ).toBe(5);
+    expect(AUDIO_SAMPLE_PATHS).not.toEqual(
+      expect.arrayContaining([
+        '/audio/rat-alert.ogg',
+        '/audio/rat-telegraph.ogg',
+        '/audio/rat-defeat.ogg',
+      ]),
     );
   });
 

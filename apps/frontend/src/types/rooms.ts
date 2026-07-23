@@ -1,3 +1,5 @@
+import type { ExperiencePreset } from './adaptation';
+
 export interface TileCoordinate {
   x: number;
   y: number;
@@ -28,6 +30,8 @@ export interface EnemySpawnDefinition {
   order: number;
   source: 'authored' | 'generated';
   reason: string;
+  /** Optional authored-room availability; generated spawns remain available to every preset. */
+  experiencePresets?: readonly ExperiencePreset[];
 }
 
 export interface RoomDefinition {
