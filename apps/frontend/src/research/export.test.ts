@@ -46,11 +46,12 @@ describe('research JSON and CSV export', () => {
     expect(csv).toContain(',false,');
   });
 
-  it('exports the stable 103-column rewards-1 extension without changing research-1', () => {
+  it('exports the stable 104-column reliability extension without changing research-1', () => {
     const csv = researchExportCsv(exportFixture(true));
-    expect(RESEARCH_CSV_COLUMNS).toHaveLength(103);
+    expect(RESEARCH_CSV_COLUMNS).toHaveLength(104);
     expect(RESEARCH_CSV_COLUMNS).toContain('reward_system_version');
     expect(RESEARCH_CSV_COLUMNS).toContain('cache_channel_cancellation_reasons_json');
+    expect(RESEARCH_CSV_COLUMNS).toContain('shield_activations');
     expect(csv).toContain('rewards-1');
     expect(csv).toContain('sandbox-forced');
   });

@@ -2,8 +2,9 @@
 
 CSV export uses one generated room per row and a stable header from `RESEARCH_CSV_COLUMNS` in `apps/frontend/src/research/export.ts`. Empty values are empty cells. Arrays and nested objects are compact JSON strings, not JavaScript object coercions. Fields beginning with spreadsheet formula characters are prefixed safely, then all fields receive RFC 4180 quoting where needed.
 
-The rewards-1 extension increases the stable header from 84 to 103 columns. Older research-1
-records export empty reward cells and remain valid.
+The rewards-1 extension increased the stable header from 84 to 103 columns. The reliability
+extension adds `shield_activations` for 104 columns. Older research-1 records export empty optional
+cells and remain valid.
 
 ## Reward system and Resonance
 
@@ -44,10 +45,17 @@ Flattened feature columns describe archetype/boundary, dimensions and floor area
 
 ## Context and outcome
 
-Profile-before/profile-after columns contain the five bounded traits. Performance columns describe recent damage, damage streak, combat pressure, and Fountain drought/cooldown. Outcome columns include status, duration, health, damage, Rune contacts, combat actions, shield time, movement/exploration, exit choice, and Fountain encounter/use/skip details.
+Profile-before/profile-after columns contain the five bounded traits. Performance columns describe
+recent damage, damage streak, combat pressure, and Fountain drought/cooldown. Outcome columns include
+status, pause-correct duration, health, damage, Rune contacts, combat actions,
+`shield_activations`, terminally closed shield time, movement/exploration, exit choice, and Fountain
+encounter/use/skip details.
 
 ## Feedback
 
-`feedback_status` distinguishes pending, submitted, skipped, and defeat-not-requested records. `difficulty` is `too_easy`, `about_right`, or `too_hard` when submitted. Fairness and enjoyment are optional 1–5 values. Skip fields and response duration retain missingness explicitly.
+`feedback_status` distinguishes pending, submitted, skipped, and legacy defeat-not-requested
+records. New clears and defeats both request feedback. `difficulty` is `too_easy`, `about_right`, or
+`too_hard` when submitted. Fairness and enjoyment are optional 1–5 values. Skip fields and response
+duration retain missingness explicitly.
 
 The authoritative header and row mapping are tested in `apps/frontend/src/research/export.test.ts`.

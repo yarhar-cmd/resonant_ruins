@@ -211,7 +211,9 @@ export function DungeonRunSession({
           {run.showAwakeningComplete && (
             <AwakeningCompleteText onFinished={run.hideAwakeningComplete} />
           )}
-          {run.defeated && run.resultsVisible && <GameOverResults visible {...run.gameOverProps} />}
+          {run.defeated && run.resultsVisible && !run.pendingResearchFeedback && (
+            <GameOverResults visible {...run.gameOverProps} />
+          )}
         </section>
       </div>
       <PauseMenu

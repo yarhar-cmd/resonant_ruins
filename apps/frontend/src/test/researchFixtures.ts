@@ -127,6 +127,8 @@ export function researchFixture(
     profileAfter: gameplay.adaptation.currentRunProfile,
     status: 'completed',
     exit: generated.roomSnapshot.exits[0],
+    terminalElapsedMs: 12_000,
+    terminalTimestampMs: 13_000,
     capturedAt: '2026-01-01T00:00:10.000Z',
   });
   return {

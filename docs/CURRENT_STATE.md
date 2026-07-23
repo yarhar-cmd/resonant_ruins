@@ -39,7 +39,7 @@ Resonance is score-only: it does not affect health, combat, generation, profiles
 adaptation, or model scoring. Normal runs write History and preset-partitioned Best Resonance;
 Research keeps its value and reward telemetry inside isolated research storage; sandbox overrides
 remain memory-only. Research records stay on `research-1` through optional backward-compatible
-fields, and CSV export now has 103 stable columns. See [Reward system](REWARD_SYSTEM.md) and
+fields, and CSV export now has 104 stable columns. See [Reward system](REWARD_SYSTEM.md) and
 [Resonance Cache](RESONANCE_CACHE.md).
 
 ## mvp-0.5 baseline learned-selector foundation
@@ -76,10 +76,15 @@ generated-room-only feedback, exactly-once room records, descriptive summaries, 
 and validated JSON/CSV export. Pilot records are excluded by default. No data is uploaded and no
 learned model is installed. See [Research Mode](RESEARCH_MODE.md).
 
+Generated-room defeat now persists the same required-difficulty/optional-fairness-and-enjoyment
+feedback flow without inventing an exit. Room duration uses the pause-aware run clock, terminal
+shield segments and activation counts are recorded, and successful storage-pressure writes advance
+with a separate warning. Legacy defeat-not-requested records remain readable.
+
 Frontend API health now remains `not-configured` without an explicit `VITE_API_BASE_URL`; it does
 not silently request localhost. Frozen generator-2 and generator-3 continuations remain supported.
 
-Updated: 2026-07-21
+Updated: 2026-07-23
 
 ## Current implementation update: Dungeon Topology & Healing foundation v0.3
 

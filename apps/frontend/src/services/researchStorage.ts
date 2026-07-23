@@ -22,6 +22,32 @@ import { NEUTRAL_ADAPTIVE_PROFILE } from './playerProfileStorage';
 export type ResearchStorageIssue =
   'invalid' | 'unavailable' | 'write-failed' | 'storage-pressure' | 'not-found' | 'conflict';
 
+export type ResearchRoomFinalizationResult =
+  | {
+      status: 'saved';
+      issue: null;
+      warning: 'storage-pressure' | null;
+      duplicate: false;
+    }
+  | {
+      status: 'identical-duplicate';
+      issue: null;
+      warning: null;
+      duplicate: true;
+    }
+  | {
+      status: 'conflicting-duplicate';
+      issue: 'conflict';
+      warning: null;
+      duplicate: true;
+    }
+  | {
+      status: 'write-failed';
+      issue: Exclude<ResearchStorageIssue, 'storage-pressure'>;
+      warning: null;
+      duplicate: false;
+    };
+
 function storageOrDefault(storage?: Storage): Storage {
   return storage ?? window.localStorage;
 }
@@ -257,18 +283,24 @@ export function clearAllResearchData(storage?: Storage): ResearchStorageIssue | 
 export function finalizeRoomResearchRecord(
   record: RoomResearchRecord,
   storage?: Storage,
-): { issue: ResearchStorageIssue | null; duplicate: boolean } {
+): ResearchRoomFinalizationResult {
   if (!RoomResearchRecordSchema.safeParse(record).success)
-    return { issue: 'invalid', duplicate: false };
+    return { status: 'write-failed', issue: 'invalid', warning: null, duplicate: false };
   const loaded = loadResearchStorage(storage);
   const session = loaded.data.sessions.find((item) => item.id === record.researchSessionId);
   const run = session?.runs.find((item) => item.id === record.runId);
-  if (!session || !run) return { issue: 'not-found', duplicate: false };
+  if (!session || !run)
+    return { status: 'write-failed', issue: 'not-found', warning: null, duplicate: false };
   const existing = run.rooms.find((room) => room.roomDecisionId === record.roomDecisionId);
   if (existing)
     return JSON.stringify(existing) === JSON.stringify(record)
-      ? { issue: null, duplicate: true }
-      : { issue: 'conflict', duplicate: true };
+      ? { status: 'identical-duplicate', issue: null, warning: null, duplicate: true }
+      : {
+          status: 'conflicting-duplicate',
+          issue: 'conflict',
+          warning: null,
+          duplicate: true,
+        };
   const terminal = record.outcome.status === 'defeated' || record.outcome.status === 'interrupted';
   const nextRun: ResearchRun = {
     ...run,
@@ -281,5 +313,13 @@ export function finalizeRoomResearchRecord(
     sessionProfile: { ...record.profileAfter },
     runs: session.runs.map((item) => (item.id === run.id ? nextRun : item)),
   };
-  return { issue: updateResearchSession(nextSession, storage), duplicate: false };
+  const issue = updateResearchSession(nextSession, storage);
+  if (issue === null || issue === 'storage-pressure')
+    return {
+      status: 'saved',
+      issue: null,
+      warning: issue,
+      duplicate: false,
+    };
+  return { status: 'write-failed', issue, warning: null, duplicate: false };
 }

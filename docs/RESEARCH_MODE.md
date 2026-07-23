@@ -23,12 +23,34 @@ Normal and research active runs use separate keys and may coexist. Research Mode
 
 Generated-room completion follows this order:
 
-1. Capture the completed room outcome and persist pending feedback against its `roomDecisionId`.
+1. Capture the terminal room outcome and persist pending feedback against its `roomDecisionId`.
 2. Block gameplay and show the feedback dialog.
 3. Submit a required difficulty rating, optionally rate fairness/enjoyment, or explicitly confirm a full skip.
-4. Finalize exactly one room record, then generate and enter the next room.
+4. Finalize exactly one room record.
+5. Continue to the next room after a clear, or show the existing post-defeat results after a defeat.
 
-Awakening Chambers never request research feedback. Defeat stores an incomplete generated-room outcome with `not_requested_due_to_defeat`; it does not fabricate an exit or rating.
+Awakening Chambers never request research feedback. A generated-room defeat now requests the same
+feedback as a clear, while preserving `outcome.status: defeated` and null exit fields. Existing
+records with `feedback.status: not_requested_due_to_defeat` remain valid and readable.
+
+Room duration uses the run's pause-aware elapsed-time domain for both entry and terminal snapshots.
+It excludes explicit pause time, refresh downtime excluded by active-run restoration, and time spent
+answering feedback. The terminal snapshot also closes a still-held shield segment and copies shield
+activation count without changing shield controls or combat.
+
+Dataset finalization and active pending state remain separate localStorage writes. A saved record
+under storage pressure is treated as committed and presents a separate warning. Identical
+`roomDecisionId` retries are idempotent; conflicting retries remain blocked. Gameplay or results do
+not advance until the record is committed (or confirmed identical) and pending state clears.
+
+## Approved next Pilot milestone, not implemented here
+
+The next Pilot-flow milestone may count defeated rooms toward a fixed 10-room condition block,
+restore full health after feedback without replaying the defeated room, create one shared
+post-practice profile baseline, counterbalance condition order from a researcher-entered sequence
+(odd adaptive first, even neutral first), and label conditions to participants only as Run A and Run
+B. Confirmed full-feedback skips remain allowed and excluded from About Right Rate. None of those
+flow changes are implemented by this reliability milestone.
 
 ## Local data controls
 

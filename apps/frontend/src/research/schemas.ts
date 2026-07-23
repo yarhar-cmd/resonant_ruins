@@ -249,6 +249,7 @@ export const RoomResearchRecordSchema = z.object({
     swordAttacks: nonnegative,
     blocks: nonnegative,
     perfectBlocks: nonnegative,
+    shieldActivations: nonnegative.optional(),
     shieldTimeMs: nonnegative,
     movementSteps: nonnegative,
     blockedMovement: nonnegative,

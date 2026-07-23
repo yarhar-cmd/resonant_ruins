@@ -81,7 +81,7 @@ export function ResearchRunPage() {
           const current = loadResearchActiveRun().record;
           return Boolean(current && !saveResearchActiveRun({ ...current, pendingShadow }));
         },
-        onFinalizeResearchRecord: (record) => !finalizeRoomResearchRecord(record).issue,
+        onFinalizeResearchRecord: (record) => finalizeRoomResearchRecord(record),
         saveActiveRecord: saveRecord,
         clearActiveRecord: () => {
           clearResearchActiveRun();
