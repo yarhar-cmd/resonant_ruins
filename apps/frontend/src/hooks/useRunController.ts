@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ACTIVE_RUN_POSITION_REPAIRED_WARNING,
   ACTIVE_RUN_STORAGE_WARNING,
+  RESEARCH_STORAGE_PRESSURE_WARNING,
   RUN_STORAGE_INVALID_WARNING,
   RUN_STORAGE_WARNING,
 } from '../components/mirrorvault/StorageWarning';
@@ -87,6 +88,7 @@ import { deriveLiveModelPreRoomContext } from '../model/liveContext';
 import { attachObservedShadowRating, createShadowRoomEvidence } from '../model/shadowEvidence';
 import { applyRewardLayer } from '../utils/rewardGeneration';
 import { VERSION_INFO } from '../config/version';
+import type { ResearchRoomFinalizationResult } from '../services/researchStorage';
 
 function rememberRoom(cache: Map<string, RoomDefinition>, room: RoomDefinition) {
   cache.delete(room.id);
@@ -120,7 +122,7 @@ export interface RunControllerOptions {
   onResearchRoomStart?: (snapshot: ResearchRoomStartSnapshot) => boolean;
   onResearchPendingChange?: (pending: PendingRoomFeedback | null) => boolean;
   onResearchShadowChange?: (shadow: ShadowRoomEvidence | null) => boolean;
-  onFinalizeResearchRecord?: (record: RoomResearchRecord) => boolean;
+  onFinalizeResearchRecord?: (record: RoomResearchRecord) => ResearchRoomFinalizationResult;
   saveActiveRecord?: (record: ActiveRunRecord) => ActiveRunStorageIssue | null;
   clearActiveRecord?: () => void;
   returnPath?: string;
@@ -174,6 +176,8 @@ export function useRunController(
   const gameRegionRef = useRef<HTMLDivElement>(null);
   const archivedRunIdsRef = useRef(new Set<string>());
   const defeatedResearchRoomIdsRef = useRef(new Set<string>());
+  const finalizingResearchRecordIdRef = useRef<string | null>(null);
+  const finalizedResearchRecordIdsRef = useRef(new Set<string>());
   const researchProfileRef = useRef(options.researchSessionProfile);
   const roomSnapshotsRef = useRef(new Map<string, RoomDefinition>());
   const setDebugInterfaceOpen = useCallback(
@@ -270,9 +274,25 @@ export function useRunController(
       !researchRoomStart ||
       !options.researchSession ||
       !options.researchRun ||
-      defeatedResearchRoomIdsRef.current.has(researchRoomStart.roomDecisionId)
+      pendingResearchFeedback?.roomDecisionId === researchRoomStart.roomDecisionId
     )
       return;
+    const roomDecisionId = researchRoomStart.roomDecisionId;
+    if (
+      defeatedResearchRoomIdsRef.current.has(roomDecisionId) ||
+      finalizedResearchRecordIdsRef.current.has(roomDecisionId) ||
+      options.researchRun.rooms.some((room) => room.roomDecisionId === roomDecisionId)
+    ) {
+      defeatedResearchRoomIdsRef.current.add(roomDecisionId);
+      return;
+    }
+    const terminalElapsedMs =
+      gameplay.runStats.timeSurvived ??
+      getTimeSurvived(gameplay.runStats, Date.now(), gameplay.pause);
+    const terminalTimestampMs =
+      gameplay.runStats.startedAt === null
+        ? Date.now()
+        : gameplay.runStats.startedAt + terminalElapsedMs + gameplay.pause.totalPausedMs;
     const record = buildRoomResearchRecord({
       session: options.researchSession,
       run: options.researchRun,
@@ -282,22 +302,28 @@ export function useRunController(
       roomStart: researchRoomStart,
       profileAfter: gameplay.adaptation.currentRunProfile,
       status: 'defeated',
+      terminalElapsedMs,
+      terminalTimestampMs,
       shadow:
         pendingResearchShadow?.roomDecisionId === researchRoomStart.roomDecisionId
           ? pendingResearchShadow
           : null,
-      capturedAt: new Date(
-        (gameplay.runStats.startedAt ?? 0) + (gameplay.runStats.timeSurvived ?? 0),
-      ).toISOString(),
+      capturedAt: new Date(terminalTimestampMs).toISOString(),
     });
-    if (options.onFinalizeResearchRecord?.(record)) {
-      defeatedResearchRoomIdsRef.current.add(researchRoomStart.roomDecisionId);
-      setFinalizedResearchRecordCount((count) => count + 1);
-      setLastFinalizedResearchRecordId(record.roomDecisionId);
-      options.onResearchPendingChange?.(null);
-      options.onResearchShadowChange?.(null);
+    const pending = createPendingRoomFeedback(record);
+    if (options.onResearchPendingChange?.(pending)) {
+      defeatedResearchRoomIdsRef.current.add(roomDecisionId);
+      setPendingResearchFeedback(pending);
     }
-  }, [gameplay, generatedSave, options, pendingResearchShadow, researchRoomStart, runMode]);
+  }, [
+    gameplay,
+    generatedSave,
+    options,
+    pendingResearchFeedback?.roomDecisionId,
+    pendingResearchShadow,
+    researchRoomStart,
+    runMode,
+  ]);
 
   useEnemyClock({
     enabled: Boolean(
@@ -632,6 +658,8 @@ export function useRunController(
         profileAfter: preview.adaptation.currentRunProfile,
         status: 'completed',
         exit,
+        terminalElapsedMs: exitedAtMs,
+        terminalTimestampMs: now,
         shadow:
           pendingResearchShadow?.roomDecisionId === researchRoomStart.roomDecisionId
             ? pendingResearchShadow
@@ -967,6 +995,9 @@ export function useRunController(
 
   function finalizeResearchFeedback(feedback: RoomFeedback) {
     if (!pendingResearchFeedback) return false;
+    const roomDecisionId = pendingResearchFeedback.roomDecisionId;
+    if (finalizedResearchRecordIdsRef.current.has(roomDecisionId)) return true;
+    if (finalizingResearchRecordIdRef.current === roomDecisionId) return true;
     const record: RoomResearchRecord = {
       ...pendingResearchFeedback.record,
       feedback,
@@ -979,12 +1010,35 @@ export function useRunController(
           }
         : {}),
     };
-    if (!options.onFinalizeResearchRecord?.(record)) return false;
-    if (!options.onResearchPendingChange?.(null)) return false;
-    const exit = currentRoom.exits.find(
-      (candidate) => candidate.id === record.outcome.chosenExitId,
-    );
-    if (!exit) return false;
+    const defeatedRoom = record.outcome.status === 'defeated';
+    const exit = defeatedRoom
+      ? null
+      : currentRoom.exits.find((candidate) => candidate.id === record.outcome.chosenExitId);
+    if (!defeatedRoom && !exit) return false;
+    finalizingResearchRecordIdRef.current = roomDecisionId;
+    const finalizedPending: PendingRoomFeedback = {
+      ...pendingResearchFeedback,
+      answersUpdatedAt: feedback.submittedAt ?? new Date().toISOString(),
+      record,
+    };
+    if (!options.onResearchPendingChange?.(finalizedPending)) {
+      finalizingResearchRecordIdRef.current = null;
+      return false;
+    }
+    setPendingResearchFeedback(finalizedPending);
+    const finalization = options.onFinalizeResearchRecord?.(record);
+    const committed =
+      finalization?.status === 'saved' || finalization?.status === 'identical-duplicate';
+    if (!committed) {
+      finalizingResearchRecordIdRef.current = null;
+      return false;
+    }
+    if (finalization.warning === 'storage-pressure')
+      setStorageWarning(RESEARCH_STORAGE_PRESSURE_WARNING);
+    if (!options.onResearchPendingChange?.(null)) {
+      finalizingResearchRecordIdRef.current = null;
+      return false;
+    }
     researchProfileRef.current = record.profileAfter;
     setFinalizedResearchRecordCount((count) => count + 1);
     setLastFinalizedResearchRecordId(record.roomDecisionId);
@@ -992,7 +1046,13 @@ export function useRunController(
     setPendingResearchShadow(null);
     options.onResearchShadowChange?.(null);
     setResearchRoomStart(null);
-    commitExitTransition(exit, true);
+    finalizedResearchRecordIdsRef.current.add(roomDecisionId);
+    finalizingResearchRecordIdRef.current = null;
+    if (defeatedRoom) {
+      defeatedResearchRoomIdsRef.current.add(roomDecisionId);
+      return true;
+    }
+    commitExitTransition(exit!, true);
     return true;
   }
 

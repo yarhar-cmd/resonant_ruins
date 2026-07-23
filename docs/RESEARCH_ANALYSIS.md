@@ -26,6 +26,9 @@ The primary metric is:
 About Right Rate = submitted about_right difficulty ratings / all submitted difficulty ratings
 ```
 
-Explicit skips and defeat-not-requested records are excluded from that denominator, and sample size is always reported. Output is descriptive only: no p-values, significance tests, causal claims, or winner declaration are produced.
+Explicit skips and legacy defeat-not-requested records are excluded from that denominator, and
+sample size is always reported. Submitted defeat feedback is included like submitted clear
+feedback. Output is descriptive only: no p-values, significance tests, causal claims, or winner
+declaration are produced.
 
 Future model evaluation must split and aggregate by participant/session rather than randomly splitting rooms. Room-level random splits would leak within-player behavior and carryover between training and evaluation data.

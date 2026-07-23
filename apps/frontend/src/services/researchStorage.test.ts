@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { RESEARCH_STORAGE_KEY } from '../config/research';
+import { RESEARCH_STORAGE_KEY, RESEARCH_STORAGE_WARNING_BYTES } from '../config/research';
+import { researchFixture } from '../test/researchFixtures';
 import { PLAYER_PROFILE_KEY } from './playerProfileStorage';
 import { RUN_ARCHIVE_KEY } from './runArchive';
 import {
@@ -10,11 +11,43 @@ import {
   deletePilotResearchData,
   deleteResearchSession,
   endResearchSession,
+  finalizeRoomResearchRecord,
   loadResearchStorage,
   parseResearchStorage,
   researchStorageSize,
+  saveResearchStorage,
   startResearchSession,
 } from './researchStorage';
+
+class MemoryStorage implements Storage {
+  private readonly values = new Map<string, string>();
+  failWrites = false;
+
+  get length() {
+    return this.values.size;
+  }
+
+  clear() {
+    this.values.clear();
+  }
+
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+
+  key(index: number) {
+    return [...this.values.keys()][index] ?? null;
+  }
+
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+
+  setItem(key: string, value: string) {
+    if (this.failWrites) throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    this.values.set(key, value);
+  }
+}
 
 describe('research session storage', () => {
   beforeEach(() => localStorage.clear());
@@ -115,5 +148,83 @@ describe('research session storage', () => {
     expect(parseResearchStorage({ researchSchemaVersion: 'research-99', sessions: [] })).toBeNull();
     localStorage.setItem(RESEARCH_STORAGE_KEY, '{');
     expect(loadResearchStorage().issue).toBe('invalid');
+  });
+
+  it('treats a completed write under storage pressure as saved with a separate warning', () => {
+    const storage = new MemoryStorage();
+    const fixture = researchFixture();
+    expect(
+      saveResearchStorage(
+        {
+          researchSchemaVersion: 'research-1',
+          activeSessionId: fixture.session.id,
+          sessions: [fixture.session],
+        },
+        storage,
+      ),
+    ).toBeNull();
+    const record = {
+      ...fixture.record,
+      explanationTokens: ['x'.repeat(RESEARCH_STORAGE_WARNING_BYTES)],
+      feedback: {
+        ...fixture.record.feedback,
+        status: 'submitted' as const,
+        difficulty: 'about_right' as const,
+        submittedAt: '2026-01-01T00:00:12.000Z',
+        responseDurationMs: 2_000,
+      },
+    };
+
+    expect(finalizeRoomResearchRecord(record, storage)).toEqual({
+      status: 'saved',
+      issue: null,
+      warning: 'storage-pressure',
+      duplicate: false,
+    });
+    expect(loadResearchStorage(storage).data.sessions[0]!.runs[0]!.rooms).toHaveLength(1);
+    expect(finalizeRoomResearchRecord(record, storage)).toEqual({
+      status: 'identical-duplicate',
+      issue: null,
+      warning: null,
+      duplicate: true,
+    });
+    expect(loadResearchStorage(storage).data.sessions[0]!.runs[0]!.rooms).toHaveLength(1);
+  });
+
+  it('reports a failed write separately from duplicates and storage warnings', () => {
+    const storage = new MemoryStorage();
+    const fixture = researchFixture();
+    expect(
+      saveResearchStorage(
+        {
+          researchSchemaVersion: 'research-1',
+          activeSessionId: fixture.session.id,
+          sessions: [fixture.session],
+        },
+        storage,
+      ),
+    ).toBeNull();
+    storage.failWrites = true;
+    expect(
+      finalizeRoomResearchRecord(
+        {
+          ...fixture.record,
+          feedback: {
+            ...fixture.record.feedback,
+            status: 'submitted',
+            difficulty: 'about_right',
+            submittedAt: '2026-01-01T00:00:12.000Z',
+            responseDurationMs: 2_000,
+          },
+        },
+        storage,
+      ),
+    ).toEqual({
+      status: 'write-failed',
+      issue: 'write-failed',
+      warning: null,
+      duplicate: false,
+    });
+    expect(loadResearchStorage(storage).data.sessions[0]!.runs[0]!.rooms).toHaveLength(0);
   });
 });

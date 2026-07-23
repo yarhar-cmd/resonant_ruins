@@ -11,6 +11,8 @@ export const SETTINGS_STORAGE_INVALID_WARNING =
   'Saved settings were unreadable and were reset. Your profile, active run, and run history were preserved.';
 export const PROFILE_STORAGE_INVALID_WARNING =
   'Your saved adaptive profile was unreadable and was safely reset. Run history and unrelated settings were preserved.';
+export const RESEARCH_STORAGE_PRESSURE_WARNING =
+  'Research feedback was saved, but browser storage is nearly full. Export or remove older research data before continuing for long.';
 
 export function StorageWarning({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (

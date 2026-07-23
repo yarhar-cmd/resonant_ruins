@@ -441,6 +441,22 @@ function pendingResearchBrowserFixture() {
   };
 }
 
+function defeatedResearchBrowserFixture() {
+  const fixture = pendingResearchBrowserFixture();
+  return {
+    ...fixture,
+    active: {
+      ...fixture.active,
+      gameplay: {
+        ...fixture.active.gameplay,
+        status: 'defeated' as const,
+        currentHealth: 0,
+      },
+      pendingFeedback: null,
+    },
+  };
+}
+
 function completedResearchBrowserFixture() {
   const fixture = researchFixture();
   const feedback = {
@@ -651,6 +667,58 @@ test('feedback Escape opens deliberate skip confirmation and explicit skip recor
       ),
     )
     .toBe('skipped');
+});
+
+test('defeat feedback survives refresh, finalizes once, and then reveals results', async ({
+  page,
+}) => {
+  const fixture = defeatedResearchBrowserFixture();
+  await page.evaluate(
+    ({ storageKey, activeKey, storage, active }) => {
+      localStorage.setItem(storageKey, JSON.stringify(storage));
+      localStorage.setItem(activeKey, JSON.stringify(active));
+    },
+    {
+      storageKey: RESEARCH_STORAGE_KEY,
+      activeKey: RESEARCH_ACTIVE_RUN_KEY,
+      storage: fixture.storage,
+      active: fixture.active,
+    },
+  );
+  await page.goto('/research/run');
+
+  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Submit and view results' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Game Over' })).toHaveCount(0);
+  await page.getByLabel('Too Hard').check();
+  await page.getByLabel('2 — Unfair').check();
+  await page.reload();
+  await expect(page.getByLabel('Too Hard')).toBeChecked();
+  await expect(page.getByLabel('2 — Unfair')).toBeChecked();
+  await page.getByRole('button', { name: 'Submit and view results' }).click();
+
+  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Game Over' })).toBeVisible();
+  const stored = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!).sessions[0].runs[0].rooms,
+    RESEARCH_STORAGE_KEY,
+  );
+  expect(stored).toHaveLength(1);
+  expect(stored[0]).toMatchObject({
+    outcome: {
+      status: 'defeated',
+      chosenExitId: null,
+      outgoingDirection: null,
+    },
+    feedback: {
+      status: 'submitted',
+      difficulty: 'too_hard',
+      fairness: 2,
+    },
+  });
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: 'A quick room rating' })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Game Over' })).toBeVisible();
 });
 
 test('Research Summary excludes Pilot by default and export/delete controls preserve normal data', async ({

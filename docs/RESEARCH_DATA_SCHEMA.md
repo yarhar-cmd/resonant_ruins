@@ -30,14 +30,26 @@ Each room record includes:
 - entrance, archetype, boundary, exits, Fountain opportunity, and safe-route evidence;
 - optional rewards-1 eligibility, roll, placement, Cache encounter/open/skip, Resonance, and
   cancellation evidence;
-- profile snapshots, recent performance, health, combat/movement/hazard metrics, exit outcome, and completion/defeat status;
+- profile snapshots, recent performance, health, combat/movement/hazard metrics, completed shield
+  duration and activation count, exit outcome, and completion/defeat status;
 - feedback status, difficulty, optional fairness/enjoyment, skipped fields, and response timing.
 
-The pending active-run envelope stores the exact pending record and current answers before the next room exists. Repeated finalization of an identical `roomDecisionId` is idempotent; conflicting content with the same ID is rejected.
+The pending active-run envelope stores the exact pending record and current answers before the next
+room exists. This includes defeat feedback. Repeated finalization of an identical `roomDecisionId`
+is idempotent; conflicting content with the same ID is rejected. A storage-pressure warning after a
+successful dataset write does not convert that write into a failure.
+
+`outcome.durationMs` subtracts the room-entry elapsed snapshot from the terminal elapsed snapshot.
+Both values come from the pause-aware run clock, so explicit pause time, restored-page downtime, and
+post-room feedback time are excluded. Clear and defeat use this same path.
 
 ## Defeat and incomplete data
 
-Defeat records preserve available metrics, selected candidate evidence, and room identity. They use `outcome.status: defeated`, no chosen exit, and `feedback.status: not_requested_due_to_defeat`. Ended sessions may retain interrupted runs; analysis reports incomplete sessions and missing feedback as data-quality signals.
+New defeat records preserve available metrics, selected candidate evidence, and room identity. They
+use `outcome.status: defeated`, no chosen exit, and persistent pending feedback that becomes
+`submitted` or an explicitly confirmed `skipped`. Legacy records using
+`feedback.status: not_requested_due_to_defeat` remain valid. Ended sessions may retain interrupted
+runs; analysis reports incomplete sessions and missing feedback as data-quality signals.
 
 See [the CSV dictionary](RESEARCH_DATA_DICTIONARY.md) for flattened export fields.
 

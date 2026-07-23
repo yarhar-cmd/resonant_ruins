@@ -54,6 +54,7 @@ export interface RoomResearchOutcome {
   swordAttacks: number;
   blocks: number;
   perfectBlocks: number;
+  shieldActivations?: number;
   shieldTimeMs: number;
   movementSteps: number;
   blockedMovement: number;

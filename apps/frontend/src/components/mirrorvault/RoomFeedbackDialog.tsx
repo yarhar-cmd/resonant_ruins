@@ -28,6 +28,7 @@ export function RoomFeedbackDialog({
   const [skipConfirmation, setSkipConfirmation] = useState(false);
   const [message, setMessage] = useState('');
   const feedback = pending.record.feedback;
+  const defeated = pending.record.outcome.status === 'defeated';
 
   useEffect(() => {
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
@@ -46,7 +47,7 @@ export function RoomFeedbackDialog({
       firstRadioRef.current?.focus();
       return;
     }
-    const submittedAt = new Date().toISOString();
+    const submittedAt = feedback.submittedAt ?? new Date().toISOString();
     const finalized: RoomFeedback = {
       ...feedback,
       status: 'submitted',
@@ -61,7 +62,7 @@ export function RoomFeedbackDialog({
   }
 
   function confirmSkip() {
-    const submittedAt = new Date().toISOString();
+    const submittedAt = feedback.submittedAt ?? new Date().toISOString();
     const skipped: RoomFeedback = {
       ...feedback,
       status: 'skipped',
@@ -107,9 +108,12 @@ export function RoomFeedbackDialog({
           }
         }}
       >
-        <p className="eyebrow">Room complete</p>
+        <p className="eyebrow">{defeated ? 'Room ended' : 'Room complete'}</p>
         <h2 id={titleId}>A quick room rating</h2>
-        <p>Your answers are saved locally with the room you just completed.</p>
+        <p>
+          Your answers are saved locally with the room that just{' '}
+          {defeated ? 'ended in defeat' : 'completed'}.
+        </p>
 
         <fieldset>
           <legend>{RESEARCH_FEEDBACK_QUESTIONS.difficulty.prompt}</legend>
@@ -159,7 +163,7 @@ export function RoomFeedbackDialog({
             Skip feedback
           </button>
           <button className="button button--primary" type="button" onClick={submit}>
-            Submit and continue
+            {defeated ? 'Submit and view results' : 'Submit and continue'}
           </button>
         </div>
       </section>

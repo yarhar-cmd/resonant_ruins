@@ -74,6 +74,18 @@ export function pendingFeedback(): RoomFeedback {
   };
 }
 
+export function snapshotTerminalRoomSignals(
+  gameplay: GameplayState,
+  terminalTimestampMs: number,
+): GameplayState['adaptation']['signals'] {
+  const shieldTimeMs =
+    gameplay.adaptation.shieldStartedAt === null
+      ? gameplay.adaptation.signals.shieldTimeMs
+      : gameplay.adaptation.signals.shieldTimeMs +
+        Math.max(0, terminalTimestampMs - gameplay.adaptation.shieldStartedAt);
+  return { ...gameplay.adaptation.signals, shieldTimeMs };
+}
+
 export function buildRoomResearchRecord(input: {
   session: ResearchSession;
   run: ResearchRun;
@@ -84,6 +96,8 @@ export function buildRoomResearchRecord(input: {
   profileAfter: ResearchSession['sessionProfile'];
   status: RoomOutcomeStatus;
   exit?: RoomExit;
+  terminalElapsedMs: number;
+  terminalTimestampMs: number;
   capturedAt?: string;
   feedback?: RoomFeedback;
   shadow?: ShadowRoomEvidence | null;
@@ -97,19 +111,9 @@ export function buildRoomResearchRecord(input: {
   const cache = getResonanceCaches(generated.roomSnapshot)[0];
   const cacheRuntime = cache ? gameplay.interactables[cache.id] : undefined;
   const reward = details.rewardDecision;
-  const signals = gameplay.adaptation.signals;
+  const signals = snapshotTerminalRoomSignals(gameplay, input.terminalTimestampMs);
   const capturedAt = input.capturedAt ?? new Date().toISOString();
-  const elapsed =
-    gameplay.runStats.timeSurvived ?? Date.now() - (gameplay.runStats.startedAt ?? Date.now());
-  const feedback =
-    input.feedback ??
-    (input.status === 'defeated'
-      ? {
-          ...pendingFeedback(),
-          status: 'not_requested_due_to_defeat' as const,
-          notRequestedReason: 'defeat' as const,
-        }
-      : pendingFeedback());
+  const feedback = input.feedback ?? pendingFeedback();
   return {
     researchSchemaVersion: RESEARCH_SCHEMA_VERSION,
     feedbackSchemaVersion: FEEDBACK_SCHEMA_VERSION,
@@ -176,13 +180,14 @@ export function buildRoomResearchRecord(input: {
     ...(input.shadow ? { shadow: input.shadow } : {}),
     outcome: {
       status: input.status,
-      durationMs: Math.max(0, elapsed - roomStart.enteredAtMs),
+      durationMs: Math.max(0, input.terminalElapsedMs - roomStart.enteredAtMs),
       damageTaken: signals.damageTaken,
       runeContacts: signals.runeContacts,
       ratsDefeated: signals.ratsDefeated,
       swordAttacks: signals.swordSwings,
       blocks: gameplay.enemies.combatMetrics.regularBlocks,
       perfectBlocks: gameplay.enemies.combatMetrics.perfectBlocks,
+      shieldActivations: signals.shieldActivations,
       shieldTimeMs: signals.shieldTimeMs,
       movementSteps: signals.movementSteps,
       blockedMovement: signals.blockedMovementAttempts,
