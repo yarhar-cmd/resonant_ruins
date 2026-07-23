@@ -67,6 +67,7 @@ import { useDefeatControls } from './useDefeatControls';
 import { useInvulnerabilityTimer } from './useInvulnerabilityTimer';
 import { useEnemyClock } from './useEnemyClock';
 import { useRoomTransition } from './useRoomTransition';
+import { useGameplayAudio } from './useGameplayAudio';
 import { createRoomEnemyState, livingRats } from '../utils/enemySystem';
 import { getAvailableInteraction, getFacingRestorationFountain } from '../utils/interactions';
 import {
@@ -195,6 +196,7 @@ export function useRunController(
   const generatedSave = gameplay.dungeonProgress?.currentRoom ?? null;
   const currentRoomId =
     generatedSave?.roomSnapshot.id ?? progress?.currentRoomId ?? EVALUATION_ROOM_1_ID;
+  useGameplayAudio(gameplay, currentRoomId);
   const currentRoom =
     generatedSave?.roomSnapshot ??
     getEvaluationRoom(currentRoomId, playerProfile?.shortcutUnlocked) ??

@@ -1,5 +1,19 @@
 # Recommended Resonant Ruins architecture
 
+## Implemented presentation and audio boundary
+
+The final mvp-0.5 presentation layer remains inside the existing React/CSS architecture.
+`styles/polish.css` refines shared and dungeon classes without changing coordinates or authoritative
+state. Information hierarchy uses existing routes and semantic progressive disclosure; local and
+Preview Labs retain the established build gates and Production exclusions.
+
+`AudioProvider` owns a centralized `AudioEngine`, while `useGameplayAudio` derives typed,
+presentation-only events from authoritative snapshots. Web Audio is created lazily after a user
+gesture, effects and ambience have independent buses beneath Master, and category limits prevent
+overlap. The engine has no references to selectors, generators, persistence writers, research
+reducers, rewards, or model inference. See [Audio system](AUDIO_SYSTEM.md) and
+[Visual style](VISUAL_STYLE.md).
+
 ## Implemented mvp-0.5 reward boundary
 
 `rewards-1` is a deterministic post-selection layer in `utils/rewardGeneration.ts`. The enforced

@@ -25,6 +25,7 @@ const forbiddenDevelopmentText = [
   'Combat Debug',
   'Reset Combat Debug counters',
   'Body-lock prevention activations',
+  '__RESONANT_RUINS_AUDIO_DEBUG__',
 ];
 const diagnosticText = [
   'Playtest Diagnostics',

@@ -29,6 +29,11 @@ describe('Research Mode opt-in page', () => {
     expect(screen.getByRole('button', { name: 'Start Research Session' })).toBeDisabled();
     expect(localStorage.getItem(RESEARCH_STORAGE_KEY)).toBeNull();
     expect(localStorage.getItem(RESEARCH_ACTIVE_RUN_KEY)).toBeNull();
+    const researchData = screen.getByText('Research Data').closest('details')!;
+    expect(researchData).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText('Research Data'));
+    expect(researchData).toHaveAttribute('open');
+    expect(screen.getByRole('heading', { name: 'Browser-local records' })).toBeVisible();
   });
 
   it('starts a labeled Pilot session without overwriting a normal active run', async () => {

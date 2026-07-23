@@ -11,6 +11,10 @@ describe('Resonant Ruins Topology Lab sandbox', () => {
     localStorage.setItem('mirrorvault:run-archive:v1', 'preserve-history');
     render(<TopologyLabPage />);
     expect(screen.getByText(/SANDBOX · persistence guards active/)).toBeVisible();
+    const diagnostics = screen.getByText('Advanced diagnostics and ASCII').closest('details')!;
+    expect(diagnostics).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText('Advanced diagnostics and ASCII'));
+    expect(diagnostics).toHaveAttribute('open');
     expect(screen.getByLabelText('Generated room ASCII map')).toHaveTextContent('F');
     fireEvent.change(screen.getByLabelText('Archetype'), { target: { value: 'true-l-ruin' } });
     fireEvent.change(screen.getByLabelText('Placement'), { target: { value: 'risky' } });

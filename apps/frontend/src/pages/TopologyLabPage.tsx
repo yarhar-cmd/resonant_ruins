@@ -138,16 +138,12 @@ export function TopologyLabPage() {
         >
           Generate new seed
         </button>
-        <button
-          className="button button--secondary"
-          type="button"
-          onClick={() => navigator.clipboard?.writeText(ascii)}
-        >
-          Copy ASCII map
-        </button>
       </div>
-      <div className="topology-lab-output">
-        <pre aria-label="Generated room ASCII map">{ascii}</pre>
+      <section className="topology-room-summary" aria-labelledby="topology-summary-title">
+        <header>
+          <p className="kicker">Generated room</p>
+          <h2 id="topology-summary-title">Room Summary</h2>
+        </header>
         <dl>
           <div>
             <dt>Archetype</dt>
@@ -169,20 +165,40 @@ export function TopologyLabPage() {
                 : 'not spawned'}
             </dd>
           </div>
-          <div>
-            <dt>Recovery roll</dt>
-            <dd>
-              {save.details.recoveryDecision
-                ? `${save.details.recoveryDecision.roll.toFixed(3)} / ${save.details.recoveryDecision.probability.toFixed(3)}`
-                : 'n/a'}
-            </dd>
-          </div>
-          <div>
-            <dt>Reason tokens</dt>
-            <dd>{save.details.recoveryDecision?.reasons.join(', ') || 'none'}</dd>
-          </div>
         </dl>
-      </div>
+      </section>
+      <details className="topology-advanced">
+        <summary>
+          <span>Advanced diagnostics and ASCII</span>
+          <small>Boundary map, recovery roll, and reason tokens</small>
+        </summary>
+        <div className="topology-lab-output">
+          <div>
+            <pre aria-label="Generated room ASCII map">{ascii}</pre>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(ascii)}
+            >
+              Copy ASCII map
+            </button>
+          </div>
+          <dl>
+            <div>
+              <dt>Recovery roll</dt>
+              <dd>
+                {save.details.recoveryDecision
+                  ? `${save.details.recoveryDecision.roll.toFixed(3)} / ${save.details.recoveryDecision.probability.toFixed(3)}`
+                  : 'n/a'}
+              </dd>
+            </div>
+            <div>
+              <dt>Reason tokens</dt>
+              <dd>{save.details.recoveryDecision?.reasons.join(', ') || 'none'}</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
     </PageContainer>
   );
 }

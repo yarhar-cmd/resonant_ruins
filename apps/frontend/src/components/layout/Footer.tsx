@@ -9,7 +9,8 @@ export function Footer() {
         <p>A local-first proof of concept for adaptive procedural generation.</p>
       </div>
       <div className="footer-links">
-        <Link to="/about">About the method</Link>
+        <Link to="/characters">Characters</Link>
+        <Link to="/about">About</Link>
         <Link to="/contact">Contact</Link>
         <span>AI ENGINEERING &amp; INNOVATION · 2026</span>
       </div>

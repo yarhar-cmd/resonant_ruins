@@ -26,7 +26,7 @@ export function GameShell({
   const { settings, storageWarning, dismissStorageWarning } = useAdventure();
   return (
     <div
-      className={`game-shell ${settings.highContrast ? 'is-high-contrast' : ''} ${settings.reducedMotion ? 'reduce-motion' : ''}`}
+      className={`game-shell effects-${settings.visualEffects} ${settings.highContrast ? 'is-high-contrast' : ''} ${settings.reducedMotion ? 'reduce-motion' : ''}`}
     >
       <a className="skip-link" href="#game-main-content">
         Skip to game

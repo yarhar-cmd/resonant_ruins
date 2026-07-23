@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdventureProvider } from '../context/AdventureProvider';
+import { AudioProvider } from '../context/AudioProvider';
 import { AppRoutes } from '../routes/AppRoutes';
 import {
   ACTIVE_RUN_KEY,
@@ -21,8 +22,10 @@ function renderApp(path = '/dungeon') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AdventureProvider>
-        <AppRoutes />
-        <Location />
+        <AudioProvider>
+          <AppRoutes />
+          <Location />
+        </AudioProvider>
       </AdventureProvider>
     </MemoryRouter>,
   );
@@ -148,7 +151,10 @@ describe('Resonant Ruins dungeon routing, run layout, and pause flow', () => {
       expect(screen.getAllByText(`Awakening Chamber ${chamber} / 5`)[0]).toBeVisible();
     }
     await advanceRoom();
-    expect(screen.getAllByText('Dungeon Room 1')[0]).toBeVisible();
+    expect(document.querySelector('.game-board-panel')).toHaveAttribute(
+      'data-room-id',
+      'generated-dungeon-room-1',
+    );
     expect(loadPlayerProfile().record?.shortcutUnlocked).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'Move right' }));
@@ -236,7 +242,7 @@ describe('Resonant Ruins dungeon routing, run layout, and pause flow', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/settings');
     expect(loadActiveRun().record?.pauseState).toMatchObject({ isPaused: true });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Dungeon' }));
+    fireEvent.click(screen.getAllByRole('link', { name: 'Play' })[0]!);
     expect(screen.getByTestId('location')).toHaveTextContent('/dungeon/run');
     expect(screen.getByRole('dialog', { name: 'Paused' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Main Menu' }));
@@ -245,7 +251,7 @@ describe('Resonant Ruins dungeon routing, run layout, and pause flow', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/');
     expect(loadActiveRun().record?.pauseState).toMatchObject({ isPaused: true });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Dungeon' }));
+    fireEvent.click(screen.getAllByRole('link', { name: 'Play' })[0]!);
     expect(screen.getByTestId('location')).toHaveTextContent('/dungeon/run');
     expect(screen.getByRole('dialog', { name: 'Paused' })).toBeVisible();
   });

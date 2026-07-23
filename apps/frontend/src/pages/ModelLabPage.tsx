@@ -266,14 +266,27 @@ export function ModelLabPage() {
       title="Model Comparison Lab"
       intro="Compare the unchanged Rules and Neutral selectors with a local shadow model. The model has zero gameplay authority in mvp-0.5."
     >
-      <div className="sandbox-banner" role="status">
-        DEVELOPMENT ONLY · imports and experiments stay in memory
+      <div className="sandbox-banner model-lab-warning" role="status">
+        <strong>Development-only model instrument.</strong>
+        <span>Imports and experiments stay in memory; no learned model controls gameplay.</span>
+        <span className="model-lab-badges" aria-label="Model limitations">
+          <b>DEVELOPMENT</b>
+          <b>SYNTHETIC</b>
+          <b>SHADOW ONLY</b>
+        </span>
       </div>
 
-      <section className="model-lab-panel" aria-labelledby="registry-heading">
+      <nav className="model-lab-section-nav" aria-label="Model Lab sections">
+        <a href="#model-overview">Overview</a>
+        <a href="#candidate-comparison">Candidate Comparison</a>
+        <a href="#model-explainability">Explainability</a>
+        <a href="#model-imports">Imports and Shadow Records</a>
+      </nav>
+
+      <section id="model-overview" className="model-lab-panel" aria-labelledby="registry-heading">
         <div className="model-lab-heading">
           <div>
-            <p className="kicker">Registry</p>
+            <p className="kicker">Overview</p>
             <h2 id="registry-heading">Model state</h2>
           </div>
           <span>{selectedArtifact ? selectedArtifact.status : 'unavailable'}</span>
@@ -297,45 +310,49 @@ export function ModelLabPage() {
         <p className="form-message" role="status">
           {artifactMessage}
         </p>
-        <dl className="model-lab-metrics">
-          {createModelRegistry([fixtureArtifact]).map((entry) => (
-            <div key={entry.id}>
-              <dt>{entry.label}</dt>
-              <dd>{entry.reason}</dd>
-            </div>
-          ))}
-        </dl>
-        {selectedArtifact && (
+        <details className="model-technical-details">
+          <summary>Registry and artifact metadata</summary>
           <dl className="model-lab-metrics">
-            <div>
-              <dt>Artifact</dt>
-              <dd>{selectedArtifact.artifactId}</dd>
-            </div>
-            <div>
-              <dt>Model</dt>
-              <dd>{`${selectedArtifact.modelId} · ${selectedArtifact.modelVersion}`}</dd>
-            </div>
-            <div>
-              <dt>Dataset fingerprint</dt>
-              <dd>{selectedArtifact.datasetFingerprint}</dd>
-            </div>
-            <div>
-              <dt>Evaluation</dt>
-              <dd>
-                <details>
-                  <summary>Aggregate development report</summary>
-                  <pre>{safeJson(selectedArtifact.groupedEvaluation)}</pre>
-                </details>
-              </dd>
-            </div>
+            {createModelRegistry([fixtureArtifact]).map((entry) => (
+              <div key={entry.id}>
+                <dt>{entry.label}</dt>
+                <dd>{entry.reason}</dd>
+              </div>
+            ))}
           </dl>
-        )}
+          {selectedArtifact && (
+            <dl className="model-lab-metrics">
+              <div>
+                <dt>Artifact</dt>
+                <dd>{selectedArtifact.artifactId}</dd>
+              </div>
+              <div>
+                <dt>Model</dt>
+                <dd>{`${selectedArtifact.modelId} · ${selectedArtifact.modelVersion}`}</dd>
+              </div>
+              <div>
+                <dt>Dataset fingerprint</dt>
+                <dd>{selectedArtifact.datasetFingerprint}</dd>
+              </div>
+              <div>
+                <dt>Evaluation</dt>
+                <dd>
+                  <pre>{safeJson(selectedArtifact.groupedEvaluation)}</pre>
+                </dd>
+              </div>
+            </dl>
+          )}
+        </details>
       </section>
 
-      <section className="model-lab-panel" aria-labelledby="candidate-heading">
+      <section
+        id="candidate-comparison"
+        className="model-lab-panel"
+        aria-labelledby="candidate-heading"
+      >
         <div className="model-lab-heading">
           <div>
-            <p className="kicker">Shared candidate pool</p>
+            <p className="kicker">Candidate Comparison</p>
             <h2 id="candidate-heading">Rules · Neutral · Model</h2>
           </div>
           <button
@@ -448,7 +465,11 @@ export function ModelLabPage() {
         </div>
       </section>
 
-      <section className="model-lab-panel" aria-labelledby="coefficient-heading">
+      <section
+        id="model-explainability"
+        className="model-lab-panel"
+        aria-labelledby="coefficient-heading"
+      >
         <div className="model-lab-heading">
           <div>
             <p className="kicker">Explainability</p>
@@ -464,33 +485,40 @@ export function ModelLabPage() {
             <option value="too_hard">Too Hard</option>
           </select>
         </div>
-        {selectedArtifact ? (
-          <>
-            <p>
-              Intercept:{' '}
-              {selectedArtifact.intercepts[
-                selectedArtifact.classOrder.indexOf(targetClass)
-              ]!.toFixed(5)}
-            </p>
-            <ol className="model-coefficients">
-              {coefficientRows.map((row) => (
-                <li key={row.feature}>
-                  <span>{row.feature}</span>
-                  <strong>{row.coefficient.toFixed(5)}</strong>
-                </li>
-              ))}
-            </ol>
-          </>
-        ) : (
-          <p>Select a compatible artifact to inspect coefficients.</p>
-        )}
+        <details className="model-technical-details">
+          <summary>Coefficient table and intercept</summary>
+          {selectedArtifact ? (
+            <>
+              <p>
+                Intercept:{' '}
+                {selectedArtifact.intercepts[
+                  selectedArtifact.classOrder.indexOf(targetClass)
+                ]!.toFixed(5)}
+              </p>
+              <ol className="model-coefficients">
+                {coefficientRows.map((row) => (
+                  <li key={row.feature}>
+                    <span>{row.feature}</span>
+                    <strong>{row.coefficient.toFixed(5)}</strong>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <p>Select a compatible artifact to inspect coefficients.</p>
+          )}
+        </details>
       </section>
 
-      <section className="model-lab-panel" aria-labelledby="research-import-heading">
+      <section
+        id="model-imports"
+        className="model-lab-panel"
+        aria-labelledby="research-import-heading"
+      >
         <div className="model-lab-heading">
           <div>
-            <p className="kicker">Memory-only inspection</p>
-            <h2 id="research-import-heading">ResearchExport and shadow records</h2>
+            <p className="kicker">Imports and Shadow Records</p>
+            <h2 id="research-import-heading">Memory-only inspection</h2>
           </div>
           <label className="model-file-input">
             Import ResearchExport JSON
@@ -511,13 +539,8 @@ export function ModelLabPage() {
         {shadows.length > 0 && <ShadowInspector evidence={shadows[0]!} />}
       </section>
 
-      <section className="model-lab-panel" aria-labelledby="performance-heading">
-        <div className="model-lab-heading">
-          <div>
-            <p className="kicker">Local profiling</p>
-            <h2 id="performance-heading">Performance</h2>
-          </div>
-        </div>
+      <details className="model-lab-panel model-technical-details">
+        <summary id="performance-heading">Local performance diagnostics</summary>
         <dl className="model-lab-metrics">
           <div>
             <dt>Artifact validation/load</dt>
@@ -552,7 +575,7 @@ export function ModelLabPage() {
             <dd>{renderDuration === null ? 'measuring' : `${renderDuration.toFixed(2)} ms`}</dd>
           </div>
         </dl>
-      </section>
+      </details>
     </PageContainer>
   );
 }

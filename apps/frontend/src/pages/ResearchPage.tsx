@@ -123,14 +123,12 @@ export function ResearchPage() {
         </p>
       </header>
 
-      <Panel className="research-notice" eyebrow="Participation and data notice">
+      <Panel className="research-notice" eyebrow="1 / Participation notice">
         <h2>Your choice, your browser</h2>
         <ul>
-          <li>Gameplay behavior and room ratings are recorded only after you start a session.</li>
-          <li>Data remains in this browser unless you manually export and share it.</li>
-          <li>Nothing is automatically uploaded, and feedback questions may be skipped.</li>
-          <li>You may end the session at any time; normal play remains available.</li>
-          <li>Exported files leave browser-local control after you share them.</li>
+          <li>Gameplay behavior and room ratings are recorded only after you start.</li>
+          <li>Nothing is automatically uploaded; data stays here unless you export it.</li>
+          <li>You may skip feedback or end the session at any time.</li>
         </ul>
         <label className="research-consent">
           <input
@@ -151,7 +149,7 @@ export function ResearchPage() {
       {activeSession ? (
         <Panel
           className="research-session-card"
-          eyebrow={activeSession.pilot ? 'Pilot session' : 'Official session'}
+          eyebrow={`3 / ${activeSession.pilot ? 'Pilot session' : 'Official session'}`}
         >
           <h2>Session in progress</h2>
           <p>
@@ -173,8 +171,8 @@ export function ResearchPage() {
           </div>
         </Panel>
       ) : (
-        <Panel className="research-setup" eyebrow="Session setup">
-          <h2>Choose a session type</h2>
+        <Panel className="research-setup" eyebrow="2 / Session type · 3 / Start">
+          <h2>Choose Pilot or Official</h2>
           <label>
             <span>Optional participant code</span>
             <input
@@ -228,11 +226,17 @@ export function ResearchPage() {
         </Panel>
       )}
 
-      <ResearchDataPanel
-        data={storage.data}
-        validationStatus={storage.issue ?? 'valid'}
-        onChanged={refresh}
-      />
+      <details className="research-data-disclosure">
+        <summary>
+          <span>Research Data</span>
+          <small>Exports, local storage, schema status, and data controls</small>
+        </summary>
+        <ResearchDataPanel
+          data={storage.data}
+          validationStatus={storage.issue ?? 'valid'}
+          onChanged={refresh}
+        />
+      </details>
 
       <ConfirmationDialog
         open={endConfirmation}

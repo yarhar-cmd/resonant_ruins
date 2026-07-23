@@ -1,14 +1,12 @@
 export function StatusPanel({
   room,
   roomLabel,
-  mode,
-  character,
   currentHealth,
   maximumHealth,
   isInvulnerable,
   isDefeated,
   dungeonRoomsCleared,
-  enemiesRemaining,
+  elapsedTime,
   resonance = 0,
   sandboxResonance = false,
   isHealing = false,
@@ -24,6 +22,7 @@ export function StatusPanel({
   isDefeated: boolean;
   dungeonRoomsCleared?: number;
   enemiesRemaining?: number;
+  elapsedTime?: string;
   resonance?: number;
   sandboxResonance?: boolean;
   isHealing?: boolean;
@@ -33,10 +32,12 @@ export function StatusPanel({
 
   return (
     <aside className="run-status" aria-label="Current run status">
-      <div data-status-field="room">
-        <span>Room</span>
-        <strong>{roomLabel ?? `${String(room ?? 1).padStart(2, '0')} / 06`}</strong>
-      </div>
+      {dungeonRoomsCleared === undefined && (
+        <div data-status-field="room">
+          <span>Room</span>
+          <strong>{roomLabel ?? `${String(room ?? 1).padStart(2, '0')} / 06`}</strong>
+        </div>
+      )}
       <div
         className={`health ${isHealing ? 'health--healing' : ''} ${fullHealthFeedback ? 'health--full-feedback' : ''}`}
         data-status-field="health"
@@ -49,7 +50,7 @@ export function StatusPanel({
               key={index}
               className={index < currentHealth ? 'health__remaining' : 'health__missing'}
             >
-              {index < currentHealth ? '◆' : '◇'}
+              {index < currentHealth ? '♥' : '♡'}
             </span>
           ))}
         </strong>
@@ -63,20 +64,16 @@ export function StatusPanel({
           <small className="health__condition health__condition--defeated">× Defeated</small>
         )}
       </div>
-      <div data-status-field="mode">
-        <span>Mode</span>
-        <strong>{mode}</strong>
-      </div>
       {dungeonRoomsCleared !== undefined && (
         <div data-status-field="cleared">
           <span>Cleared</span>
           <strong>{dungeonRoomsCleared}</strong>
         </div>
       )}
-      {enemiesRemaining !== undefined && (
-        <div data-status-field="enemies" aria-label={`${enemiesRemaining} enemies remaining`}>
-          <span>Enemies Remaining</span>
-          <strong>{enemiesRemaining}</strong>
+      {elapsedTime !== undefined && (
+        <div data-status-field="time">
+          <span>Time</span>
+          <strong>{elapsedTime}</strong>
         </div>
       )}
       <div
@@ -84,11 +81,12 @@ export function StatusPanel({
         aria-label={`${sandboxResonance ? 'Sandbox ' : ''}Resonance ${resonance}`}
       >
         <span>{sandboxResonance ? 'Sandbox Resonance' : 'Resonance'}</span>
-        <strong>◇ {resonance}</strong>
-      </div>
-      <div data-status-field="delver">
-        <span>Delver</span>
-        <strong>{character}</strong>
+        <strong>
+          <span className="resonance__icon" aria-hidden="true">
+            ◆
+          </span>{' '}
+          {resonance}
+        </strong>
       </div>
     </aside>
   );

@@ -14,7 +14,11 @@ import type {
 } from '../../types/player';
 import type { AvoidedDamageEvent, DamageEvent, GameplayStatus } from '../../utils/gameplayState';
 import type { RoomDefinition, TileCoordinate } from '../../types/rooms';
-import type { ResonanceCacheFeature, RestorationFountainFeature } from '../../types/topology';
+import type {
+  ResonanceCacheFeature,
+  RestorationFountainFeature,
+  RuinPropFeature,
+} from '../../types/topology';
 import type { EnemyRoomState } from '../../types/enemies';
 import type {
   InteractableDefinition,
@@ -96,12 +100,6 @@ export function DungeonGrid({
   const floorLookup = room ? getFloorLookup(room) : null;
   const wallLookup = room ? getWallLookup(room) : null;
   const internalWallLookup = room ? getInternalWallLookup(room) : null;
-  const facingArrows: Record<CardinalDirection, string> = {
-    up: '↑',
-    down: '↓',
-    left: '←',
-    right: '→',
-  };
 
   function releaseShield() {
     onShieldChange(false);
@@ -141,7 +139,9 @@ export function DungeonGrid({
         data-maximum-rows={MAX_ROOM_ROWS}
       >
         <div
-          className="dungeon-grid"
+          className={`dungeon-grid ${
+            room?.phase === 'evaluation' ? 'dungeon-grid--awakening' : ''
+          }`.trim()}
           role="application"
           aria-label="Resonant Ruins playable dungeon grid"
           aria-describedby="resonant-ruins-grid-instructions"
@@ -151,6 +151,8 @@ export function DungeonGrid({
           data-controls-disabled={controlsDisabled}
           data-room-columns={bounds.columns}
           data-room-rows={bounds.rows}
+          data-room-archetype={room?.archetype ?? 'legacy'}
+          data-room-phase={room?.phase ?? 'legacy'}
           tabIndex={0}
           style={
             {
@@ -184,6 +186,13 @@ export function DungeonGrid({
                 ? (feature as RestorationFountainFeature)
                 : null;
             const torch = feature?.kind === 'ruin-torch' ? feature : null;
+            const prop =
+              feature?.kind === 'ruin-prop' && 'variant' in feature
+                ? (feature as RuinPropFeature)
+                : null;
+            const torchMountDirection = torch
+              ? getTorchMountDirection(coordinate, floorLookup)
+              : null;
             const cache =
               feature?.kind === 'resonance-cache' && 'rewardSystemVersion' in feature
                 ? (feature as ResonanceCacheFeature)
@@ -195,10 +204,6 @@ export function DungeonGrid({
             const isWall = Boolean(wallLookup?.has(coordinateKey(coordinate)));
             const isInternalWall = Boolean(internalWallLookup?.has(coordinateKey(coordinate)));
             const isFloor = Boolean(floorLookup?.has(coordinateKey(coordinate)));
-            const isAttackTarget =
-              status === 'active' && visibleAttack?.target
-                ? positionsMatch(position, visibleAttack.target)
-                : false;
             const isBumping = visibleBlockedMove
               ? status === 'active' &&
                 isPlayer &&
@@ -244,9 +249,9 @@ export function DungeonGrid({
             const className = [
               'tile',
               `tile--${kind}`,
+              exit?.kind === 'shortcut' ? 'tile--exit-shortcut' : '',
               isPlayer ? 'tile--player' : '',
               isHazard ? 'tile--hazard' : '',
-              isAttackTarget ? 'tile--attack-target' : '',
             ]
               .filter(Boolean)
               .join(' ');
@@ -258,6 +263,8 @@ export function DungeonGrid({
                 data-tile-x={column}
                 data-tile-y={row}
                 data-tile-kind={kind}
+                data-exit-direction={exit?.direction}
+                data-exit-kind={exit?.kind}
                 aria-hidden="true"
               >
                 {isPlayer && (
@@ -265,6 +272,10 @@ export function DungeonGrid({
                     className={[
                       'player-token',
                       `player-token--facing-${player.facing}`,
+                      `player-token--weapon-facing-${
+                        visibleAttack && status === 'active' ? visibleAttack.facing : player.facing
+                      }`,
+                      `player-token--shield-facing-${player.facing}`,
                       player.isShielding && status === 'active' ? 'player-token--shielding' : '',
                       isBumping ? 'player-token--bump' : '',
                       visibleDamage && !visibleDamage.fatal && status === 'active'
@@ -278,16 +289,72 @@ export function DungeonGrid({
                       enemies?.lastBlockKind === 'perfect'
                         ? 'player-token--perfect-block'
                         : '',
+                      visibleAttack && status === 'active'
+                        ? `player-token--attacking player-token--attacking-${visibleAttack.facing}`
+                        : '',
                       status === 'defeated' ? 'player-token--defeated' : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
+                    data-equipment-handedness="weapon-right-shield-left"
+                    data-weapon-facing={
+                      visibleAttack && status === 'active' ? visibleAttack.facing : player.facing
+                    }
+                    data-shield-facing={player.facing}
                   >
+                    <span className="player-token__cloak" />
+                    <span className="player-token__helm" />
+                    <span className="player-token__body" />
                     {status !== 'defeated' && (
-                      <span className="player-token__facing">{facingArrows[player.facing]}</span>
+                      <span
+                        className={`player-token__sword ${
+                          visibleAttack && status === 'active'
+                            ? 'player-token__sword--attacking'
+                            : 'player-token__sword--idle'
+                        }`}
+                        data-sword-pose={`${visibleAttack?.facing ?? player.facing}-${
+                          visibleAttack && status === 'active' ? 'attack' : 'idle'
+                        }`}
+                        data-equipment-hand="right"
+                        aria-hidden="true"
+                      >
+                        <span className="player-token__sword-hand" />
+                        <span className="player-token__sword-pommel" />
+                        <span className="player-token__sword-grip" />
+                        <span className="player-token__sword-blade" />
+                        <span className="player-token__sword-hilt" />
+                      </span>
                     )}
-                    {status !== 'defeated' && player.isShielding && status === 'active' && (
-                      <span className="player-token__shield player-token__shield--active" />
+                    {status !== 'defeated' && (
+                      <span
+                        className={`player-token__shield ${
+                          player.isShielding && status === 'active'
+                            ? 'player-token__shield--active'
+                            : 'player-token__shield--carried'
+                        }`}
+                        data-shield-pose={`${player.facing}-${
+                          player.isShielding && status === 'active' ? 'active' : 'idle'
+                        }`}
+                        data-equipment-hand="left"
+                        aria-hidden="true"
+                      >
+                        <span className="player-token__shield-face" />
+                        {player.isShielding && status === 'active' && (
+                          <span className="player-token__shield-guard" />
+                        )}
+                      </span>
+                    )}
+                    {visibleAttack && status === 'active' && (
+                      <span
+                        className={`attack-slash attack-slash--${visibleAttack.facing}`}
+                        data-attack-origin={`${visibleAttack.source.column},${visibleAttack.source.row}`}
+                        data-attack-target={`${visibleAttack.attemptedTarget.column},${visibleAttack.attemptedTarget.row}`}
+                        data-attack-presentation={`forward-${visibleAttack.facing}`}
+                        aria-hidden="true"
+                      >
+                        <span className="attack-slash__arc" />
+                        <span className="attack-slash__trail" />
+                      </span>
                     )}
                     {isInvulnerable && status === 'active' && (
                       <span className="player-token__invulnerable" aria-hidden="true">
@@ -301,7 +368,9 @@ export function DungeonGrid({
                     )}
                   </span>
                 )}
-                {isAttackTarget && <span className="attack-slash">╱</span>}
+                {exit?.kind === 'shortcut' && (
+                  <span className="shortcut-exit-sigil" data-shortcut-exit aria-hidden="true" />
+                )}
                 {rat && (
                   <span
                     className={`rat-token rat-token--${rat.state} rat-token--facing-${rat.facing} ${
@@ -362,9 +431,26 @@ export function DungeonGrid({
                   </span>
                 )}
                 {torch && (
-                  <span className="ruin-torch" data-decoration-id={torch.id}>
+                  <span
+                    className={`ruin-torch ruin-torch--mount-${torchMountDirection}`}
+                    data-decoration-id={torch.id}
+                    data-torch-mount={torchMountDirection}
+                  >
+                    <span className="ruin-torch__backplate" />
                     <span className="ruin-torch__bracket" />
                     <span className="ruin-torch__flame" />
+                    <span className="ruin-torch__ember" />
+                  </span>
+                )}
+                {prop && (
+                  <span
+                    className={`ruin-prop ruin-prop--${prop.variant}`}
+                    data-decoration-id={prop.id}
+                    data-prop-variant={prop.variant}
+                  >
+                    <span className="ruin-prop__piece ruin-prop__piece--one" />
+                    <span className="ruin-prop__piece ruin-prop__piece--two" />
+                    <span className="ruin-prop__piece ruin-prop__piece--three" />
                   </span>
                 )}
               </span>
@@ -383,11 +469,14 @@ export function DungeonGrid({
             .join('. ')}
         </p>
       )}
-      <p id="resonant-ruins-grid-instructions" className="grid-hint">
-        Resonant Ruins controls: move with WASD or arrow keys, attack with Space, and hold either
-        Shift key to shield, and press E when facing an available interactable. Red rune floor
-        markings are walkable hazards that deal damage.
-      </p>
+      <details className="game-help">
+        <summary>Controls</summary>
+        <p id="resonant-ruins-grid-instructions" className="grid-hint">
+          Resonant Ruins controls: move with WASD or arrow keys, attack with Space, hold Shift to
+          shield, and press E when facing an interactable. Red rune floor markings are walkable
+          hazards.
+        </p>
+      </details>
       <p className="game-announcement" aria-live="polite" aria-atomic="true">
         {announcement}
       </p>
@@ -490,6 +579,20 @@ export function DungeonGrid({
       )}
     </div>
   );
+}
+
+function getTorchMountDirection(
+  torchTile: TileCoordinate,
+  floorLookup: ReadonlySet<string> | null,
+): 'north' | 'east' | 'south' | 'west' {
+  if (!floorLookup) return 'south';
+  const candidates = [
+    { direction: 'south' as const, tile: { x: torchTile.x, y: torchTile.y + 1 } },
+    { direction: 'north' as const, tile: { x: torchTile.x, y: torchTile.y - 1 } },
+    { direction: 'east' as const, tile: { x: torchTile.x + 1, y: torchTile.y } },
+    { direction: 'west' as const, tile: { x: torchTile.x - 1, y: torchTile.y } },
+  ];
+  return candidates.find(({ tile }) => floorLookup.has(coordinateKey(tile)))?.direction ?? 'south';
 }
 
 function useTemporaryFeedback<T>(value: T | null, duration: number): T | null {

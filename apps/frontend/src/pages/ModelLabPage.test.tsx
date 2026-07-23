@@ -27,6 +27,17 @@ describe('Resonant Ruins Model Comparison Lab', () => {
 
     expect(screen.getByRole('heading', { name: 'Model Comparison Lab' })).toBeVisible();
     expect(screen.getByText(/imports and experiments stay in memory/i)).toBeVisible();
+    expect(screen.getByRole('navigation', { name: 'Model Lab sections' })).toBeVisible();
+    for (const label of [
+      'Overview',
+      'Candidate Comparison',
+      'Explainability',
+      'Imports and Shadow Records',
+    ])
+      expect(screen.getByRole('link', { name: label })).toBeVisible();
+    expect(
+      screen.getByText('Registry and artifact metadata').closest('details'),
+    ).not.toHaveAttribute('open');
     expect(screen.getAllByText(/No model selected/i).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Select synthetic fixture' }));
     expect(screen.getByText(/Synthetic development fixture selected explicitly/i)).toBeVisible();

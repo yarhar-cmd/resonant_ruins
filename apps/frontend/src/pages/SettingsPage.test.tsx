@@ -133,4 +133,25 @@ describe('Resonant Ruins Settings profile controls', () => {
       visualEffects: 'full',
     });
   });
+
+  it('groups settings and persists audio sliders, mute, and reset', () => {
+    renderSettings();
+    for (const heading of ['Gameplay', 'Visuals', 'Audio', 'Accessibility', 'Data'])
+      expect(screen.getByRole('heading', { name: heading })).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Master volume'), { target: { value: '41' } });
+    fireEvent.change(screen.getByLabelText('Effects volume'), { target: { value: '52' } });
+    fireEvent.change(screen.getByLabelText('Ambience volume'), { target: { value: '13' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Mute' }));
+    expect(JSON.parse(localStorage.getItem('mirrorvault:settings')!)).toMatchObject({
+      sound: false,
+      audio: { masterVolume: 41, effectsVolume: 52, ambienceVolume: 13, muted: true },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Audio Settings' }));
+    expect(screen.getByLabelText('Master volume')).toHaveValue('70');
+    expect(screen.getByLabelText('Effects volume')).toHaveValue('65');
+    expect(screen.getByLabelText('Ambience volume')).toHaveValue('20');
+    expect(screen.getByRole('button', { name: 'Mute' })).toHaveAttribute('aria-pressed', 'false');
+  });
 });

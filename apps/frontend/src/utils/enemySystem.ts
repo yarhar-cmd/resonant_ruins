@@ -254,9 +254,14 @@ export function createRoomEnemyState(
   now: number,
   countPlan: EnemyCountPlan | null = null,
 ): EnemyRoomState {
-  const ordered = [...(room.enemySpawns ?? [])].sort(
-    (left, right) => left.order - right.order || left.id.localeCompare(right.id),
-  );
+  const ordered = [...(room.enemySpawns ?? [])]
+    .filter(
+      (spawn) =>
+        room.phase !== 'evaluation' ||
+        !spawn.experiencePresets ||
+        spawn.experiencePresets.includes(preset),
+    )
+    .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
   const count =
     room.phase === 'evaluation'
       ? Math.min(authoredRatCount(preset), ordered.length)

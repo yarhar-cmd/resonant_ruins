@@ -407,6 +407,21 @@ async function seedActiveRun(page: Page, record: ActiveRunRecord = freshRecord()
   });
 }
 
+async function developmentAudioEvents(page: Page) {
+  return page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          __RESONANT_RUINS_AUDIO_DEBUG__?: Array<{
+            name: string;
+            played: boolean;
+            pitch: number;
+          }>;
+        }
+      ).__RESONANT_RUINS_AUDIO_DEBUG__ ?? [],
+  );
+}
+
 function pendingResearchBrowserFixture() {
   const fixture = researchFixture();
   return {
@@ -481,6 +496,34 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect((page as Page & { consoleErrors?: string[] }).consoleErrors).toEqual([]);
+});
+
+test('Awakening tips stay above the grid on mobile, dismiss contextually, and skip generated rooms', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await seedActiveRun(page);
+  await page.goto('/dungeon/run');
+
+  const tip = page.getByLabel('Awakening Chamber tutorial');
+  await expect(tip).toContainText(
+    'Move with WASD or the arrow keys. Step into the glowing exit to continue.',
+  );
+  const tipBounds = await tip.boundingBox();
+  const gridBounds = await page.locator('.dungeon-grid').boundingBox();
+  expect(tipBounds).not.toBeNull();
+  expect(gridBounds).not.toBeNull();
+  expect(tipBounds!.y + tipBounds!.height).toBeLessThanOrEqual(gridBounds!.y);
+
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(tip).toHaveCount(0);
+
+  await page.goto('/');
+  await seedActiveRun(page, topologyRecord('open-arena'));
+  await page.goto('/dungeon/run');
+  await expect(page.getByLabel('Awakening Chamber tutorial')).toHaveCount(0);
 });
 
 test('Research page requires opt-in and starts labeled Pilot and Official sessions locally', async ({
@@ -620,6 +663,7 @@ test('Research Summary excludes Pilot by default and export/delete controls pres
   });
   const normalBefore = await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY);
   await page.goto('/research');
+  await page.locator('.research-data-disclosure > summary').click();
   await expect(page.locator('.research-summary-grid').getByText('1 / 1 (100%)')).toBeVisible();
   await page.getByLabel('Include Pilot Data').check();
   await expect(page.locator('.research-summary-grid').getByText('2 / 2 (100%)')).toBeVisible();
@@ -868,8 +912,8 @@ test('Fountain channel pauses and restores across refresh without healing twice'
   await seedActiveRun(page, fountainRecord());
   await page.goto('/dungeon/run');
   await page.keyboard.press('KeyE');
-  await page.waitForTimeout(200);
-  await page.getByRole('button', { name: 'Pause' }).click();
+  await expect(page.getByRole('progressbar', { name: 'Restoration progress' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
   const before = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)!),
@@ -1014,8 +1058,179 @@ test('Visual Effects choice persists and leaves essential gameplay feedback enab
   await page.goto('/dungeon/run');
   await expect(page.locator('[data-enemy-state="telegraphing"]')).toBeVisible();
   await page.keyboard.down('ShiftLeft');
-  await expect(page.locator('.player-token__shield--active')).toBeVisible();
+  const shield = page.locator('.player-token__shield--active');
+  await expect(shield).toBeVisible();
+  await expect(shield).toHaveAttribute('data-shield-pose', 'right-active');
+  await expect(page.locator('.player-token__shield-guard')).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(shield).toHaveAttribute('data-shield-pose', 'down-active');
   await page.keyboard.up('ShiftLeft');
+  await expect(page.locator('.player-token__shield-guard')).toHaveCount(0);
+});
+
+test('player navigation and dense tools use responsive progressive disclosure', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 760 });
+  await page.goto('/');
+  const mobile = page.getByRole('navigation', { name: 'Mobile navigation' });
+  await expect(mobile.getByRole('link')).toHaveCount(5);
+  await expect(mobile.getByRole('link', { name: 'Play' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await page.goto('/research');
+  const researchData = page.locator('.research-data-disclosure');
+  await expect(researchData).not.toHaveAttribute('open', '');
+  await researchData.locator('summary').click();
+  await expect(page.getByRole('heading', { name: 'Browser-local records' })).toBeVisible();
+
+  await page.goto('/model-lab');
+  await expect(page.getByRole('navigation', { name: 'Model Lab sections' })).toBeVisible();
+  await expect(
+    page.locator('details').filter({ hasText: 'Registry and artifact metadata' }),
+  ).not.toHaveAttribute('open', '');
+
+  await page.goto('/topology-lab');
+  await expect(page.locator('.topology-advanced')).not.toHaveAttribute('open', '');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('audio controls persist Master, Effects, Ambience, and mute without console errors', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await page.getByLabel('Master volume').fill('42');
+  await page.getByLabel('Effects volume').fill('53');
+  await page.getByLabel('Ambience volume').fill('14');
+  await page.getByRole('button', { name: 'Mute' }).click();
+  await page.reload();
+  await expect(page.getByLabel('Master volume')).toHaveValue('42');
+  await expect(page.getByLabel('Effects volume')).toHaveValue('53');
+  await expect(page.getByLabel('Ambience volume')).toHaveValue('14');
+  await expect(page.getByRole('button', { name: 'Unmute' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'Reset Audio Settings' }).click();
+  await expect(page.getByLabel('Master volume')).toHaveValue('70');
+  await expect(page.getByLabel('Effects volume')).toHaveValue('65');
+  await expect(page.getByLabel('Ambience volume')).toHaveValue('20');
+});
+
+test('sample audio ships from local OGG paths without a runtime source-site dependency', async ({
+  page,
+}) => {
+  for (const path of [
+    '/audio/rat-alert-soft.ogg',
+    '/audio/rat-scuffle.ogg',
+    '/audio/rat-damage-soft.ogg',
+    '/audio/rat-defeat-rustle.ogg',
+    '/audio/sword-swing-01.ogg',
+    '/audio/shield-perfect-block.ogg',
+    '/audio/fountain-water.ogg',
+    '/audio/stone-collapse.ogg',
+  ]) {
+    const response = await page.request.get(path);
+    expect(response.ok()).toBe(true);
+    expect(response.headers()['content-type']).toContain('audio/ogg');
+    expect((await response.body()).byteLength).toBeGreaterThan(1_000);
+  }
+});
+
+test('development audio counters distinguish movement, turns, bumps, attacks, and Rat cues', async ({
+  page,
+}) => {
+  await seedActiveRun(page);
+  await page.goto('/dungeon/run');
+  await page.getByRole('application').click();
+  await page.waitForTimeout(100);
+  await page.keyboard.press('ArrowRight');
+  await expect
+    .poll(
+      async () =>
+        (await developmentAudioEvents(page)).filter(({ name }) => name === 'player.step').length,
+    )
+    .toBeGreaterThan(0);
+
+  const stepsBeforeTurn = (await developmentAudioEvents(page)).filter(
+    ({ name }) => name === 'player.step',
+  ).length;
+  await page.keyboard.down('ShiftLeft');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.up('ShiftLeft');
+  expect(
+    (await developmentAudioEvents(page)).filter(({ name }) => name === 'player.step').length,
+  ).toBe(stepsBeforeTurn);
+  await page.keyboard.press('Space');
+  await expect
+    .poll(async () =>
+      (await developmentAudioEvents(page)).some(({ name }) => name === 'player.attack-swing'),
+    )
+    .toBe(true);
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(80);
+  }
+  await expect
+    .poll(async () =>
+      (await developmentAudioEvents(page)).some(({ name }) => name === 'player.wall-bump'),
+    )
+    .toBe(true);
+
+  await page.goto('/');
+  await seedActiveRun(page, combatRecord({ player: { x: 2, y: 5 }, rats: [{ x: 5, y: 5 }] }));
+  await page.goto('/dungeon/run');
+  await page.getByRole('application').click();
+  await expect
+    .poll(
+      async () => (await developmentAudioEvents(page)).some(({ name }) => name === 'rat.alert'),
+      {
+        timeout: 3_000,
+      },
+    )
+    .toBe(true);
+  await expect
+    .poll(
+      async () => (await developmentAudioEvents(page)).some(({ name }) => name === 'rat.telegraph'),
+      { timeout: 3_000 },
+    )
+    .toBe(true);
+});
+
+test('development audio counters expose Fountain, Cache, and Resonance interaction events', async ({
+  page,
+}) => {
+  await seedActiveRun(page, fountainRecord());
+  await page.goto('/dungeon/run');
+  await page.getByRole('application').click();
+  await page.keyboard.press('KeyE');
+  await expect
+    .poll(async () =>
+      (await developmentAudioEvents(page)).some(({ name }) => name === 'fountain.channel'),
+    )
+    .toBe(true);
+  await expect
+    .poll(async () =>
+      (await developmentAudioEvents(page)).some(({ name }) => name === 'fountain.heal'),
+    )
+    .toBe(true);
+
+  await page.goto('/');
+  await seedActiveRun(page, cacheRecord());
+  await page.goto('/dungeon/run');
+  await page.getByRole('application').click();
+  await page.keyboard.press('KeyE');
+  await expect
+    .poll(async () =>
+      (await developmentAudioEvents(page)).some(({ name }) => name === 'cache.open'),
+    )
+    .toBe(true);
+  await expect
+    .poll(async () =>
+      (await developmentAudioEvents(page)).some(({ name }) => name === 'resonance.collect'),
+    )
+    .toBe(true);
 });
 
 test('Clear Run History requires confirmation and preserves best records', async ({ page }) => {
@@ -1097,8 +1312,7 @@ test('new runs use fixed Awakening order and authored Rat counts', async ({ page
     await expect(page.getByText(`Awakening Chamber ${chamber} / 5`).first()).toBeVisible();
     await page.waitForTimeout(350);
   }
-  await expect(page.locator('.rat-token')).toHaveCount(2);
-  await expect(page.getByLabel('2 enemies remaining')).toBeVisible();
+  await expect(page.locator('.rat-token')).toHaveCount(1);
   await page.getByRole('button', { name: 'Defeat All Enemies' }).click();
   await page.getByRole('button', { name: 'Advance to Next Room' }).click();
   await expect(page.getByText('Awakening Chamber 5 / 5').first()).toBeVisible();
@@ -1143,7 +1357,7 @@ test('directional shield blocks, two sword hits defeat, and the exit opens immed
   );
   await page.waitForTimeout(410);
   await page.keyboard.press('Space');
-  await expect(page.getByLabel('0 enemies remaining')).toBeVisible();
+  await expect(page.locator('[data-enemy-state="corpse"]')).toHaveCount(1);
   await expect(page.locator('.tile--exit-open')).toHaveCount(1);
 });
 

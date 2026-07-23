@@ -3,10 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { DebugDrawer } from '../components/mirrorvault/DebugDrawer';
 import { DungeonGrid } from '../components/mirrorvault/DungeonGrid';
 import { AwakeningCompleteText } from '../components/mirrorvault/AwakeningCompleteText';
+import { AwakeningTutorialTip } from '../components/mirrorvault/AwakeningTutorialTip';
 import { GameOverResults } from '../components/mirrorvault/GameOverResults';
 import { GameShell } from '../components/mirrorvault/GameShell';
 import { PauseMenu } from '../components/mirrorvault/PauseMenu';
-import { RoomStatus } from '../components/mirrorvault/RoomStatus';
 import { StatusPanel } from '../components/mirrorvault/StatusPanel';
 import { StorageWarning } from '../components/mirrorvault/StorageWarning';
 import { RoomFeedbackDialog } from '../components/mirrorvault/RoomFeedbackDialog';
@@ -81,6 +81,13 @@ export function DungeonRunSession({
   const enemiesRemaining = run.gameplay.enemies.rats.filter(
     (rat) => rat.health > 0 && rat.state !== 'corpse',
   ).length;
+  const fountain = run.currentRoom.features?.find(
+    (feature) => feature.kind === 'restoration-fountain',
+  );
+  const fountainUsed = Boolean(fountain && run.gameplay.interactables[fountain.id]?.depleted);
+  const ratTelegraphing = run.gameplay.enemies.rats.some(
+    (rat) => rat.health > 0 && rat.state === 'telegraphing',
+  );
 
   return (
     <GameShell
@@ -106,7 +113,6 @@ export function DungeonRunSession({
       pauseButtonRef={pauseButtonRef}
       onPause={run.pauseRun}
     >
-      <RoomStatus label={run.roomLabel} />
       <StatusPanel
         roomLabel={run.roomLabel}
         mode={run.runMode === 'research' ? 'Research session' : 'Exploring'}
@@ -133,6 +139,7 @@ export function DungeonRunSession({
             : undefined
         }
         resonance={run.gameplay.resonance}
+        elapsedTime={run.frozenTime}
         sandboxResonance={run.runMode === 'sandbox'}
       />
       {run.storageWarning && (
@@ -149,16 +156,21 @@ export function DungeonRunSession({
           data-room-id={run.currentRoom.id}
           data-survival-time={run.frozenTime}
         >
-          <div className="chamber-label">
-            <span>{run.roomLabel}</span>
-            <span>
-              {run.runMode === 'research'
-                ? 'Research run active'
-                : run.inGeneratedDungeon
-                  ? 'Dungeon active'
-                  : 'Awakening active'}
-            </span>
-          </div>
+          {run.runMode !== 'normal' && (
+            <div className="chamber-label">
+              <span>{run.roomLabel}</span>
+              <span>{run.runMode === 'research' ? 'Research run active' : 'Sandbox active'}</span>
+            </div>
+          )}
+          <AwakeningTutorialTip
+            key={run.currentRoom.id}
+            roomId={run.currentRoom.id}
+            runMode={run.runMode}
+            inGeneratedDungeon={run.inGeneratedDungeon}
+            playerPosition={run.gameplay.player.position}
+            fountainUsed={fountainUsed}
+            ratTelegraphing={ratTelegraphing}
+          />
           <DungeonGrid
             bounds={roomBounds(run.renderedRoom)}
             hazards={run.renderedHazards}
@@ -191,7 +203,10 @@ export function DungeonRunSession({
             <div
               className={`room-transition room-transition--${run.roomTransition.phase}`}
               aria-hidden="true"
-            />
+            >
+              <span className="room-transition__vignette" />
+              <span className="room-transition__dust" />
+            </div>
           )}
           {run.showAwakeningComplete && (
             <AwakeningCompleteText onFinished={run.hideAwakeningComplete} />

@@ -127,7 +127,7 @@ describe('preview-safe Playtest Diagnostics selectors', () => {
     expect(summary).toContain('game=mvp-0.5 generator=generator-4');
     expect(summary).toContain('Player tile=1,5 facing=right');
     expect(summary).toContain(
-      'Rat evaluation-room-04-rat-1 tile=9,5 facing=left awareness=alerted state=telegraphing',
+      'Rat evaluation-room-04-rat-1 tile=10,5 facing=left awareness=alerted state=telegraphing',
     );
     expect(summary).toContain('timers=475/0/0ms');
     expect(summary).toContain('bodyLockPreventions=2');

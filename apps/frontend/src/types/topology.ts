@@ -55,6 +55,15 @@ export interface RuinTorchFeature extends DecorativeRoomFeature {
   source: 'authored' | 'generated';
 }
 
+export type RuinPropVisualVariant =
+  'iron-coffer' | 'rubble-cluster' | 'broken-column' | 'urn-cluster';
+
+export interface RuinPropFeature extends DecorativeRoomFeature {
+  kind: 'ruin-prop';
+  source: 'authored';
+  variant: RuinPropVisualVariant;
+}
+
 export interface ResonanceCacheFeature extends BlockingRoomFeature {
   kind: 'resonance-cache';
   rewardSystemVersion: RewardSystemVersion;
@@ -70,6 +79,7 @@ export type RoomFeature =
   | RestorationFountainFeature
   | ResonanceCacheFeature
   | RuinTorchFeature
+  | RuinPropFeature
   | BlockingRoomFeature
   | DecorativeRoomFeature;
 

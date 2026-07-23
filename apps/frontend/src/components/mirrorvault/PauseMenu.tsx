@@ -96,11 +96,12 @@ export function PauseMenu({
               <SecondaryButton
                 ref={cancelRef}
                 data-pause-focusable
+                data-audio-event="ui.cancel"
                 onClick={() => setConfirmation(null)}
               >
                 Cancel
               </SecondaryButton>
-              <PrimaryButton data-pause-focusable onClick={onRestart}>
+              <PrimaryButton data-pause-focusable data-audio-event="ui.confirm" onClick={onRestart}>
                 Restart Run
               </PrimaryButton>
             </div>
@@ -114,11 +115,16 @@ export function PauseMenu({
               <SecondaryButton
                 ref={cancelRef}
                 data-pause-focusable
+                data-audio-event="ui.cancel"
                 onClick={() => setConfirmation(null)}
               >
                 Cancel
               </SecondaryButton>
-              <PrimaryButton data-pause-focusable onClick={onMainMenu}>
+              <PrimaryButton
+                data-pause-focusable
+                data-audio-event="ui.confirm"
+                onClick={onMainMenu}
+              >
                 Return to Main Menu
               </PrimaryButton>
             </div>
@@ -129,8 +135,17 @@ export function PauseMenu({
             <h2 id={titleId}>Paused</h2>
             <p className="pause-menu__run-stat">Resonance: {resonance}</p>
             {savedMessage && <p className="pause-menu__save-status">{savedMessage}</p>}
+            <details className="pause-menu__help">
+              <summary>Controls</summary>
+              <p>Move: WASD or arrows · Attack: Space · Shield: hold Shift · Interact: E</p>
+            </details>
             <div className="pause-menu__actions">
-              <PrimaryButton ref={resumeRef} data-pause-focusable onClick={onResume}>
+              <PrimaryButton
+                ref={resumeRef}
+                data-pause-focusable
+                data-audio-event="ui.confirm"
+                onClick={onResume}
+              >
                 Resume
               </PrimaryButton>
               <SecondaryButton data-pause-focusable onClick={onSettings}>

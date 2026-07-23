@@ -6,6 +6,7 @@ import {
 } from '../components/mirrorvault/StorageWarning';
 import { useAdventure } from '../hooks/useAdventure';
 import { createPlayerProfile, PLAYER_PROFILE_KEY } from '../services/playerProfileStorage';
+import { defaultSettings } from '../services/storage';
 import { AdventureProvider } from './AdventureProvider';
 
 const SETTINGS_KEY = 'mirrorvault:settings';
@@ -75,7 +76,7 @@ describe('Resonant Ruins isolated storage recovery', () => {
         firstTimeComplete: true,
       });
     });
-    expect(localStorage.getItem(SETTINGS_KEY)).toBe(settingsRaw);
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toEqual(defaultSettings);
     expect(localStorage.getItem(ACTIVE_KEY)).toBe('active-marker');
     expect(localStorage.getItem(ARCHIVE_KEY)).toBe('archive-marker');
   });

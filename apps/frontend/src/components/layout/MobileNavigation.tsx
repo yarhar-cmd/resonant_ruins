@@ -3,9 +3,8 @@ import { NavLink } from 'react-router-dom';
 const links = [
   ['/', 'Home'],
   ['/dungeon', 'Play'],
-  ['/characters', 'Heroes'],
-  ['/history', 'Runs'],
   ['/research', 'Research'],
+  ['/history', 'History'],
   ['/settings', 'Settings'],
 ];
 
