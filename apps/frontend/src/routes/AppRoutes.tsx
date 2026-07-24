@@ -16,7 +16,7 @@ import { ResearchReviewPage } from '../pages/ResearchReviewPage';
 import { MODEL_LAB_ENABLED, TOPOLOGY_LAB_ENABLED } from '../config/environment';
 import { loadResearchStorage } from '../services/researchStorage';
 
-function ResearcherOnlyRoute({ children }: { children: ReactNode }) {
+export function ResearcherOnlyRoute({ children }: { children: ReactNode }) {
   const data = loadResearchStorage().data;
   const activePilot = data.sessions.some(
     (session) =>
@@ -33,6 +33,11 @@ const TopologyLabPage = TOPOLOGY_LAB_ENABLED
       return { default: module.TopologyLabPage };
     })
   : null;
+
+const ResearchAnalysisPage = lazy(async () => {
+  const module = await import('../pages/ResearchAnalysisPage');
+  return { default: module.ResearchAnalysisPage };
+});
 
 const ModelLabPage = MODEL_LAB_ENABLED
   ? lazy(async () => {
@@ -71,6 +76,16 @@ export function AppRoutes() {
         <Route path="about" element={<AboutPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="research" element={<ResearchPage />} />
+        <Route
+          path="research/analysis"
+          element={
+            <ResearcherOnlyRoute>
+              <Suspense fallback={null}>
+                <ResearchAnalysisPage />
+              </Suspense>
+            </ResearcherOnlyRoute>
+          }
+        />
         <Route
           path="research/review"
           element={

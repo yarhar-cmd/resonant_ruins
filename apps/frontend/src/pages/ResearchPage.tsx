@@ -342,6 +342,16 @@ export function ResearchPage() {
             validationStatus={storage.issue ?? 'valid'}
             onChanged={refresh}
           />
+          <div className="research-analysis-link">
+            <h3>Analyze completed exports</h3>
+            <p>
+              Combine validated JSON exports locally without changing the research records stored in
+              this browser.
+            </p>
+            <SecondaryButton onClick={() => navigate('/research/analysis')}>
+              Open Research Analysis Lab
+            </SecondaryButton>
+          </div>
         </details>
       )}
 

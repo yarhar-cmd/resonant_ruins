@@ -497,6 +497,48 @@ function completedResearchBrowserFixture() {
   };
 }
 
+function analysisResearchExportFixture() {
+  const storage = completedResearchBrowserFixture();
+  const adaptiveSession = structuredClone(storage.sessions[0]!);
+  adaptiveSession.id = 'analysis-session';
+  adaptiveSession.participantCode = 'ANALYSIS_01';
+  adaptiveSession.runs[0]!.id = 'analysis-adaptive-run';
+  adaptiveSession.runs[0]!.condition = 'RULES_ADAPTIVE';
+  adaptiveSession.runs[0]!.assignment.condition = 'RULES_ADAPTIVE';
+  adaptiveSession.runs[0]!.rooms[0] = {
+    ...adaptiveSession.runs[0]!.rooms[0]!,
+    researchSessionId: adaptiveSession.id,
+    runId: adaptiveSession.runs[0]!.id,
+    participantCode: adaptiveSession.participantCode,
+    roomDecisionId: 'analysis-adaptive-room',
+    condition: 'RULES_ADAPTIVE',
+  };
+  const neutralRun = structuredClone(adaptiveSession.runs[0]!);
+  neutralRun.id = 'analysis-neutral-run';
+  neutralRun.runIndex = 1;
+  neutralRun.condition = 'NEUTRAL_PROCEDURAL';
+  neutralRun.assignment.condition = 'NEUTRAL_PROCEDURAL';
+  neutralRun.rooms[0] = {
+    ...neutralRun.rooms[0]!,
+    runId: neutralRun.id,
+    roomDecisionId: 'analysis-neutral-room',
+    condition: 'NEUTRAL_PROCEDURAL',
+    feedback: {
+      ...neutralRun.rooms[0]!.feedback,
+      difficulty: 'too_hard',
+      fairness: 3,
+      enjoyment: 4,
+    },
+  };
+  adaptiveSession.runs = [adaptiveSession.runs[0]!, neutralRun];
+  return {
+    researchSchemaVersion: 'research-1',
+    exportedAt: '2026-06-02T00:00:00.000Z',
+    scope: 'all-sessions',
+    sessions: [adaptiveSession],
+  };
+}
+
 test.beforeEach(async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
@@ -778,6 +820,82 @@ test('Research Summary excludes Pilot by default and export/delete controls pres
   expect(await page.evaluate((key) => localStorage.getItem(key), ACTIVE_RUN_KEY)).toBe(
     normalBefore,
   );
+});
+
+test('Research Analysis Lab imports locally, compares conditions, warns, and downloads outputs', async ({
+  page,
+}) => {
+  const liveStorage = completedResearchBrowserFixture();
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+    key: RESEARCH_STORAGE_KEY,
+    value: liveStorage,
+  });
+  const storageBefore = await page.evaluate(
+    (key) => localStorage.getItem(key),
+    RESEARCH_STORAGE_KEY,
+  );
+  await page.goto('/research/analysis');
+  await expect(page.getByRole('heading', { name: 'Research Analysis Lab' })).toBeVisible();
+  await page.getByLabel('Research export files').setInputFiles([
+    {
+      name: 'synthetic-analysis.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(analysisResearchExportFixture())),
+    },
+    {
+      name: 'broken-analysis.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from('{"not":"research evidence"}'),
+    },
+  ]);
+  await expect(page.getByRole('status')).toContainText('1 file accepted; 1 rejected');
+  await expect(page.getByRole('alert')).toContainText('broken-analysis.json');
+  await expect(page.getByText('Paired participant About Right Rate')).toBeVisible();
+  await expect(
+    page.getByRole('img', { name: /ANALYSIS_01: Adaptive 100.0%, Neutral 0.0%/ }),
+  ).toBeVisible();
+  await expect(page.getByText(/Adaptive minus neutral: mean 100.0%/)).toBeVisible();
+  await expect(page.getByText('invalid import')).toBeVisible();
+
+  const [participantDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Participant CSV' }).click(),
+  ]);
+  expect(participantDownload.suggestedFilename()).toMatch(
+    /^resonant-ruins-participant-summary-.*\.csv$/,
+  );
+  const [pairedDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Paired CSV' }).click(),
+  ]);
+  expect(pairedDownload.suggestedFilename()).toMatch(/^resonant-ruins-paired-analysis-.*\.csv$/);
+  const [summaryDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Summary JSON' }).click(),
+  ]);
+  expect(summaryDownload.suggestedFilename()).toMatch(/^resonant-ruins-analysis-summary-.*\.json$/);
+  expect(await page.evaluate((key) => localStorage.getItem(key), RESEARCH_STORAGE_KEY)).toBe(
+    storageBefore,
+  );
+});
+
+test('active fixed Pilot masks the Research Analysis Lab route and condition evidence', async ({
+  page,
+}) => {
+  await page.goto('/research');
+  await page.getByLabel('Optional participant code').fill('MASKED_BROWSER');
+  await page.getByLabel('Participant sequence number').fill('1');
+  await page.getByLabel(/I have read this notice and choose to start/i).check();
+  await page.getByRole('button', { name: 'Start Pilot Session' }).click();
+  await expect(page).toHaveURL(/\/research\/run$/);
+
+  await page.goto('/research/analysis');
+  await expect(page).toHaveURL(/\/research$/);
+  await expect(page.getByRole('heading', { name: 'Research Mode' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Research Analysis Lab' })).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('RULES_ADAPTIVE');
+  await expect(page.locator('body')).not.toContainText('NEUTRAL_PROCEDURAL');
+  await expect(page.getByRole('button', { name: 'Open Research Analysis Lab' })).toHaveCount(0);
 });
 
 test('an unconfigured API sends no localhost health request', async ({ page }) => {
