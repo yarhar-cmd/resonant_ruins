@@ -88,6 +88,17 @@ describe('research analysis data-quality diagnostics', () => {
     session.runs[0]!.rooms[0]!.outcome.status = 'defeated';
     session.runs[0]!.rooms[0]!.outcome.chosenExitId = null;
     session.runs[0]!.rooms[0]!.outcome.outgoingDirection = null;
+    session.sessionExit = {
+      schemaVersion: 'pilot-exit-1',
+      instructionClarity: 4,
+      surveyFatigue: 3,
+      sessionLength: 'about_right',
+      technicalProblem: 'yes',
+      technicalProblemDescription: 'The room briefly froze.',
+      overallPreference: 'no_preference',
+      comment: null,
+      submittedAt: '2026-06-02T00:00:00.000Z',
+    };
 
     const dataset = datasetFor([session]);
     const warnings = detectAnalysisQualityWarnings(dataset, dataset.sessions, {
@@ -103,6 +114,7 @@ describe('research analysis data-quality diagnostics', () => {
     expect(codes).toContain('missing-run-b');
     expect(codes).toContain('pilot-preset-mismatch');
     expect(codes).toContain('legacy-defeat-feedback');
+    expect(codes).toContain('pilot-technical-problem');
   });
 
   it('reports suspicious durations, pending feedback, outcome mismatches, and reused codes', () => {

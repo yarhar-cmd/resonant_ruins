@@ -192,6 +192,26 @@ function fixedPilotWarnings(
       warning(dataset, session, 'missing-run-b', 'Fixed Pilot session is missing Run B.'),
     );
   }
+  if (session.completionStatus === 'complete' && !session.sessionExit) {
+    warnings.push(
+      warning(
+        dataset,
+        session,
+        'missing-pilot-questionnaire',
+        'Completed fixed Pilot session has no exit questionnaire.',
+      ),
+    );
+  }
+  if (session.sessionExit?.technicalProblem === 'yes') {
+    warnings.push(
+      warning(
+        dataset,
+        session,
+        'pilot-technical-problem',
+        'The participant reported a technical problem in the Pilot exit questionnaire.',
+      ),
+    );
+  }
   return warnings;
 }
 

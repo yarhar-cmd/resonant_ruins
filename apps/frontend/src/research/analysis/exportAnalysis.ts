@@ -162,7 +162,16 @@ export function analysisSummaryJson(input: {
       exportedAt: input.exportedAt ?? new Date().toISOString(),
       filters: input.filters,
       importAudit: input.dataset.audit,
-      analyzedSessionCount: input.analyzedSessionCount,
+      counts: {
+        participants: new Set(
+          input.analysis.participantConditions.map((item) => item.participantKey),
+        ).size,
+        sessions: input.analyzedSessionCount,
+        rooms: input.analysis.participantConditions.reduce((sum, item) => sum + item.roomCount, 0),
+        participantConditions: input.analysis.participantConditions.length,
+        completePairs: input.analysis.paired.completePairCount,
+        incompletePairs: input.analysis.paired.incompletePairCount,
+      },
       analysis: input.analysis,
       qualityWarnings: input.warnings,
     },

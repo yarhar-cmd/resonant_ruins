@@ -168,6 +168,7 @@ function mergeRuns(
       continue;
     }
     if (canonical(existing) === canonical(run)) {
+      audit.duplicateRuns += 1;
       audit.duplicateRooms += run.rooms.length;
       continue;
     }
@@ -207,6 +208,7 @@ export function combineResearchSources(
     acceptedRuns: 0,
     acceptedRooms: 0,
     duplicateSessions: 0,
+    duplicateRuns: 0,
     duplicateRooms: 0,
     conflictingRecords: 0,
   };
@@ -273,7 +275,12 @@ export function combineResearchSources(
     }
   }
 
-  const acceptedSessions = [...sessions.values()];
+  const acceptedSessions = globallyDeduplicate(
+    [...sessions.values()],
+    sourceNames,
+    conflicts,
+    audit,
+  );
   audit.acceptedSessions = acceptedSessions.length;
   audit.acceptedRuns = acceptedSessions.reduce((sum, session) => sum + session.runs.length, 0);
   audit.acceptedRooms = acceptedSessions.reduce(
@@ -290,4 +297,85 @@ export function combineResearchSources(
     validationFailures,
     audit,
   };
+}
+
+function globallyDeduplicate(
+  input: ResearchSession[],
+  sourceNames: Map<string, string[]>,
+  conflicts: AnalysisConflict[],
+  audit: AnalysisImportAudit,
+): ResearchSession[] {
+  const sessions = structuredClone(input);
+  const runs = new Map<
+    string,
+    { sessionId: string; value: ResearchRun; sourceFilenames: string[] }
+  >();
+  const excludedRuns = new Set<string>();
+
+  for (const session of sessions) {
+    session.runs = session.runs.filter((run) => {
+      const existing = runs.get(run.id);
+      if (!existing) {
+        runs.set(run.id, {
+          sessionId: session.id,
+          value: run,
+          sourceFilenames: sourceNames.get(session.id) ?? [],
+        });
+        return true;
+      }
+      if (canonical(existing.value) === canonical(run)) {
+        audit.duplicateRuns += 1;
+        audit.duplicateRooms += run.rooms.length;
+        return false;
+      }
+      excludedRuns.add(run.id);
+      conflict(
+        conflicts,
+        'run',
+        run.id,
+        'Conflicting run ID evidence was excluded from analysis.',
+        [...existing.sourceFilenames, ...(sourceNames.get(session.id) ?? [])],
+      );
+      return false;
+    });
+  }
+  for (const session of sessions) {
+    session.runs = session.runs.filter((run) => !excludedRuns.has(run.id));
+  }
+
+  const rooms = new Map<string, { value: RoomResearchRecord; sourceFilenames: string[] }>();
+  const excludedRooms = new Set<string>();
+  for (const session of sessions) {
+    for (const run of session.runs) {
+      run.rooms = run.rooms.filter((room) => {
+        const existing = rooms.get(room.roomDecisionId);
+        if (!existing) {
+          rooms.set(room.roomDecisionId, {
+            value: room,
+            sourceFilenames: sourceNames.get(session.id) ?? [],
+          });
+          return true;
+        }
+        if (canonical(existing.value) === canonical(room)) {
+          audit.duplicateRooms += 1;
+          return false;
+        }
+        excludedRooms.add(room.roomDecisionId);
+        conflict(
+          conflicts,
+          'room',
+          room.roomDecisionId,
+          'Conflicting roomDecisionId evidence was excluded from analysis.',
+          [...existing.sourceFilenames, ...(sourceNames.get(session.id) ?? [])],
+        );
+        return false;
+      });
+    }
+  }
+  for (const session of sessions) {
+    for (const run of session.runs) {
+      run.rooms = run.rooms.filter((room) => !excludedRooms.has(room.roomDecisionId));
+    }
+  }
+  return sessions;
 }

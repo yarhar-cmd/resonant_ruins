@@ -60,6 +60,7 @@ export interface AnalysisImportAudit {
   acceptedRuns: number;
   acceptedRooms: number;
   duplicateSessions: number;
+  duplicateRuns: number;
   duplicateRooms: number;
   conflictingRecords: number;
 }

@@ -78,6 +78,7 @@ describe('local research export import', () => {
       acceptedRuns: 1,
       acceptedRooms: 1,
       duplicateSessions: 1,
+      duplicateRuns: 0,
       duplicateRooms: 1,
       conflictingRecords: 0,
     });
@@ -85,6 +86,28 @@ describe('local research export import', () => {
       'first.json',
       'duplicate.json',
     ]);
+  });
+
+  it('deduplicates run and room IDs across different imported sessions', () => {
+    const first = validSource('first.json').source!;
+    const duplicateRun = structuredClone(first);
+    duplicateRun.filename = 'duplicate-run.json';
+    duplicateRun.researchExport.sessions[0]!.id = 'session-2';
+    const uniqueRunDuplicateRoom = structuredClone(first);
+    uniqueRunDuplicateRoom.filename = 'duplicate-room.json';
+    uniqueRunDuplicateRoom.researchExport.sessions[0]!.id = 'session-3';
+    uniqueRunDuplicateRoom.researchExport.sessions[0]!.runs[0]!.id = 'unique-run';
+
+    const dataset = combineResearchSources([first, duplicateRun, uniqueRunDuplicateRoom]);
+
+    expect(dataset.audit).toMatchObject({
+      acceptedSessions: 3,
+      acceptedRuns: 2,
+      acceptedRooms: 1,
+      duplicateRuns: 1,
+      duplicateRooms: 2,
+      conflictingRecords: 0,
+    });
   });
 
   it('excludes conflicting durable IDs instead of silently choosing one file', () => {

@@ -82,8 +82,15 @@ describe('research Analysis Lab exports', () => {
     expect(summary).toMatchObject({
       analysisSchemaVersion: 1,
       exportedAt: '2026-06-03T00:00:00.000Z',
-      analyzedSessionCount: 2,
       importAudit: { acceptedFiles: 1, acceptedSessions: 2 },
+      counts: {
+        participants: 1,
+        sessions: 2,
+        rooms: 2,
+        participantConditions: 2,
+        completePairs: 1,
+        incompletePairs: 0,
+      },
     });
     expect(analysisFilename('analysis-summary', 'json', summary.exportedAt)).toBe(
       'resonant-ruins-analysis-summary-2026-06-03.json',

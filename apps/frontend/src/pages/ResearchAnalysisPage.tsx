@@ -317,6 +317,10 @@ export function ResearchAnalysisPage() {
             <dd>{dataset.audit.duplicateSessions}</dd>
           </div>
           <div>
+            <dt>Duplicate runs</dt>
+            <dd>{dataset.audit.duplicateRuns}</dd>
+          </div>
+          <div>
             <dt>Duplicate rooms</dt>
             <dd>{dataset.audit.duplicateRooms}</dd>
           </div>
