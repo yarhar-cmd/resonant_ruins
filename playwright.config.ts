@@ -1,12 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = process.env.PLAYWRIGHT_PORT ?? '5173';
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   retries: 0,
   reporter: 'line',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL,
     channel: 'chrome',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -14,8 +17,8 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
   webServer: {
-    command: 'npm.cmd run dev:frontend',
-    url: 'http://localhost:5173',
+    command: `node node_modules/vite/bin/vite.js apps/frontend --host 127.0.0.1 --port ${port} --strictPort`,
+    url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,
   },

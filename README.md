@@ -15,7 +15,7 @@ This repository is intentionally a functional prototype. Story scenes and adapta
 - [Balance changelog](docs/BALANCE_CHANGELOG.md)
 - [Research Mode](docs/RESEARCH_MODE.md)
 - [Research schema](docs/RESEARCH_DATA_SCHEMA.md) and [CSV dictionary](docs/RESEARCH_DATA_DICTIONARY.md)
-- [Neutral control](docs/NEUTRAL_CONTROL.md), [offline analysis](docs/RESEARCH_ANALYSIS.md), and [privacy](docs/RESEARCH_PRIVACY.md)
+- [Neutral control](docs/NEUTRAL_CONTROL.md), [local and offline analysis](docs/RESEARCH_ANALYSIS.md), and [privacy](docs/RESEARCH_PRIVACY.md)
 - [Future learned-selector plan](docs/FUTURE_MODEL_PLAN.md)
 - [Model data preparation](docs/MODEL_DATA_PREPARATION.md), [feature schema](docs/MODEL_FEATURE_SCHEMA.md), and [training](docs/MODEL_TRAINING.md)
 - [Model evaluation](docs/MODEL_EVALUATION.md), [artifact](docs/MODEL_ARTIFACT.md), and [TypeScript inference](docs/MODEL_INFERENCE.md)
@@ -316,6 +316,9 @@ To verify the separately built preview artifact, run
 The end-to-end suite uses the installed Chrome channel as its Chromium runtime. To use Playwright's
 bundled Chromium instead, remove `channel: 'chrome'` from `playwright.config.ts` and install it with
 `npx playwright install chromium`.
+Parallel worktrees can avoid an already-running development server by setting a different
+`PLAYWRIGHT_PORT`, for example
+`$env:PLAYWRIGHT_PORT='5174'; npm run test:e2e`.
 
 The production frontend output is under `apps/frontend/dist`; compiled backend output is under `apps/backend/dist`.
 

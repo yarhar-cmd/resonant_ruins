@@ -1,5 +1,16 @@
 # Resonant Ruins current state
 
+## Local Research Analysis Lab
+
+Researchers can now open `/research/analysis` outside an active fixed Pilot and combine one or more
+validated `research-1` JSON exports without uploading or changing live browser research storage.
+The Lab deduplicates identical durable IDs, excludes and reports conflicting evidence, defaults to
+Official complete sessions, calculates participant-level and paired descriptive outcomes, displays
+accessible charts with tables, reports data-quality warnings, and downloads stable formula-safe
+analysis artifacts. It does not run significance tests or alter gameplay, generation, research
+collection, reward, model, profile, History, or persistence behavior. See
+[Research analysis](RESEARCH_ANALYSIS.md).
+
 ## mvp-0.5 visual, audio, and information-hierarchy polish
 
 The current polish layer strengthens the dark ancient-ruins identity with readable stone floors,

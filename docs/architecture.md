@@ -1,5 +1,24 @@
 # Recommended Resonant Ruins architecture
 
+## Implemented local research-analysis boundary
+
+`/research/analysis` is a researcher-facing, frontend-only workspace for combining completed
+`research-1` JSON exports. `ResearchAnalysisPage` owns transient UI state only.
+`research/analysis/importResearch.ts` reuses the canonical Zod schema and retains the original
+session/run/room hierarchy; `analyzeResearch.ts`, `quality.ts`, and `exportAnalysis.ts` are pure
+calculation boundaries. The chart component reads calculated summaries and cannot access gameplay,
+generation, selector, profile, History, or persistence writers.
+
+Imports are memory-only and no analysis localStorage key exists. Durable IDs are merged only when
+evidence is identical; conflicts are removed from analysis and retained as filename-attributed audit
+warnings. Live research storage and original files are never mutated. CSV outputs reuse the
+canonical research export's formula-safe cell encoding and have explicit stable columns.
+
+The existing `ResearcherOnlyRoute` guards both the verification page and Analysis Lab. An active
+`fixed-pilot-1` session redirects direct Analysis Lab navigation before the page is rendered, and
+the Research page omits its Analysis link. This is participant masking, not researcher
+authentication. See [Research analysis](RESEARCH_ANALYSIS.md).
+
 ## Implemented presentation and audio boundary
 
 The final mvp-0.5 presentation layer remains inside the existing React/CSS architecture.

@@ -142,7 +142,7 @@ function formulaSafe(value: string): string {
   return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
-function csvCell(value: unknown): string {
+export function researchCsvCell(value: unknown): string {
   if (value === null || value === undefined) return '';
   const stringValue = formulaSafe(
     typeof value === 'object' ? JSON.stringify(value) : String(value),
@@ -279,7 +279,7 @@ export function researchExportCsv(researchExport: ResearchExport): string {
     RESEARCH_CSV_COLUMNS.join(','),
     ...rooms.map((room) => {
       const row = roomRow(room);
-      return RESEARCH_CSV_COLUMNS.map((column) => csvCell(row[column])).join(',');
+      return RESEARCH_CSV_COLUMNS.map((column) => researchCsvCell(row[column])).join(',');
     }),
   ].join('\r\n');
 }
