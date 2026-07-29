@@ -262,6 +262,10 @@ A real adventure model should be called from a backend service, never directly f
 
 Environment variables belong in app-specific `.env` files and are documented in each `.env.example`. Variables beginning with `VITE_` are visible to browser code and must never contain secrets.
 
+Research collection is local-first and explicitly controlled from the researcher interfaces. See
+[research synchronization](docs/RESEARCH_SYNC.md) for PostgreSQL migration, Vercel serverless API,
+required secrets, idempotency, privacy, cross-device import, and backup instructions.
+
 ## Vercel preview diagnostics
 
 Normal production builds exclude both the full local Debug Tools and the read-only Playtest

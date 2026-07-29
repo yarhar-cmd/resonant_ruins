@@ -107,6 +107,28 @@ describe('local Research Analysis Lab', () => {
     expect(localStorage.getItem(RESEARCH_STORAGE_KEY)).toBe('live-storage-sentinel');
   });
 
+  it('imports server evidence through the normal pipeline without storing the token', async () => {
+    localStorage.setItem(RESEARCH_STORAGE_KEY, 'live-storage-sentinel');
+    const body = analysisExport('REMOTE', 'RULES_ADAPTIVE', 'about_right');
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      );
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Research admin token'), {
+      target: { value: 'test-admin-token' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Import from research server' }));
+    expect(await screen.findByText('1 session(s) imported from research-server.')).toBeVisible();
+    expect(screen.getByText('1 matching session')).toBeVisible();
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: 'Bearer test-admin-token',
+    });
+    expect(localStorage.getItem(RESEARCH_STORAGE_KEY)).toBe('live-storage-sentinel');
+    expect(JSON.stringify({ ...localStorage })).not.toContain('test-admin-token');
+  });
+
   it('downloads participant, paired, quality, and summary artifacts explicitly', async () => {
     const createObjectUrl = vi.fn(() => 'blob:test');
     Object.defineProperty(URL, 'createObjectURL', {

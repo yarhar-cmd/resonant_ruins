@@ -1,0 +1,10 @@
+{
+  "extends": "./apps/frontend/tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["api/**/*.ts"],
+  "exclude": ["api/**/*.test.ts"]
+}

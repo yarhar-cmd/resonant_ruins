@@ -28,6 +28,7 @@ import {
   type ValidatedResearchSource,
 } from '../research/analysis/types';
 import { EXPERIENCE_PRESETS } from '../types/adaptation';
+import { fetchResearchExport } from '../services/researchSync';
 
 function percentage(value: number | null): string {
   return value === null ? 'Not available' : `${(value * 100).toFixed(1)}%`;
@@ -53,6 +54,8 @@ export function ResearchAnalysisPage() {
   const [filters, setFilters] = useState<AnalysisFilters>(DEFAULT_ANALYSIS_FILTERS);
   const [clearConfirmation, setClearConfirmation] = useState(false);
   const [importStatus, setImportStatus] = useState('No files imported.');
+  const [adminToken, setAdminToken] = useState('');
+  const [serverPending, setServerPending] = useState(false);
   const dataset = useMemo(() => combineResearchSources(sources, failures), [failures, sources]);
   const analyzedSessions = useMemo(
     () => filterResearchSessions(dataset.sessions, filters),
@@ -108,6 +111,32 @@ export function ResearchAnalysisPage() {
     setFilters(DEFAULT_ANALYSIS_FILTERS);
     setImportStatus('Imported analysis data cleared from memory.');
     setClearConfirmation(false);
+  }
+
+  async function importFromServer() {
+    if (!adminToken || serverPending) return;
+    setServerPending(true);
+    try {
+      const researchExport = await fetchResearchExport(adminToken);
+      setSources((current) => [
+        ...current,
+        { filename: `research-server-${researchExport.exportedAt}.json`, researchExport },
+      ]);
+      setImportStatus(
+        `${researchExport.sessions.length} session(s) imported from research-server.`,
+      );
+    } catch (error) {
+      setFailures((current) => [
+        ...current,
+        {
+          filename: 'research-server',
+          messages: [error instanceof Error ? error.message : 'Server import failed.'],
+        },
+      ]);
+      setImportStatus('Research server import rejected.');
+    } finally {
+      setServerPending(false);
+    }
   }
 
   const filterControls = (
@@ -241,8 +270,8 @@ export function ResearchAnalysisPage() {
       </header>
 
       <div className="analysis-local-notice" role="note">
-        <strong>Local only.</strong> Files remain in this browser tab&apos;s memory. The Lab does
-        not write to active research storage, contact a backend, or alter imported evidence.
+        <strong>Separate analysis workspace.</strong> File and server imports remain in this browser
+        tab&apos;s memory. They never write to active gameplay research storage or alter evidence.
       </div>
 
       <Panel className="analysis-import-panel" eyebrow="1 / Import evidence">
@@ -267,6 +296,27 @@ export function ResearchAnalysisPage() {
             onChange={(event) => void importFiles(event.target.files)}
           />
         </label>
+        <div className="analysis-server-import">
+          <label>
+            <span>Research admin token</span>
+            <input
+              type="password"
+              autoComplete="off"
+              value={adminToken}
+              onChange={(event) => setAdminToken(event.target.value)}
+            />
+          </label>
+          <SecondaryButton
+            disabled={!adminToken || serverPending}
+            onClick={() => void importFromServer()}
+          >
+            {serverPending ? 'Importing…' : 'Import from research server'}
+          </SecondaryButton>
+          <p>
+            The token is held in memory only. Retrieved evidence uses the normal validation and
+            deduplication pipeline.
+          </p>
+        </div>
         <p role="status" className="form-message">
           {importStatus}
         </p>

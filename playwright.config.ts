@@ -17,7 +17,13 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
   webServer: {
-    command: `node node_modules/vite/bin/vite.js apps/frontend --host 127.0.0.1 --port ${port} --strictPort`,
+    command: `node node_modules/vite/bin/vite.js build apps/frontend --configLoader runner && node node_modules/vite/bin/vite.js preview apps/frontend --configLoader runner --host 127.0.0.1 --port ${port} --strictPort`,
+    env: {
+      VERCEL_ENV: 'preview',
+      VITE_ENABLE_PLAYTEST_DIAGNOSTICS: 'true',
+      VITE_ENABLE_TOPOLOGY_LAB: 'true',
+      VITE_ENABLE_MODEL_LAB: 'true',
+    },
     url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,
