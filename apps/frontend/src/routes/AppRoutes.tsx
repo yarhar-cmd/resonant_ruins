@@ -13,6 +13,8 @@ import { SettingsPage } from '../pages/SettingsPage';
 import { ResearchPage } from '../pages/ResearchPage';
 import { ResearchRunPage } from '../pages/ResearchRunPage';
 import { ResearchReviewPage } from '../pages/ResearchReviewPage';
+import { StudyJoinPage } from '../pages/StudyJoinPage';
+import { ResearchAdminPage } from '../pages/ResearchAdminPage';
 import { MODEL_LAB_ENABLED, TOPOLOGY_LAB_ENABLED } from '../config/environment';
 import { loadResearchStorage } from '../services/researchStorage';
 
@@ -76,6 +78,8 @@ export function AppRoutes() {
         <Route path="about" element={<AboutPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="research" element={<ResearchPage />} />
+        <Route path="join" element={<StudyJoinPage />} />
+        <Route path="research/admin" element={<ResearchAdminPage />} />
         <Route
           path="research/analysis"
           element={

@@ -4,10 +4,15 @@ import {
   canonicalPayloadHash,
   safeSecretMatches,
   saveResearchSession,
-  type ResearchExportFilters,
   type ResearchRepository,
   type StoredResearchSession,
 } from './research';
+import {
+  ACCESS_CODE_PATTERN,
+  generateAccessCode,
+  generateUploadToken,
+  hashCredential,
+} from './pipeline';
 
 class MemoryRepository implements ResearchRepository {
   records = new Map<string, StoredResearchSession>();
@@ -27,7 +32,7 @@ class MemoryRepository implements ResearchRepository {
     return 'record-1';
   }
 
-  async list(_filters: ResearchExportFilters) {
+  async list() {
     return [...this.records.values()];
   }
 
@@ -47,6 +52,20 @@ function validSession() {
 }
 
 describe('research synchronization core', () => {
+  it('generates high-entropy formatted access codes without embedding participant data', () => {
+    const codes = new Set(Array.from({ length: 1000 }, () => generateAccessCode()));
+    expect(codes.size).toBe(1000);
+    expect([...codes].every((code) => ACCESS_CODE_PATTERN.test(code))).toBe(true);
+  });
+
+  it('hashes access codes and upload tokens without plaintext persistence values', () => {
+    const code = generateAccessCode();
+    const token = generateUploadToken();
+    expect(token.length).toBeGreaterThanOrEqual(43);
+    expect(hashCredential(code)).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashCredential(code)).not.toContain(code);
+    expect(hashCredential(token)).not.toContain(token);
+  });
   it('hashes canonically regardless of object key order', () => {
     expect(canonicalPayloadHash({ b: 2, a: 1 })).toBe(canonicalPayloadHash({ a: 1, b: 2 }));
   });

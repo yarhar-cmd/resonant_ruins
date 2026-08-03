@@ -141,6 +141,9 @@ export function createResearchSession(input: {
     id,
     pilot: input.pilot,
     participantCode: normalizedCode,
+    ...(input.participantSequence !== undefined
+      ? { participantSequence: input.participantSequence }
+      : {}),
     sessionSeed: input.sessionSeed ?? `${id}:${input.now ?? Date.now()}`,
     assignmentUnit: input.assignmentUnit ?? DEFAULT_ASSIGNMENT_UNIT,
     assignmentMethodId: fixedPilot ? PILOT_ASSIGNMENT_METHOD_ID : RESEARCH_ASSIGNMENT_METHOD_ID,

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { ResearchReviewPage } from './ResearchReviewPage';
 import { researchFixture } from '../test/researchFixtures';
@@ -115,32 +115,8 @@ describe('Pilot researcher verification', () => {
     expect(screen.getAllByText('Valid').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: 'JSON' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'CSV' })).toBeEnabled();
-    const uploadButton = screen.getByRole('button', { name: 'Upload session' });
-    expect(uploadButton).toBeDisabled();
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          researchSessionId: session.id,
-          status: 'saved',
-          payloadSha256: 'a'.repeat(64),
-          receivedAt: '2026-01-01T00:00:00.000Z',
-          serverRecordId: 'record-1',
-          message: 'Session collected.',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
-    fireEvent.change(screen.getByLabelText('Upload key'), { target: { value: 'test-key' } });
-    fireEvent.click(uploadButton);
-    expect(screen.getByRole('button', { name: 'Uploading…' })).toBeDisabled();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(
-      await screen.findByText(/Session collected.*Local evidence has not been deleted/i),
-    ).toBeVisible();
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
-      'X-Research-Upload-Key': 'test-key',
-    });
+    expect(screen.queryByLabelText('Upload key')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upload session' })).not.toBeInTheDocument();
     expect(localStorage.getItem('resonant-ruins:research:v1')).toContain('review-session');
-    expect(localStorage.getItem('resonant-ruins:research-sync:v1')).not.toContain('test-key');
   });
 });

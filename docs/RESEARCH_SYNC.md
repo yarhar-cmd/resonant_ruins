@@ -1,10 +1,10 @@
 # Research collection synchronization
 
-Research synchronization is local-first and researcher-controlled. Gameplay and ratings are written
-to the existing browser research store first. Nothing uploads during gameplay. A researcher may
-later open `/research/review`, enter the collection key, and explicitly upload a schema-valid
-complete or explicitly incomplete session. Upload failure, rejection, and conflict never delete or
-rewrite local evidence.
+Research synchronization is local-first. Gameplay and ratings are written to the existing browser
+research store first. Nothing uploads during gameplay. A volunteer who joined with a unique access
+code is automatically submitted after the exit questionnaire. Upload failure, rejection, and
+conflict never delete or rewrite local evidence. See `VOLUNTEER_RESEARCH_PIPELINE.md` for the current
+access, moderation, Supabase, and deployment workflow.
 
 ## Architecture
 
@@ -32,12 +32,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_research_sessions.sql
 Configure these server-only variables in Vercel for the intended environment:
 
 - `DATABASE_URL`: managed PostgreSQL connection string.
-- `RESEARCH_UPLOAD_KEY`: collection key entered in `/research/review`.
 - `RESEARCH_ADMIN_TOKEN`: separate export token entered in `/research/analysis`.
 
-Never prefix either token with `VITE_`. The browser holds entered secrets in React memory only; they
-are not written to localStorage, canonical evidence, or exports. Rotate either token in the hosting
-dashboard and redeploy if it may have been disclosed.
+Never prefix the token with `VITE_`. The admin token stays in React memory only. Session-bound
+participant upload tokens are stored separately from canonical evidence for refresh recovery and
+are never exported. There is no global participant upload key.
 
 ## Idempotency and privacy
 

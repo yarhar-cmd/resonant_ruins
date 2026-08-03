@@ -94,12 +94,12 @@ export function failedSyncState(previous: ResearchSyncState, message: string): R
 
 export async function uploadResearchSession(
   session: ResearchSession,
-  uploadKey: string,
+  uploadToken: string,
   signal?: AbortSignal,
 ): Promise<ResearchSyncReceipt> {
   const response = await fetch('/api/research/sessions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Research-Upload-Key': uploadKey },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${uploadToken}` },
     body: JSON.stringify(session),
     signal,
   });

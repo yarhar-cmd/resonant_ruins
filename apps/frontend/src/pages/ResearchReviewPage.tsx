@@ -1,6 +1,5 @@
 import { Panel } from '../components/common/Panel';
-import { PrimaryButton, SecondaryButton } from '../components/common/Buttons';
-import { useState } from 'react';
+import { SecondaryButton } from '../components/common/Buttons';
 import {
   createResearchExport,
   downloadResearchFile,
@@ -14,15 +13,7 @@ import { loadResearchActiveRun } from '../services/researchActiveRunStorage';
 import { loadResearchStorage } from '../services/researchStorage';
 import type { ResearchSession } from '../types/research';
 import { EXPERIENCE_PRESETS } from '../types/adaptation';
-import {
-  failedSyncState,
-  loadResearchSyncStates,
-  pendingSyncState,
-  receiptSyncState,
-  saveResearchSyncState,
-  uploadResearchSession,
-  type ResearchSyncState,
-} from '../services/researchSync';
+import { loadResearchSyncStates, type ResearchSyncState } from '../services/researchSync';
 
 function exportSession(session: ResearchSession, format: 'json' | 'csv') {
   const exportedAt = new Date().toISOString();
@@ -44,32 +35,7 @@ export function ResearchReviewPage() {
   const loaded = loadResearchStorage();
   const active = loadResearchActiveRun();
   const sessions = loaded.data.sessions.filter((session) => session.protocolId === 'fixed-pilot-1');
-  const [uploadKey, setUploadKey] = useState('');
-  const [syncStates, setSyncStates] = useState(loadResearchSyncStates);
-  const [pendingId, setPendingId] = useState<string | null>(null);
-
-  async function upload(session: ResearchSession) {
-    if (!uploadKey || pendingId) return;
-    const pending = pendingSyncState();
-    setPendingId(session.id);
-    setSyncStates((current) => ({ ...current, [session.id]: pending }));
-    saveResearchSyncState(session.id, pending);
-    try {
-      const receipt = await uploadResearchSession(session, uploadKey);
-      const next = receiptSyncState(receipt, pending.lastAttemptAt!);
-      setSyncStates((current) => ({ ...current, [session.id]: next }));
-      saveResearchSyncState(session.id, next);
-    } catch (error) {
-      const next = failedSyncState(
-        pending,
-        error instanceof Error ? error.message : 'Upload failed. The local session is unchanged.',
-      );
-      setSyncStates((current) => ({ ...current, [session.id]: next }));
-      saveResearchSyncState(session.id, next);
-    } finally {
-      setPendingId(null);
-    }
-  }
+  const syncStates = loadResearchSyncStates();
 
   return (
     <div className="research-review-page">
@@ -78,22 +44,6 @@ export function ResearchReviewPage() {
         <h1>Pilot verification</h1>
         <p>Local invariant checks and manual export for fixed-length Pilot sessions.</p>
       </header>
-      <Panel eyebrow="Controlled collection">
-        <h2>Research upload key</h2>
-        <p>
-          Gameplay and ratings save locally first. Uploads happen only when a researcher presses an
-          upload button. The key stays in this page&apos;s memory and is not stored or exported.
-        </p>
-        <label>
-          <span>Upload key</span>
-          <input
-            type="password"
-            autoComplete="off"
-            value={uploadKey}
-            onChange={(event) => setUploadKey(event.target.value)}
-          />
-        </label>
-      </Panel>
       {!sessions.length && (
         <Panel>
           <p>No fixed Pilot sessions are stored in this browser.</p>
@@ -240,22 +190,6 @@ export function ResearchReviewPage() {
               </div>
             )}
             <div className="research-actions">
-              <PrimaryButton
-                disabled={
-                  !uploadKey ||
-                  pendingId !== null ||
-                  !schemaValid ||
-                  issues.length > 0 ||
-                  !['complete', 'incomplete'].includes(session.completionStatus ?? '')
-                }
-                onClick={() => void upload(session)}
-              >
-                {pendingId === session.id
-                  ? 'Uploading…'
-                  : sync.status === 'upload_failed'
-                    ? 'Retry upload'
-                    : 'Upload session'}
-              </PrimaryButton>
               <SecondaryButton onClick={() => exportSession(session, 'json')}>JSON</SecondaryButton>
               <SecondaryButton onClick={() => exportSession(session, 'csv')}>CSV</SecondaryButton>
             </div>

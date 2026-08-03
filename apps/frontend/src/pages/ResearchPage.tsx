@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PrimaryButton, SecondaryButton } from '../components/common/Buttons';
 import { Panel } from '../components/common/Panel';
@@ -29,6 +29,14 @@ import { beginPilotRunB, startPilotRunA } from '../services/pilotCoordinator';
 import { EXPERIENCE_PRESETS, type ExperiencePreset } from '../types/adaptation';
 import type { ResearchSession } from '../types/research';
 import { createFreshRun } from '../utils/runLifecycle';
+import { loadStudyClaim } from '../services/studyAccess';
+import {
+  failedSyncState,
+  pendingSyncState,
+  receiptSyncState,
+  saveResearchSyncState,
+  uploadResearchSession,
+} from '../services/researchSync';
 
 export function ResearchPage() {
   const navigate = useNavigate();
@@ -43,6 +51,10 @@ export function ResearchPage() {
   const [noticeAccepted, setNoticeAccepted] = useState(false);
   const [message, setMessage] = useState('');
   const [endConfirmation, setEndConfirmation] = useState(false);
+  const [submission, setSubmission] = useState<
+    'idle' | 'uploading' | 'success' | 'identical' | 'failure'
+  >('idle');
+  const uploadInFlight = useRef(false);
   const activeSession = storage.data.sessions.find(
     (session) => session.id === storage.data.activeSessionId,
   );
@@ -52,6 +64,48 @@ export function ResearchPage() {
       (session) =>
         session.protocolId === 'fixed-pilot-1' && session.completionStatus === 'complete',
     );
+
+  async function submitCompletedSession(session: ResearchSession) {
+    const claim = loadStudyClaim(session.id);
+    if (!claim || uploadInFlight.current) return;
+    uploadInFlight.current = true;
+    setSubmission('uploading');
+    const pending = pendingSyncState();
+    saveResearchSyncState(session.id, pending);
+    try {
+      const receipt = await uploadResearchSession(session, claim.uploadToken);
+      saveResearchSyncState(session.id, receiptSyncState(receipt, pending.lastAttemptAt!));
+      setSubmission(receipt.status === 'identical_duplicate' ? 'identical' : 'success');
+    } catch (error) {
+      saveResearchSyncState(
+        session.id,
+        failedSyncState(pending, error instanceof Error ? error.message : 'Submission failed.'),
+      );
+      setSubmission('failure');
+    } finally {
+      uploadInFlight.current = false;
+    }
+  }
+
+  useEffect(() => {
+    if (
+      latestCompletedPilot?.sessionExit &&
+      loadStudyClaim(latestCompletedPilot.id) &&
+      submission === 'idle'
+    )
+      void submitCompletedSession(latestCompletedPilot);
+  }, [latestCompletedPilot, submission]);
+
+  function downloadBackup(session: ResearchSession) {
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' }),
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `resonant-ruins-${session.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   function refresh() {
     setStorage(loadResearchStorage());
@@ -260,6 +314,47 @@ export function ResearchPage() {
                 return !issue || issue === 'storage-pressure';
               }}
             />
+          )}
+          {latestCompletedPilot?.sessionExit && loadStudyClaim(latestCompletedPilot.id) && (
+            <Panel className="research-session-complete" eyebrow="Study submission">
+              <h2>
+                {submission === 'failure'
+                  ? 'Your session is safely saved'
+                  : 'Thank you for participating'}
+              </h2>
+              {submission === 'uploading' && (
+                <p>Submitting your Resonant Ruins session… Please keep this page open.</p>
+              )}
+              {submission === 'success' && (
+                <p>
+                  Your session was submitted successfully. A local backup remains saved on this
+                  device.
+                </p>
+              )}
+              {submission === 'identical' && (
+                <p>
+                  Your session was already received successfully. A local backup remains saved on
+                  this device.
+                </p>
+              )}
+              {submission === 'failure' && (
+                <>
+                  <p>
+                    Your session could not be submitted yet, but it remains saved on this device.
+                  </p>
+                  <div className="research-actions">
+                    <PrimaryButton
+                      onClick={() => void submitCompletedSession(latestCompletedPilot)}
+                    >
+                      Retry submission
+                    </PrimaryButton>
+                    <SecondaryButton onClick={() => downloadBackup(latestCompletedPilot)}>
+                      Download JSON backup
+                    </SecondaryButton>
+                  </div>
+                </>
+              )}
+            </Panel>
           )}
           <Panel className="research-setup" eyebrow="2 / Session type · 3 / Start">
             <h2>Choose Pilot or Official</h2>
