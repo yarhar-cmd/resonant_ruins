@@ -13,6 +13,7 @@ import {
   generateUploadToken,
   hashCredential,
 } from './pipeline';
+import { postgresPoolConfig } from './database';
 
 class MemoryRepository implements ResearchRepository {
   records = new Map<string, StoredResearchSession>();
@@ -52,6 +53,12 @@ function validSession() {
 }
 
 describe('research synchronization core', () => {
+  it('uses a bounded transaction-pooler-compatible PostgreSQL client configuration', () => {
+    const config = postgresPoolConfig('postgresql://example.invalid/database');
+    expect(config).toMatchObject({ max: 3, allowExitOnIdle: true });
+    expect(config).not.toHaveProperty('name');
+  });
+
   it('generates high-entropy formatted access codes without embedding participant data', () => {
     const codes = new Set(Array.from({ length: 1000 }, () => generateAccessCode()));
     expect(codes.size).toBe(1000);

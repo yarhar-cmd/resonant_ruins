@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { Pool } from 'pg';
 import { ResearchSessionSchema } from '../../apps/frontend/src/research/schemas.js';
 import type { ResearchSession } from '../../apps/frontend/src/types/research.js';
+import { researchPool } from './database.js';
 
 export const MAX_RESEARCH_BODY_BYTES = 1024 * 1024;
 
@@ -68,21 +68,9 @@ export interface ResearchExportFilters {
   protocolId?: string;
 }
 
-let pool: Pool | undefined;
-
-function databasePool(): Pool {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured.');
-  pool ??= new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-    max: 3,
-  });
-  return pool;
-}
-
 export class PostgresResearchRepository implements ResearchRepository {
   async find(id: string): Promise<StoredResearchSession | null> {
-    const result = await databasePool().query(
+    const result = await researchPool().query(
       `select research_session_id, payload_sha256, payload_json, uploaded_at
        from research_sessions where research_session_id = $1`,
       [id],
@@ -99,7 +87,7 @@ export class PostgresResearchRepository implements ResearchRepository {
   async insert(session: ResearchSession, hash: string, sourceDeviceLabel: string | null) {
     const completionStatus =
       session.completionStatus ?? (session.status === 'ended' ? 'complete' : 'active');
-    const result = await databasePool().query(
+    const result = await researchPool().query(
       `insert into research_sessions (
          research_session_id, participant_code, participant_sequence, pilot, protocol_id,
          completion_status, selected_preset, game_version, research_schema_version,
@@ -127,7 +115,7 @@ export class PostgresResearchRepository implements ResearchRepository {
   }
 
   async recordIdenticalRetry(id: string) {
-    await databasePool().query(
+    await researchPool().query(
       `update research_sessions
        set identical_retry_count = identical_retry_count + 1, last_attempted_at = now()
        where research_session_id = $1`,
@@ -148,7 +136,7 @@ export class PostgresResearchRepository implements ResearchRepository {
     if (filters.uploadedTo) add('uploaded_at <= ?', filters.uploadedTo);
     if (filters.gameVersion) add('game_version = ?', filters.gameVersion);
     if (filters.protocolId) add('protocol_id = ?', filters.protocolId);
-    const result = await databasePool().query(
+    const result = await researchPool().query(
       `select research_session_id, payload_sha256, payload_json, uploaded_at
        from research_sessions ${clauses.length ? `where ${clauses.join(' and ')}` : ''}
        order by uploaded_at asc, research_session_id asc`,

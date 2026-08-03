@@ -1,22 +1,12 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import { canonicalPayloadHash, validateResearchSession, type ResearchReceipt } from './research.js';
 import type { ResearchSession } from '../../apps/frontend/src/types/research.js';
+import { researchPool } from './database.js';
 
 export type StudyMode = 'pilot' | 'official';
 export type ReviewStatus = 'pending_review' | 'approved' | 'quarantined' | 'rejected';
 export const ACCESS_CODE_PATTERN = /^RR-[A-Z2-9]{5}-[A-Z2-9]{5}-[A-Z2-9]{5}$/;
-
-let pool: Pool | undefined;
-export function researchPool(): Pool {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured.');
-  pool ??= new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-    max: 3,
-  });
-  return pool;
-}
 
 export function normalizeAccessCode(code: string): string {
   return code.trim().toUpperCase();
@@ -351,4 +341,4 @@ export async function approvedModelDataset(includePilot = false) {
   };
 }
 
-export { randomUUID };
+export { randomUUID, researchPool };
