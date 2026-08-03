@@ -10,6 +10,7 @@ No participant account, name, email, advertising identifier, IP enrichment, or d
 2. For Vercel serverless functions, use Supabase's pooled transaction-mode PostgreSQL connection string as `DATABASE_URL`; use the direct connection only for migrations and administrative backup tools. Confirm current Supabase connection guidance for the chosen project/region.
 3. Generate a high-entropy `RESEARCH_ADMIN_TOKEN` in a password manager. Set `DATABASE_URL` and `RESEARCH_ADMIN_TOKEN` as server-only Vercel variables. Never prefix either with `VITE_` and never commit `.env` files. There is no global participant upload key.
 4. Use different databases or credentials for Preview and Production. Keep Preview protected. Before recruitment, Production must be public; do not disable account-level deployment protection automatically. `/research/admin` remains guarded by its runtime token, which is an operational shared secret rather than account authentication.
+   After `feature/volunteer-research-pipeline-v08` is pushed, narrow the Preview variables to that branch when Vercel's branch scope is available, unless other Preview branches intentionally share the same isolated synthetic database.
 5. Apply migrations to Preview first, run synthetic evidence tests, then apply to Production during a recorded maintenance window. A rollback may drop the new tables only before real submissions exist. After collection begins, back up and use a forward migration; never drop immutable evidence to roll back application code.
 
 ## Operations
